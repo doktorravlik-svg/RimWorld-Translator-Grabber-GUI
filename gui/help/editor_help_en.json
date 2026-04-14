@@ -1,0 +1,111 @@
+{
+    "title": "📖 Translation Editor Help",
+    "sections": {
+        "file_selection": {
+            "title": "📂 FILE SELECTION",
+            "items": [
+                "Single XML file — via '📂 Browse' button",
+                "Keyed folder — via '📂 Select ▾' → '📁 Select folder'",
+                "Drag & Drop XML file onto the window",
+                "History of last 10 opened files"
+            ]
+        },
+        "editing": {
+            "title": "✍️ EDITING",
+            "items": [
+                "Key — XML tag name (cannot be changed)",
+                "Original — text from source file (read-only)",
+                "Value — translation (editable field)",
+                "Ctrl+Z / Ctrl+Y — undo / redo",
+                "Ctrl+S — save",
+                "Ctrl+Return — save and go to next entry"
+            ]
+        },
+        "folder_mode": {
+            "title": "📁 FOLDER MODE (KEYED)",
+            "items": [
+                "Load all XML files from Keyed folder",
+                "Automatic translation status detection for each file",
+                "Color coding: ✅ Translated | ⚠️ Partial | ⬜ Not translated",
+                "Edit multiple files simultaneously",
+                "File tree with status filtering"
+            ]
+        },
+        "diff": {
+            "title": "🔀 DIFF (COMPARE WITH ORIGINAL)",
+            "items": [
+                "Shows character-level changes between original and translation",
+                "🟥 Deleted — characters removed from original",
+                "🟨 Modified — characters changed in translation",
+                "🟩 Added — characters added to translation",
+                "Uses difflib library (Python stdlib)",
+                "Data: current value (your translation) vs original_value (from XML file)"
+            ]
+        },
+        "glossary": {
+            "title": "📖 GLOSSARY",
+            "items": [
+                "Custom dictionary of terms for translation consistency",
+                "Automatic term replacement on input",
+                "Configure via glossary.json file",
+                "Example: \"RimWorld\" → \"РимМир\", \"colonist\" → \"колонист\""
+            ]
+        },
+        "history": {
+            "title": "📜 VERSION HISTORY",
+            "items": [
+                "View previous versions of the file",
+                "Restore deleted or modified entries",
+                "Stores up to 50 most recent changes",
+                "Access via '📜 Version History' button"
+            ]
+        },
+        "suggestions": {
+            "title": "💡 TRANSLATION SUGGESTIONS",
+            "items": [
+                "Recommendations from the database of previous translations",
+                "Shows confidence level and source for each suggestion",
+                "Apply selected suggestions with one click",
+                "Requires connected translation database (translations.db)",
+                "Access via '💡 Suggestions' button"
+            ]
+        },
+        "operations": {
+            "title": "🔧 OPERATIONS",
+            "items": [
+                "Mass edit — batch processing of entries",
+                "Auto-translate — automatic translation of empty entries via engines",
+                "Export CSV — export to spreadsheet",
+                "Find & Replace — bulk text replacement across entries",
+                "Quality check — translation completeness analysis",
+                "Spellcheck — spelling verification"
+            ]
+        },
+        "quality_check": {
+            "title": "✅ QUALITY CHECK",
+            "items": [
+                "Placeholders — verify preserved {variables}",
+                "HTML/XML tags — verify tag pairing",
+                "Translation length — warn about too long/short translations",
+                "Caps Lock — detect accidentally enabled Caps Lock",
+                "Empty entries — find untranslated strings"
+            ]
+        },
+        "hotkeys": {
+            "title": "⌨️ HOTKEYS",
+            "items": [
+                "Ctrl+S — save",
+                "Ctrl+Return — save and go to next entry",
+                "Ctrl+A — select all entries",
+                "Ctrl+F — search",
+                "Ctrl+H — replace",
+                "Ctrl+Z — undo",
+                "Ctrl+Y — redo",
+                "Ctrl+↑/↓ — navigate entries",
+                "F2 — edit selected entry",
+                "Delete — delete entry",
+                "Esc — close window"
+            ]
+        }
+    }
+}
