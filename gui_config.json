@@ -1,0 +1,59 @@
+{
+    "source_language": "English",
+    "target_language": "Russian",
+    "mods_folder": "F:/Games/RimWorld v1.6.4633 rev1245/RimWorld/Mods",
+    "output_folder": "",
+    "preset_file": "",
+    "theme": "dark",
+    "max_history": 100,
+    "presets": {
+        "Steam Workshop": "C:\\Program Files (x86)\\Steam\\steamapps\\workshop\\content\\294100",
+        "Local Mods": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\RimWorld\\Mods",
+        "Custom": "F:/Games/RimWorld v1.6.4633 rev1245/RimWorld/Mods/"
+    },
+    "verbose": false,
+    "auto_backup": true,
+    "verification_language": "Russian",
+    "translation_mode": "inplace",
+    "paths": {
+        "default_mods": "F:/Games/RimWorld v1.6.4633 rev1245/RimWorld/Mods/tentacle-love",
+        "game_path": "F:\\Games\\RimWorld v1.6.4633 rev1245\\RimWorld",
+        "temp_folder": "",
+        "backup_folder": "",
+        "cache_folder": "",
+        "module_overrides": {
+            "grabber": "",
+            "translator": "",
+            "editor": "",
+            "verifier": ""
+        },
+        "output_overrides": {
+            "grabber": "",
+            "translator": "",
+            "editor": ""
+        }
+    },
+    "editor": {
+        "last_edited_files": [
+            "F:/Games/RimWorld v1.6.4633 rev1245/RimWorld/Mods\\1084452457\\Languages\\English\\Keyed\\Settings.xml"
+        ],
+        "auto_save": true
+    },
+    "game_path": "F:\\Games\\RimWorld v1.6.4633 rev1245\\RimWorld",
+    "hidden_tabs": [],
+    "ui_language": "ru",
+    "accent_color": "#4671ca",
+    "text_color": "#0f6c24",
+    "debug": {
+        "enabled": true,
+        "log_file": "F:\\Games\\Rimprog\\new_folder\\debug.log",
+        "log_level": "DEBUG",
+        "log_to_file": true,
+        "log_to_console": false,
+        "log_gui_events": true,
+        "log_config_changes": true,
+        "log_file_operations": true,
+        "log_exceptions": true,
+        "max_log_size": 10
+    }
+}

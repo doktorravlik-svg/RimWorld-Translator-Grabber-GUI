@@ -1,0 +1,17 @@
+{
+  "name": "new_folder",
+  "version": "1.0.0",
+  "description": "**Автоматизированный инструмент для перевода и управления модами RimWorld**",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs",
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs"
+}
