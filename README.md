@@ -350,11 +350,7 @@ MIT License — см. файл [LICENSE](LICENSE)
 
 ---
 
-## 📞 Поддержка
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/rimworld-translator-grabber/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/rimworld-translator-grabber/discussions)
-- **Email**: your.email@example.com
 
 ---
 
