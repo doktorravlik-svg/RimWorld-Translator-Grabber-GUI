@@ -1,6 +1,6 @@
 # 🌍 RimWorld Translator Grabber
 
-**Автоматизированный инструмент для перевода и управления модами RimWorld**
+**Automated tool for translating and managing RimWorld mods**
 
 ![Python](https://img.shields.io/badge/Python-3.14+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-green.svg)
@@ -8,95 +8,103 @@
 
 ---
 
-## 📖 Описание
+## 📖 Description
 
-RimWorld Translator Grabber — мощный инструмент для автоматизации перевода модов RimWorld на различные языки. Поддерживает 8+ движков перевода, интеллектуальную маршрутизацию, кэширование, глоссарии и полноценный редактор переводов.
-
----
-
-## ✨ Возможности
-
-### 🔄 Перевод
-- ✅ **8+ движков перевода**: Google Translate, MyMemory, DeepL, Bing, DeepLX, Translators, LibreTranslate, Argos Translate
-- ✅ **Fallback-цепочка**: Автоматическое переключение на следующий движок при ошибке
-- ✅ **Умная маршрутизация**: Автоприоритизация движков по успешности переводов
-- ✅ **Кэширование**: In-memory кэш с TTL для ускорения повторных переводов
-- ✅ **База переводов**: SQLite для хранения уже переведённых текстов
-- ✅ **Глоссарий**: Пользовательские словари для специфичных терминов
-- ✅ **Умное разбиение**: Автоматическое разбиение длинных текстов на чанки
-- ✅ **Rate Limiting**: Защита от бана по IP
-
-### 🎨 Интерфейс
-- ✅ **Современный GUI**: ttkbootstrap с поддержкой тем
-- ✅ **Многоязычность**: Интерфейс на 5+ языках
-- ✅ **Визуальный редактор**: Редактирование переводов с подсветкой синтаксиса
-- ✅ **Дерево модов**: Удобная навигация по модам с фильтрацией
-- ✅ **Статус-бар**: Подробная информация о процессе перевода с тултипами
-
-### 🛠️ Инструменты
-- ✅ **Верификация**: Проверка качества перевода (пакетный вывод без подвисаний)
-- ✅ **Поиск дубликатов**: Обнаружение повторяющихся строк с контекстным меню
-- ✅ **Фильтры**: Гибкая фильтрация по тегам, статусам, языкам (повторное применение без потери данных)
-- ✅ **Зависимости**: Проверка зависимостей модов
-- ✅ **Целостность**: Проверка файлов на ошибки (отдельное окно результатов)
-- ✅ **Редактор переводов**: 
-  - Загрузка отдельных XML файлов ИЛИ целых папок Keyed
-  - Сравнение с оригиналом (Diff) — посимвольные изменения
-  - Глоссарий терминов
-  - История версий файлов
-  - Подсказки и проверка орфографии
-  - Drag & Drop файлов
-- ✅ **Экспорт отчётов**: TXT, JSON, CSV формат
+RimWorld Translator Grabber is a powerful tool for automating the translation of RimWorld mods into multiple languages. It supports 8+ translation engines, intelligent routing, caching, glossaries, and a full-featured translation editor.
 
 ---
 
-## 🚀 Установка
+## ✨ Features
 
-### Требования
-- Python 3.14+
-- Windows 10/11
+### 🔄 Translation
 
-### Шаги установки
+- ✅ **8+ translation engines**: Google Translate, MyMemory, DeepL, Bing, DeepLX, Translators, LibreTranslate, Argos Translate
+- ✅ **Fallback chain**: Automatically switches to the next engine on error
+- ✅ **Smart routing**: Auto-prioritizes engines by translation success
+- ✅ **Caching**: In-memory cache with TTL to speed up repeated translations
+- ✅ **Translation database**: SQLite storage for already translated texts
+- ✅ **Glossary**: Custom dictionaries for domain-specific terms
+- ✅ **Smart splitting**: Automatic chunking of long texts
+- ✅ **Rate limiting**: Protection against IP bans
 
-1. **Клонируйте репозиторий:**
-```bash
-git clone https://github.com/yourusername/rimworld-translator-grabber.git
-cd rimworld-translator-grabber
-```
+### 🎨 Interface
 
-2. **Создайте виртуальное окружение:**
-```bash
-python -m venv venv
-venv\Scripts\activate
-```
+- ✅ **Modern GUI**: Built with ttkbootstrap and theme support
+- ✅ **Multilingual UI**: Interface available in 5+ languages
+- ✅ **Visual editor**: Translation editing with syntax highlighting
+- ✅ **Mods tree**: Easy navigation of mods with filtering
+- ✅ **Status bar**: Detailed translation process info with tooltips
 
-3. **Установите зависимости:**
-```bash
-pip install -r requirements.txt
-```
+### 🛠️ Tools
 
-4. **Запустите приложение:**
-```bash
-# GUI (рекомендуется)
-python run_gui.py
-
-# Или через батник
-run_gui.bat
-
-# CLI (командная строка)
-python main.py <путь_к_моду>
-```
+- ✅ **Verification**: Translation quality checks (batch output without freezes)
+- ✅ **Duplicate search**: Detects repeated strings with context menu
+- ✅ **Filters**: Flexible filtering by tags, statuses, languages (reapply without data loss)
+- ✅ **Dependencies**: Checks mod dependencies
+- ✅ **Integrity**: File error checking (separate results window)
+- ✅ **Translation editor**:
+  - Load individual XML files or entire Keyed folders;
+  - Compare with original (Diff) — character-level changes;
+  - Glossary terms;
+  - File version history;
+  - Hints and spellcheck;
+  - Drag & drop files.
+- ✅ **Export reports**: TXT, JSON, CSV formats
 
 ---
 
-## 📚 Использование
+## 🚀 Installation
 
-### Базовый перевод
+### Requirements
+
+- Python: 3.14+
+- Platform: Windows 10/11
+
+### Installation Steps
+
+1. **Clone the repository:**
+
+   ```bash
+   git clone https://github.com/yourusername/rimworld-translator-grabber.git
+   cd rimworld-translator-grabber
+   ```
+
+2. **Create a virtual environment:**
+
+   ```bash
+   python -m venv venv
+   venv\Scripts\activate
+   ```
+
+3. **Install dependencies:**
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Run the application:**
+
+   ```bash
+   # GUI (recommended)
+   python run_gui.py
+   
+   # Or via batch file
+   run_gui.bat
+   
+   # CLI (command line)
+   python main.py <path_to_mod>
+   ```
+
+---
+
+## 📚 Usage
+
+### Basic translation
 
 ```python
 from translation.translator import AutoTranslator
 
-# Создаём переводчик
+# Create translator
 translator = AutoTranslator(
     enabled=True,
     source_lang="English",
@@ -104,12 +112,12 @@ translator = AutoTranslator(
     engine_names=["google", "deepl", "bing"],
 )
 
-# Переводим текст
+# Translate text
 result = translator.translate("Hello, world!")
 print(result)  # Привет, мир!
 ```
 
-### Пакетный перевод
+### Batch translation
 
 ```python
 texts = [
@@ -123,98 +131,98 @@ for original, translated in zip(texts, results):
     print(f"{original} -> {translated}")
 ```
 
-### Использование глоссария
+### Using a glossary
 
 ```python
 from translation.glossary import Glossary
 
-# Создаём глоссарий
+# Create glossary
 glossary = Glossary("glossary.json")
 glossary.add_term("RimWorld", "РимМир")
 glossary.add_term("colonist", "колонист")
 
-# Применяем к тексту
+# Apply to text
 result = glossary.apply_to_text("Welcome to RimWorld, colonist!")
 ```
 
-### Настройка кэша
+### Cache configuration
 
 ```python
 from translation.translation_cache import TranslationCache
 
-# Создаём кэш с настройками
+# Create cache with settings
 cache = TranslationCache(
-    maxsize=4096,      # Максимум записей
-    ttl=7200,          # Время жизни: 2 часа
-    enable_stats=True  # Сбор статистики
+    maxsize=4096,      # Maximum entries
+    ttl=7200,          # Time-to-live: 2 hours
+    enable_stats=True  # Collect statistics
 )
 
-# Статистика
+# Stats
 stats = cache.get_stats()
 print(f"Hit rate: {stats['hit_rate']}%")
 ```
 
 ---
 
-## 🏗️ Архитектура
+## 🏗️ Architecture
 
 ```
 rimworld-translator-grabber/
-├── config/                  # Конфигурация
-│   ├── config_manager.py    # Управление настройками
-│   ├── paths_config.py      # Пути к файлам
-│   └── language_constants.py# Константы локализации
-├── translation/             # Модуль перевода
-│   ├── translator.py        # Основной переводчик
-│   ├── translation_cache.py # In-memory кэш
-│   ├── constants.py         # Константы
-│   ├── glossary.py          # Глоссарий
-│   ├── proxy_manager.py     # Управление прокси
-│   ├── text_splitter.py     # Разбиение текста
-│   └── engines/             # Движки перевода
-│       ├── base.py          # Базовый класс
-│       ├── fallback_chain.py# Fallback-цепочка
+├── config/                  # Configuration
+│   ├── config_manager.py    # Settings manager
+│   ├── paths_config.py      # File paths
+│   └── language_constants.py# Localization constants
+├── translation/             # Translation module
+│   ├── translator.py        # Main translator
+│   ├── translation_cache.py # In-memory cache
+│   ├── constants.py         # Constants
+│   ├── glossary.py          # Glossary
+│   ├── proxy_manager.py     # Proxy management
+│   ├── text_splitter.py     # Text splitting
+│   └── engines/             # Translation engines
+│       ├── base.py          # Base class
+│       ├── fallback_chain.py# Fallback chain
 │       ├── google_engine.py # Google Translate
 │       ├── deepl_engine.py  # DeepL
 │       └── ...
-├── gui/                     # Графический интерфейс
-│   ├── gui.py               # Главное окно
-│   ├── core/                # Ядро UI (tab_manager, ui_builder, menu_builder)
-│   ├── tabs/                # Вкладки
-│   │   └── editor/          # Модули редактора (перенесены из gui_translation_editor.py)
-│   │       ├── editor_toolbar.py      # Панель инструментов
-│   │       ├── editor_file_browser.py # Вкладка выбора файлов
-│   │       └── editor_dialog.py       # Точка входа в диалог
-│   ├── components/          # Компоненты UI (статус-бар, логу и т.д.)
-│   ├── handlers/            # Обработчики событий (batch-логирование)
-│   ├── dialogs/             # Диалоги (целостность, импорт, глоссарий)
-│   ├── help/                # Справка и подсказки (JSON файлы)
-│   │   ├── help_loader.py   # Загрузчик справки
+├── gui/                     # Graphical interface
+│   ├── gui.py               # Main window
+│   ├── core/                # UI core (tab_manager, ui_builder, menu_builder)
+│   ├── tabs/                # Tabs
+│   │   └── editor/          # Editor modules (moved from gui_translation_editor.py)
+│   │       ├── editor_toolbar.py      # Toolbar
+│   │       ├── editor_file_browser.py # File selection tab
+│   │       └── editor_dialog.py       # Editor dialog entry
+│   ├── components/          # UI components (status bar, log, etc.)
+│   ├── handlers/            # Event handlers (batch logging)
+│   ├── dialogs/             # Dialogs (integrity, import, glossary)
+│   ├── help/                # Help and tooltips (JSON files)
+│   │   ├── help_loader.py   # Help loader
 │   │   ├── editor_help_ru.json
 │   │   ├── editor_help_en.json
 │   │   ├── editor_tooltips_ru.json
 │   │   └── editor_tooltips_en.json
-│   └── styling/             # Темы, шрифты, цвета
-├── verification/            # Верификация
-├── workers/                 # Фоновые задачи (потокобезопасные)
-├── integrity/               # Проверка целостности XML
-├── signals/                 # Шина сигналов (упрощена — мёртвый код удалён)
-├── utils/                   # Утилиты
-│   ├── error_handler.py     # Обработка ошибок
-│   ├── ui_helpers.py        # UI хелперы (debounce)
+│   └── styling/             # Themes, fonts, colors
+├── verification/            # Verification
+├── workers/                 # Background tasks (thread-safe)
+├── integrity/               # XML integrity checks
+├── signals/                 # Signal bus (simplified — dead code removed)
+├── utils/                   # Utilities
+│   ├── error_handler.py     # Error handling
+│   ├── ui_helpers.py        # UI helpers (debounce)
 │   └── ...
-├── locales/                 # Локализация интерфейса
+├── locales/                 # Interface localization
 │   ├── ru.json
 │   ├── en.json
 │   └── ...
-└── docs/                    # Документация
+└── docs/                    # Documentation
 ```
 
 ---
 
-## 🔧 Конфигурация
+## 🔧 Configuration
 
-### Настройки переводчика
+### Translator settings
 
 ```python
 {
@@ -229,7 +237,7 @@ rimworld-translator-grabber/
 }
 ```
 
-### Глоссарий (JSON)
+### Glossary (JSON)
 
 ```json
 {
@@ -243,115 +251,123 @@ rimworld-translator-grabber/
 
 ---
 
-## 🧪 Тестирование
+## 🧪 Testing
 
 ```bash
-# Запустить все тесты
+# Run all tests
 pytest
 
-# Запустить тесты переводчика
+# Run translator tests
 python -m translation.translator
 
-# Проверить покрытие
+# Check coverage
 pytest --cov=translation --cov-report=html
 ```
 
 ---
 
-## 📊 Производительность
+## 📊 Performance
 
-| Операция | Без кэша | С кэшем | Улучшение |
-|----------|----------|---------|-----------|
-| Повторный перевод | 500ms | <1ms | **500x** |
-| Пакетный (100 строк) | 50s | 5s | **10x** |
-| С глоссарием | +10ms | +10ms | — |
-
----
-
-## 🤝 Вклад в проект
-
-1. Форкните репозиторий
-2. Создайте ветку (`git checkout -b feature/amazing-feature`)
-3. Зафиксируйте изменения (`git commit -m 'Add amazing feature'`)
-4. Отправьте в ветку (`git push origin feature/amazing-feature`)
-5. Откройте Pull Request
+| Operation | Without cache | With cache | Improvement |
+|-----------|---------------|------------|-------------|
+| Repeat translation | 500ms | <1ms | **500x** |
+| Batch (100 lines) | 50s | 5s | **10x** |
+| With glossary | +10ms | +10ms | — |
 
 ---
 
-## 📝 История изменений (2026-04)
+## 🤝 Contributing
 
-### v2.0+ — Крупные улучшения
-
-#### 🐛 Исправления
-- **Верификация без подвисаний**: Пакетная вставка результатов (`log_batch`) вместо построчной — O(n²) → O(n)
-- **Логирование в панель**: `ModsManagerTab` и `TranslationEditorTab` теперь пишут в лог-панель, а не в консоль
-- **SignalBus очищен**: Удалён мёртвый код (`_worker_thread`, `_event_queue`, `start/stop`) — никогда не использовался
-- **Исправлена геометрия редактора**: Все виджеты в `edit_panel` используют `grid()` вместо смешивания `pack` + `grid`
-- **Фильтры без потери данных**: Все вкладки хранят `_all_*_items` для корректного повторного применения фильтров
-- **Обработчик ошибок сканирования дубликатов**: Переменная `e` теперь правильно захватывается в except блоке
-
-#### ✨ Новые возможности
-- **Контекстное меню дубликатов**: Правый клик → Выбрать/Снять выбор, Открыть папку, Информация
-- **Diff в редакторе**: Посимвольное сравнение оригинала и перевода с подсветкой (🟥 Удалено | 🟨 Изменено | 🟩 Добавлено)
-- **Обновлённая справка редактора**: Подробное описание всех функций, горячих клавиш и функции Diff
-- **Тултипы кнопок редактора**: Diff, Глоссарий и другие кнопки теперь имеют подсказки
-- **Расширенное логирование открытия файлов**: Подробные логи для отладки проблем с загрузкой файлов в редакторе
-- **Выбор папки в редакторе**: Кнопка 📁 «Открыть папку» для загрузки всех Keyed файлов сразу
-- **Окно целостности**: Отдельный диалог с деревом ошибок, фильтрами и экспортом отчётов
-- **Тултипы в статус-баре**: Наведение на счётчики показывает что они означают
-- **Все моды видны**: Моды без About.xml и с ошибками парсинга теперь отображаются
-
-#### 🏗️ Архитектура
-- **Разделение редактора**: `TranslationEditorTab` и `WrappingToolbar` вынесены в `gui/tabs/editor/`
-- **Убраны лимиты**: Верификация показывает все результаты (было [:20], [:5], [:3], [:10])
-- **Увеличены лимиты**: Дубликаты [:4]→[:20], mass_edit [:50]→[:100], integrity [:80]→[:150]
-- **Удалён дублирующийся `__init__`**: `editor_file_browser.py` имел два `__init__` метода
-- **Единый стиль фильтров**: Все вкладки используют `_all_*_items` для хранения элементов дерева
+1. Fork the repository
+2. Create a branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ---
 
-## 📝 Добавление нового языка интерфейса
+## 📝 Changelog (2026-04)
 
-См. [locales/README.md](locales/README.md)
+### v2.0+ — Major improvements
 
-### Справка и подсказки
+#### 🐛 Fixes
 
-Справка и тултипы хранятся в отдельных JSON файлах в `gui/help/`:
+- **Verification without freezes**: batch insertion of results (`log_batch`) instead of line-by-line — O(n²) → O(n).
+- **Logging to panel**: `ModsManagerTab` and `TranslationEditorTab` now write to the log panel instead of the console.
+- **SignalBus cleaned**: removed dead code (`_worker_thread`, `_event_queue`, `start/stop`) — never used.
+- **Editor geometry fixed**: all widgets in `edit_panel` use `grid()` instead of mixing `pack` + `grid`.
+- **Filters without data loss**: all tabs store `_all_*_items` for correct reapplication of filters.
+- **Duplicate-scan error handler**: variable `e` is now correctly captured in the except block.
+
+#### ✨ New features
+
+- **Context menu for duplicates**: right-click → Select/Deselect, Open folder, Info.
+- **Diff in editor**: character-level comparison of original and translation with highlighting (🟥 Removed | 🟨 Changed | 🟩 Added).
+- **Updated editor help**: detailed description of all features, hotkeys, and Diff.
+- **Tooltips for editor buttons**: Diff, Glossary and other buttons now have hints.
+- **Extended file-open logging**: detailed logs for debugging file loading issues in the editor.
+- **Folder selection in editor**: 📁 "Open folder" button to load all Keyed files at once.
+- **Integrity window**: separate dialog with error tree, filters, and report export.
+- **Status bar tooltips**: hovering counters shows what they mean.
+- **All mods visible**: mods without About.xml and with parsing errors are now displayed.
+
+#### 🏗️ Architecture
+
+- **Editor split**: `TranslationEditorTab` and `WrappingToolbar` moved to `gui/tabs/editor/`.
+- **Limits removed**: verification shows all results (previously [:20], [:5], [:3], [:10]).
+- **Limits increased**: duplicates [:4]→[:20], mass_edit [:50]→[:100], integrity [:80]→[:150].
+- **Duplicate `__init__` removed**: `editor_file_browser.py` had two `__init__` methods.
+- **Unified filter style**: all tabs use `_all_*_items` to store tree elements.
+
+---
+
+## 📝 Adding a new UI language
+
+See [locales/README.md](locales/README.md)
+
+### Help and tooltips
+
+Help and tooltips are stored as separate JSON files in `gui/help/`:
 
 ```
 gui/help/
-├── editor_help_ru.json      # Справка на русском
-├── editor_help_en.json      # Справка на английском
-├── editor_tooltips_ru.json  # Тултипы на русском
-└── editor_tooltips_en.json  # Тултипы на английском
+├── editor_help_ru.json      # Help in Russian
+├── editor_help_en.json      # Help in English
+├── editor_tooltips_ru.json  # Tooltips in Russian
+└── editor_tooltips_en.json  # Tooltips in English
 ```
 
-Для добавления нового языка:
-1. Скопируйте `editor_help_ru.json` → `editor_help_<код>.json`
-2. Скопируйте `editor_tooltips_ru.json` → `editor_tooltips_<код>.json`
-3. Переведите содержимое
-4. Загрузчик автоматически использует fallback на `ru` если файл не найден
+To add a new language:
 
-Подробности: [gui/help/README.md](gui/help/README.md)
+1. Copy `editor_help_ru.json` → `editor_help_<code>.json`
+2. Copy `editor_tooltips_ru.json` → `editor_tooltips_<code>.json`
+3. Translate the contents
+4. The loader will automatically fall back to `ru` if a file is missing
 
----
-
-## 📄 Лицензия
-
-MIT License — см. файл [LICENSE](LICENSE)
+Details: [gui/help/README.md](gui/help/README.md)
 
 ---
 
-## 🙏 Благодарности
+## 📄 License
 
-- [deep-translator](https://github.com/nidhaloff/deep-translator) — библиотека для перевода
-- [ttkbootstrap](https://github.com/israel-dryer/ttkbootstrap) — современный UI
-- [RimWorld](https://rimworldgame.com/) — великолепная игра
+MIT License — see the [LICENSE](LICENSE) file.
 
 ---
 
+## 🙏 Acknowledgements
 
+- [deep-translator](https://github.com/nidhaloff/deep-translator) — translation library
+- [ttkbootstrap](https://github.com/israel-dryer/ttkbootstrap) — modern UI
+- [RimWorld](https://rimworldgame.com/) — the great game
 
 ---
 
-*Сделано с ❤️ для сообщества RimWorld*
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/yourusername/rimworld-translator-grabber/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/yourusername/rimworld-translator-grabber/discussions)
+- **Email**: <your.email@example.com>
+
+---
+
+*Made with ❤️ for the RimWorld community*
