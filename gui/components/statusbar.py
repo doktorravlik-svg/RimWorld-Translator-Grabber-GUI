@@ -4,6 +4,7 @@
 Переработанная версия без дублирования элементов.
 """
 
+import time
 import tkinter as tk
 
 import ttkbootstrap as ttk
@@ -16,6 +17,9 @@ class StatusBar(ttk.Frame):
 
     def __init__(self, parent):
         super().__init__(parent, padding=(2, 0))  # Уменьшил padding
+
+        # Тултипы через ttkbootstrap.ToolTip (set_tooltip) — хранятся для возможного доступа
+        self._tooltips: list = []
 
         # Иконки
         self.status_icons = get_status_bar_icons() if HAS_ICONS else {}
@@ -42,42 +46,29 @@ class StatusBar(ttk.Frame):
         self.status_label = ttk.Label(stats, text=tr("status_ready", "Готов"), font=("Segoe UI", 7))
         self.status_label.pack(side="left", padx=(0, 5))
 
-        # Счётчики с тултипами
+        # Счётчики с тултипами (через ttkbootstrap Tooltip)
         self.mods_label = self._stat(stats, "Модов: 0", "#3b82f6")
         self.mods_label.pack(side="left", padx=3)
-        self.mods_label.bind(
-            "<Enter>",
-            lambda e: self._show_tooltip("Количество обработанных модов", self.mods_label),
-        )
-        self.mods_label.bind("<Leave>", self._hide_tooltip)
+        self.set_tooltip(self.mods_label, tr("tooltip_mods", "Количество обработанных модов"))
 
         self.translated_label = self._stat(stats, "Переведено: 0", "#22c55e")
         self.translated_label.pack(side="left", padx=3)
-        self.translated_label.bind(
-            "<Enter>",
-            lambda e: self._show_tooltip("Количество переведённых записей", self.translated_label),
+        self.set_tooltip(
+            self.translated_label, tr("tooltip_translated", "Количество переведённых записей")
         )
-        self.translated_label.bind("<Leave>", self._hide_tooltip)
 
         self.errors_label = self._stat(stats, "Ошибок: 0", "#ef4444")
         self.errors_label.pack(side="left", padx=3)
-        self.errors_label.bind(
-            "<Enter>",
-            lambda e: self._show_tooltip(
-                "Количество ошибок при последней операции", self.errors_label
-            ),
+        self.set_tooltip(
+            self.errors_label, tr("tooltip_errors", "Количество ошибок при последней операции")
         )
-        self.errors_label.bind("<Leave>", self._hide_tooltip)
 
         self.warnings_label = self._stat(stats, "Предупреждений: 0", "#f59e0b")
         self.warnings_label.pack(side="left", padx=3)
-        self.warnings_label.bind(
-            "<Enter>",
-            lambda e: self._show_tooltip(
-                "Количество предупреждений при последней операции", self.warnings_label
-            ),
+        self.set_tooltip(
+            self.warnings_label,
+            tr("tooltip_warnings", "Количество предупреждений при последней операции"),
         )
-        self.warnings_label.bind("<Leave>", self._hide_tooltip)
 
         # Последнее действие
         # ✅ ИСПОЛЬЗУЕМ цвет, подходящий для текущей темы (серый для светлой, светло-серый для темной)
@@ -94,43 +85,18 @@ class StatusBar(ttk.Frame):
 
         # Состояние
         self._last_update = 0.0
-        self._pending_update = False
-        self._throttle_interval = 0.5
         self._throttle_timer: str | None = None
+        self._throttle_interval = 500  # В миллисекундах для after()
+        # Состояние статистики и буфер для троттлинга
         self.stats = {"mods": 0, "translated": 0, "errors": 0, "warnings": 0, "last_action": "-"}
-
-        # Тултипы (будут установлены при построении UI)
-        self._tooltips: list = []
-        self._tooltip = None  # Текущий активный тултип (для всплывающих подсказок)
+        self._stats_buffer: dict[str, any] = {}  # Буфер для накопления данных
 
     @staticmethod
     def _stat(parent: ttk.Frame, text: str, fg: str) -> ttk.Label:
         """Создать метку статистики."""
         return ttk.Label(parent, text=text, foreground=fg, font=("Segoe UI", 8))
 
-    def _show_tooltip(self, text: str, widget: ttk.Label):
-        """Показать тултип над виджетом"""
-        self._hide_tooltip()
-        self._tooltip = ttk.Label(
-            self.winfo_toplevel(),
-            text=text,
-            background="#ffffcc",
-            foreground="#333333",
-            font=("Segoe UI", 8),
-            relief="solid",
-            borderwidth=1,
-            padding=(4, 2),
-        )
-        # Позиционируем над виджетом
-        x = widget.winfo_rootx()
-        y = widget.winfo_rooty() - 25
-        self._tooltip.place(x=x, y=y)
-
-    def _hide_tooltip(self, event=None):
-        """Скрыть тултип"""
-        if self._tooltip:
-            self._tooltip.destroy()
-            self._tooltip = None
+    # ttkbootstrap ToolTip используется через set_tooltip — ручные обработчики <Enter>/<Leave> больше не нужны
 
     def _check_dark_theme(self) -> bool:
         """Проверяет тёмную тему."""
@@ -150,27 +116,28 @@ class StatusBar(ttk.Frame):
 
     # ── Статистика с throttle ───────────────────────────────
     def update_stats(self, **kwargs):
-        import time
+        """Накапливает данные и обновляет UI с задержкой."""
+        self._stats_buffer.update(kwargs)  # Сохраняем все пришедшие ключи
 
         now = time.time()
-        if now - self._last_update < self._throttle_interval:
-            self._pending_update = True
-            if self._throttle_timer:
-                self.after_cancel(self._throttle_timer)
-            self._throttle_timer = self.after(
-                int(self._throttle_interval * 1000), self._flush_pending_update
-            )
+        if now - self._last_update < (self._throttle_interval / 1000):
+            if not self._throttle_timer:
+                self._throttle_timer = self.after(
+                    self._throttle_interval, self._flush_pending_update
+                )
             return
-        self._last_update = now
-        self._apply_stats(kwargs)
+
+        self._flush_pending_update()
 
     def _flush_pending_update(self):
-        import time
+        if self._throttle_timer:
+            self.after_cancel(self._throttle_timer)
+            self._throttle_timer = None
 
         self._last_update = time.time()
-        self._pending_update = False
-        self._throttle_timer = None
-        self._apply_stats({})
+        if self._stats_buffer:
+            self._apply_stats(self._stats_buffer)
+            self._stats_buffer.clear()  # Очищаем после применения
 
     def _apply_stats(self, kwargs: dict):
         if "mods" in kwargs:
@@ -221,10 +188,18 @@ class StatusBar(ttk.Frame):
         self._progress_text.set("")
 
     def set_progress(self, value: float, text: str = None):
-        self.progress_bar["value"] = value
-        self._progress_text.set(text if text else f"{int(value)}%")
+        safe_value = max(0, min(100, value))
+        self.progress_bar["value"] = safe_value
+        self._progress_text.set(text if text else f"{safe_value:.1f}%")
 
-    # ── Toast уведомления ──────────────────────────────────
+    def update_detailed_progress(self, current: int, total: int):
+        """Обновляет прогресс на основе количества обработанных элементов."""
+        if total <= 0:
+            return
+        percentage = (current / total) * 100
+        detail_text = f"{percentage:.1f}% ({current} / {total})"
+        self.set_progress(percentage, text=detail_text)
+
     # ── Toast уведомления ──────────────────────────────────
     def show_toast(
         self, message: str, toast_type: str = "info", duration: int = 3000, group_by: str = None
@@ -264,7 +239,7 @@ class StatusBar(ttk.Frame):
 
     # ── Тултипы ──────────────────────────────────
     def set_tooltip(self, widget, text: str):
-        """Установить тултип для виджета через ttkbootstrap.Tooltip"""
+        """Установить тултип для виджета через ttkbootstrap.ToolTip"""
         try:
             from ttkbootstrap.widgets import ToolTip
 
