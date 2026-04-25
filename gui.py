@@ -852,15 +852,16 @@ class ImprovedGUI:
             "verification_language", "Russian"
         )
 
-        # Для полной проверки - все проверки
+        # Для полной проверки - все проверки (пустой список = все проверки)
         if is_full:
-            checks = ["about", "dependencies", "translations", "structure", "conflicts"]
+            checks = []  # Пустой список означает все 20 проверок
 
         worker = VerificationWorker(
             mods_folder=mods_folder,
             checks=checks or [],
             language=verification_language,
             logger=self.debug_manager.debug_logger if self.debug_manager.is_enabled else None,
+            game_path=self.config.get("game_path", ""),  # Передаём путь к игре
         )
 
         # Потокобезопасные callbacks через root.after()

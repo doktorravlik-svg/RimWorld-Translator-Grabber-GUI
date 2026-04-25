@@ -168,54 +168,151 @@ print(f"Hit rate: {stats['hit_rate']}%")
 
 ```
 rimworld-translator-grabber/
+├── collectors/              # Mod data collectors
+│   └── collectors.py
 ├── config/                  # Configuration
-│   ├── config_manager.py    # Settings manager
-│   ├── paths_config.py      # File paths
-│   └── language_constants.py# Localization constants
-├── translation/             # Translation module
-│   ├── translator.py        # Main translator
-│   ├── translation_cache.py # In-memory cache
-│   ├── constants.py         # Constants
-│   ├── glossary.py          # Glossary
-│   ├── proxy_manager.py     # Proxy management
-│   ├── text_splitter.py     # Text splitting
-│   └── engines/             # Translation engines
-│       ├── base.py          # Base class
-│       ├── fallback_chain.py# Fallback chain
-│       ├── google_engine.py # Google Translate
-│       ├── deepl_engine.py  # DeepL
-│       └── ...
+│   ├── config_manager.py
+│   ├── paths_config.py
+│   ├── language_constants.py
+│   ├── glossary.json
+│   ├── grabber_settings.py
+│   ├── debug_config.py
+│   └── mods_config.py
+├── core/                    # Application core
+│   ├── core_models.py
+│   └── logger.py
+├── dto/                     # Data transfer objects
+│   ├── mappers.py
+│   └── verification_dto.py
+├── duplicates/              # Duplicate detection and merging
+│   └── duplicate_merger.py
 ├── gui/                     # Graphical interface
-│   ├── gui.py               # Main window
-│   ├── core/                # UI core (tab_manager, ui_builder, menu_builder)
+│   ├── core/                # UI core
+│   │   ├── tab_manager.py
+│   │   ├── ui_builder.py
+│   │   └── menu_builder.py
 │   ├── tabs/                # Tabs
-│   │   └── editor/          # Editor modules (moved from gui_translation_editor.py)
-│   │       ├── editor_toolbar.py      # Toolbar
-│   │       ├── editor_file_browser.py # File selection tab
-│   │       └── editor_dialog.py       # Editor dialog entry
-│   ├── components/          # UI components (status bar, log, etc.)
-│   ├── handlers/            # Event handlers (batch logging)
-│   ├── dialogs/             # Dialogs (integrity, import, glossary)
-│   ├── help/                # Help and tooltips (JSON files)
-│   │   ├── help_loader.py   # Help loader
+│   │   ├── gui_mods_tab.py
+│   │   ├── gui_tab_translation.py
+│   │   ├── gui_filters_tab.py
+│   │   ├── gui_tab_settings.py
+│   │   ├── gui_tab_duplicates.py
+│   │   ├── gui_tab_verification.py
+│   │   ├── gui_dependencies.py
+│   │   ├── gui_translation_editor.py
+│   │   └── editor/          # Translation editor
+│   │       ├── editor_dialog.py
+│   │       ├── editor_file_browser.py
+│   │       ├── editor_toolbar.py
+│   │       ├── diff_viewer.py
+│   │       ├── quality_checker.py
+│   │       └── syntax_highlighter.py
+│   ├── components/          # UI components
+│   │   ├── statusbar.py
+│   │   ├── scrolled_frame.py
+│   │   └── ...
+│   ├── dialogs/             # Dialog windows
+│   │   ├── import_translations_dialog.py
+│   │   ├── glossary_editor_dialog.py
+│   │   ├── integrity_results_dialog.py
+│   │   ├── mass_edit_dialog.py
+│   │   └── ...
+│   ├── handlers/            # Event handlers
+│   │   └── gui_handlers.py
+│   ├── actions/             # Actions
+│   │   └── game_data_loader.py
+│   ├── help/                # Help and tooltips (JSON)
+│   │   ├── help_loader.py
 │   │   ├── editor_help_ru.json
 │   │   ├── editor_help_en.json
+│   │   ├── editor_help_ua.json
+│   │   ├── editor_help_ja.json
 │   │   ├── editor_tooltips_ru.json
-│   │   └── editor_tooltips_en.json
-│   └── styling/             # Themes, fonts, colors
-├── verification/            # Verification
-├── workers/                 # Background tasks (thread-safe)
-├── integrity/               # XML integrity checks
-├── signals/                 # Signal bus (simplified — dead code removed)
-├── utils/                   # Utilities
-│   ├── error_handler.py     # Error handling
-│   ├── ui_helpers.py        # UI helpers (debounce)
-│   └── ...
+│   │   ├── editor_tooltips_en.json
+│   │   ├── editor_tooltips_ua.json
+│   │   ├── editor_tooltips_ja.json
+│   │   ├── duplicates_help_ru.json
+│   │   ├── duplicates_help_ua.json
+│   │   ├── duplicates_help_en.json
+│   │   ├── duplicates_help_ja.json
+│   │   ├── filters_help_ru.json
+│   │   ├── translation_help_ru.json
+│   │   ├── verification_help_ru.json
+│   │   └── dependencies_help_ru.json
+│   └── styling/             # Themes and styles
+│        ├── theme_manager.py
+│        ├── color_manager.py
+│        ├── font_manager.py
+│        └── icon_manager.py
+├── helpers/                 # Helper utilities
+│   └── editor_history.py
+├── integrity/               # Integrity checking
+│   ├── integrity_checker.py
+│   ├── mod_verifier.py
+│   └── game_data_processor.py
+├── language/                # Language rules
+│   ├── language_rules.py
+│   ├── rules_engine.py
+│   ├── rules_validation.py
+│   └── rules_constants.py
 ├── locales/                 # Interface localization
 │   ├── ru.json
 │   ├── en.json
+│   ├── ua.json
+│   └── ja.json
+├── scanner/                 # Mod scanner
+│   └── mod_scanner.py
+├── scripts/                 # Utilities and scripts
+├── signals/                 # Event bus
+│   ├── signal_bus.py
+│   └── events.py
+├── translation/             # Translation module
+│   ├── translator.py
+│   ├── translation_cache.py
+│   ├── glossary.py
+│   ├── matching.py
+│   ├── importer.py
+│   ├── keyed_merge.py
+│   ├── translation_merger.py
+│   ├── translation_utils.py
+│   ├── anchor_manager.py
+│   ├── per_def_generator.py
+│   ├── per_def.py
+│   ├── per_def_utils.py
+│   ├── obsolete_detector.py
+│   ├── proxy_manager.py
+│   ├── text_splitter.py
+│   ├── constants.py
+│   └── engines/             # Translation engines (8+)
+│       ├── base.py
+│       ├── fallback_chain.py
+│       ├── google_engine.py
+│       ├── deepl_engine.py
+│       ├── bing_engine.py
+│       ├── mymemory_engine.py
+│       ├── deeplx_engine.py
+│       ├── libre_engine.py
+│       ├── translators_engine.py
+│       └── argos_engine.py
+├── utils/                   # General utilities
+│   ├── error_handler.py
+│   ├── ui_helpers.py
+│   ├── xml_utils.py
+│   ├── path_utils.py
+│   ├── rimworld_xml.py
 │   └── ...
-└── docs/                    # Documentation
+├── verification/            # Verification and checking
+│   ├── translation_validator.py
+│   ├── conflict_detector.py
+│   ├── report_generator.py
+│   ├── verification_coordinator.py
+│   └── xml_parser.py
+└── workers/                 # Background workers
+    ├── translation_worker.py
+    ├── duplicate_worker.py
+    ├── integrity_worker.py
+    ├── verification_worker.py
+    └── base_worker.py
 ```
 
 ---
@@ -331,13 +428,27 @@ Help and tooltips are stored as separate JSON files in `gui/help/`:
 
 ```
 gui/help/
-├── editor_help_ru.json      # Help in Russian
-├── editor_help_en.json      # Help in English
-├── editor_tooltips_ru.json  # Tooltips in Russian
-└── editor_tooltips_en.json  # Tooltips in English
+├── __init__.py
+├── help_loader.py
+├── editor_help_ru.json
+├── editor_help_ua.json
+├── editor_help_en.json
+├── editor_help_ja.json
+├── editor_tooltips_ru.json
+├── editor_tooltips_ua.json
+├── editor_tooltips_en.json
+├── editor_tooltips_ja.json
+├── duplicates_help_ru.json
+├── duplicates_help_ua.json
+├── duplicates_help_en.json
+├── duplicates_help_ja.json
+├── filters_help_ru.json
+├── translation_help_ru.json
+├── verification_help_ru.json
+└── dependencies_help_ru.json
 ```
 
-To add a new language:
+To add a new 
 
 1. Copy `editor_help_ru.json` → `editor_help_<code>.json`
 2. Copy `editor_tooltips_ru.json` → `editor_tooltips_<code>.json`
@@ -366,7 +477,7 @@ MIT License — see the [LICENSE](LICENSE) file.
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/rimworld-translator-grabber/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/rimworld-translator-grabber/discussions)
-- **Email**: <your.email@example.com>
+
 
 ---
 

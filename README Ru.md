@@ -130,8 +130,8 @@ from translation.glossary import Glossary
 
 # Создаём глоссарий
 glossary = Glossary("glossary.json")
-glossary.add_term("RimWorld", "РимМир")
-glossary.add_term("colonist", "колонист")
+glossary.add("RimWorld", "РимМир")
+glossary.add("colonist", "колонист")
 
 # Применяем к тексту
 result = glossary.apply_to_text("Welcome to RimWorld, colonist!")
@@ -160,54 +160,151 @@ print(f"Hit rate: {stats['hit_rate']}%")
 
 ```
 rimworld-translator-grabber/
+├── collectors/              # Коллекторы данных модов
+│   └── collectors.py
 ├── config/                  # Конфигурация
-│   ├── config_manager.py    # Управление настройками
-│   ├── paths_config.py      # Пути к файлам
-│   └── language_constants.py# Константы локализации
-├── translation/             # Модуль перевода
-│   ├── translator.py        # Основной переводчик
-│   ├── translation_cache.py # In-memory кэш
-│   ├── constants.py         # Константы
-│   ├── glossary.py          # Глоссарий
-│   ├── proxy_manager.py     # Управление прокси
-│   ├── text_splitter.py     # Разбиение текста
-│   └── engines/             # Движки перевода
-│       ├── base.py          # Базовый класс
-│       ├── fallback_chain.py# Fallback-цепочка
-│       ├── google_engine.py # Google Translate
-│       ├── deepl_engine.py  # DeepL
-│       └── ...
+│   ├── config_manager.py
+│   ├── paths_config.py
+│   ├── language_constants.py
+│   ├── glossary.json
+│   ├── grabber_settings.py
+│   ├── debug_config.py
+│   └── mods_config.py
+├── core/                    # Ядро приложения
+│   ├── core_models.py
+│   └── logger.py
+├── dto/                     # Объекты передачи данных
+│   ├── mappers.py
+│   └── verification_dto.py
+├── duplicates/              # Обнаружение и слияние дубликатов
+│   └── duplicate_merger.py
 ├── gui/                     # Графический интерфейс
-│   ├── gui.py               # Главное окно
-│   ├── core/                # Ядро UI (tab_manager, ui_builder, menu_builder)
+│   ├── core/                # Ядро UI
+│   │   ├── tab_manager.py
+│   │   ├── ui_builder.py
+│   │   └── menu_builder.py
 │   ├── tabs/                # Вкладки
-│   │   └── editor/          # Модули редактора (перенесены из gui_translation_editor.py)
-│   │       ├── editor_toolbar.py      # Панель инструментов
-│   │       ├── editor_file_browser.py # Вкладка выбора файлов
-│   │       └── editor_dialog.py       # Точка входа в диалог
-│   ├── components/          # Компоненты UI (статус-бар, логу и т.д.)
-│   ├── handlers/            # Обработчики событий (batch-логирование)
-│   ├── dialogs/             # Диалоги (целостность, импорт, глоссарий)
-│   ├── help/                # Справка и подсказки (JSON файлы)
-│   │   ├── help_loader.py   # Загрузчик справки
+│   │   ├── gui_mods_tab.py
+│   │   ├── gui_tab_translation.py
+│   │   ├── gui_filters_tab.py
+│   │   ├── gui_tab_settings.py
+│   │   ├── gui_tab_duplicates.py
+│   │   ├── gui_tab_verification.py
+│   │   ├── gui_dependencies.py
+│   │   ├── gui_translation_editor.py
+│   │   └── editor/          # Редактор переводов
+│   │       ├── editor_dialog.py
+│   │       ├── editor_file_browser.py
+│   │       ├── editor_toolbar.py
+│   │       ├── diff_viewer.py
+│   │       ├── quality_checker.py
+│   │       └── syntax_highlighter.py
+│   ├── components/          # UI компоненты
+│   │   ├── statusbar.py
+│   │   ├── scrolled_frame.py
+│   │   └── ...
+│   ├── dialogs/             # Диалоговые окна
+│   │   ├── import_translations_dialog.py
+│   │   ├── glossary_editor_dialog.py
+│   │   ├── integrity_results_dialog.py
+│   │   ├── mass_edit_dialog.py
+│   │   └── ...
+│   ├── handlers/            # Обработчики событий
+│   │   └── gui_handlers.py
+│   ├── actions/             # Действия
+│   │   └── game_data_loader.py
+│   ├── help/                # Справка и тултипы (JSON)
+│   │   ├── help_loader.py
 │   │   ├── editor_help_ru.json
 │   │   ├── editor_help_en.json
+│   │   ├── editor_help_ua.json
+│   │   ├── editor_help_ja.json
 │   │   ├── editor_tooltips_ru.json
-│   │   └── editor_tooltips_en.json
-│   └── styling/             # Темы, шрифты, цвета
-├── verification/            # Верификация
-├── workers/                 # Фоновые задачи (потокобезопасные)
-├── integrity/               # Проверка целостности XML
-├── signals/                 # Шина сигналов (упрощена — мёртвый код удалён)
-├── utils/                   # Утилиты
-│   ├── error_handler.py     # Обработка ошибок
-│   ├── ui_helpers.py        # UI хелперы (debounce)
-│   └── ...
-├── locales/                 # Локализация интерфейса
+│   │   ├── editor_tooltips_en.json
+│   │   ├── editor_tooltips_ua.json
+│   │   ├── editor_tooltips_ja.json
+│   │   ├── duplicates_help_ru.json
+│   │   ├── duplicates_help_ua.json
+│   │   ├── duplicates_help_en.json
+│   │   ├── duplicates_help_ja.json
+│   │   ├── filters_help_ru.json
+│   │   ├── translation_help_ru.json
+│   │   ├── verification_help_ru.json
+│   │   └── dependencies_help_ru.json
+│   └── styling/             # Темы и стили
+│       ├── theme_manager.py
+│       ├── color_manager.py
+│       ├── font_manager.py
+│       └── icon_manager.py
+├── helpers/                # Вспомогательные утилиты
+│   └── editor_history.py
+├── integrity/              # Проверка целостности
+│   ├── integrity_checker.py
+│   ├── mod_verifier.py
+│   └── game_data_processor.py
+├── language/               # Правила языков
+│   ├── language_rules.py
+│   ├── rules_engine.py
+│   ├── rules_validation.py
+│   └── rules_constants.py
+├── locales/                # Локализация интерфейса
 │   ├── ru.json
 │   ├── en.json
+│   ├── ua.json
+│   └── ja.json
+├── scanner/                # Сканер модов
+│   └── mod_scanner.py
+├── scripts/                # Утилиты и скрипты
+├── signals/                # Шина событий
+│   ├── signal_bus.py
+│   └── events.py
+├── translation/            # Модуль перевода
+│   ├── translator.py
+│   ├── translation_cache.py
+│   ├── glossary.py
+│   ├── matching.py
+│   ├── importer.py
+│   ├── keyed_merge.py
+│   ├── translation_merger.py
+│   ├── translation_utils.py
+│   ├── anchor_manager.py
+│   ├── per_def_generator.py
+│   ├── per_def.py
+│   ├── per_def_utils.py
+│   ├── obsolete_detector.py
+│   ├── proxy_manager.py
+│   ├── text_splitter.py
+│   ├── constants.py
+│   └── engines/            # Движки перевода (8+)
+│       ├── base.py
+│       ├── fallback_chain.py
+│       ├── google_engine.py
+│       ├── deepl_engine.py
+│       ├── bing_engine.py
+│       ├── mymemory_engine.py
+│       ├── deeplx_engine.py
+│       ├── libre_engine.py
+│       ├── translators_engine.py
+│       └── argos_engine.py
+├── utils/                  # Общие утилиты
+│   ├── error_handler.py
+│   ├── ui_helpers.py
+│   ├── xml_utils.py
+│   ├── path_utils.py
+│   ├── rimworld_xml.py
 │   └── ...
-└── docs/                    # Документация
+├── verification/           # Верификация и проверка
+│   ├── translation_validator.py
+│   ├── conflict_detector.py
+│   ├── report_generator.py
+│   ├── verification_coordinator.py
+│   └── xml_parser.py
+└── workers/                # Фоновые воркеры
+    ├── translation_worker.py
+    ├── duplicate_worker.py
+    ├── integrity_worker.py
+    ├── verification_worker.py
+    └── base_worker.py
 ```
 
 ---
@@ -310,6 +407,32 @@ pytest --cov=translation --cov-report=html
 
 ---
 
+## 🔍 Система верификации (16 проверок)
+
+Проект включает 16 автоматических проверок, разделённых на 2 категории:
+
+### 🏗️ Стандартные проверки (8)
+- **about_xml** — Корректность About.xml
+- **dependencies** — Проверка зависимостей модов
+- **translation_structure** — Структура XML переводов
+- **smart_revision** — Устаревшие переводы (через fuzzy-сопоставление)
+- **fuzzy_pollution** — Массовые fuzzy-совпадения
+- **anchor_consistency** — Согласованность якорей с Core
+- **cross_mod_conflicts** — Кросс-мод конфликты
+- **structural_integrity** — Целостность XML и переменных {0}
+
+### 🌐 Лингвистические проверки (8)
+- **case_inspector** — Проверка падежей после предлогов (для, от, из, у и т.д.)
+- **yo_inspector** — Выявление пропущенной буквы «Ё»
+- **style_lint** — Стилистический контроль (пассивный залог, канцелярит)
+- **lang_detector** — Детектор непереведённого английского текста
+- **rulepack_validator** — Валидация RulePackDef (синтаксис, токены, веса)
+- **grammar_consistency** — Согласование родов/падежей в списках
+- **llm_detector** — Детектор машинного перевода (галлюцинации)
+- **format_tag_validator** — Теги форматирования и [PAWN_gender ? : ] токены
+
+---
+
 ## 📝 Добавление нового языка интерфейса
 
 См. [locales/README.md](locales/README.md)
@@ -320,19 +443,27 @@ pytest --cov=translation --cov-report=html
 
 ```
 gui/help/
-├── editor_help_ru.json      # Справка на русском
-├── editor_help_en.json      # Справка на английском
-├── editor_tooltips_ru.json  # Тултипы на русском
-└── editor_tooltips_en.json  # Тултипы на английском
+├── __init__.py
+├── help_loader.py
+├── editor_help_ru.json
+├── editor_help_ua.json
+├── editor_help_en.json
+├── editor_help_ja.json
+├── editor_tooltips_ru.json
+├── editor_tooltips_ua.json
+├── editor_tooltips_en.json
+├── editor_tooltips_ja.json
+├── duplicates_help_ru.json
+├── duplicates_help_ua.json
+├── duplicates_help_en.json
+├── duplicates_help_ja.json
+├── filters_help_ru.json
+├── translation_help_ru.json
+├── verification_help_ru.json
+└── dependencies_help_ru.json
 ```
 
-Для добавления нового языка:
-1. Скопируйте `editor_help_ru.json` → `editor_help_<код>.json`
-2. Скопируйте `editor_tooltips_ru.json` → `editor_tooltips_<код>.json`
-3. Переведите содержимое
-4. Загрузчик автоматически использует fallback на `ru` если файл не найден
-
-Подробности: [gui/help/README.md](gui/help/README.md)
+Для добавления нового языка см. [gui/help/README.md](gui/help/README.md).
 
 ---
 
@@ -354,7 +485,7 @@ MIT License — см. файл [LICENSE](LICENSE)
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/rimworld-translator-grabber/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/rimworld-translator-grabber/discussions)
-- **Email**: your.email@example.com
+
 
 ---
 
