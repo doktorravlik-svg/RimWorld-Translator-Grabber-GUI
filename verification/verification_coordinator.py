@@ -224,122 +224,6 @@ class VerificationResult:
 
 
 # ============================================================================
-# ВСТРОЕННЫЕ ПРОВЕРКИ
-# ============================================================================
-
-
-class AboutXmlCheck(VerificationCheck):
-    """Проверка корректности About.xml"""
-
-    @property
-    def name(self) -> str:
-        return "about_xml"
-
-    @property
-    def description(self) -> str:
-        return "Проверка корректности About.xml"
-
-    def run(self, mod_info: dict, context: dict) -> CheckResult:
-        about_data = mod_info.get("about_data", {})
-
-        errors = []
-        if not about_data.get("mod_id"):
-            errors.append("Отсутствует packageId")
-        if not about_data.get("name"):
-            errors.append("Отсутствует название мода")
-
-        version = about_data.get("version", "0.0.0")
-        if not self._is_valid_version(version):
-            errors.append(f"Некорректный формат версии: {version}")
-
-        passed = len(errors) == 0
-        return CheckResult(
-            check_name=self.name,
-            passed=passed,
-            severity="error",
-            message="; ".join(errors) if errors else "About.xml корректен",
-            details={"errors": errors},
-        )
-
-    def _is_valid_version(self, version: str) -> bool:
-        try:
-            parts = version.split(".")
-            return len(parts) >= 2 and all(p.isdigit() for p in parts)
-        except (AttributeError, ValueError):
-            return False
-
-
-class DependenciesCheck(VerificationCheck):
-    """Проверка зависимостей мода"""
-
-    @property
-    def name(self) -> str:
-        return "dependencies"
-
-    @property
-    def description(self) -> str:
-        return "Проверка зависимостей мода"
-
-    def run(self, mod_info: dict, context: dict) -> CheckResult:
-        all_mods = context.get("all_mods", {})
-        dependencies = mod_info.get("dependencies", [])
-
-        missing = []
-        for dep in dependencies:
-            dep_id = dep.get("packageId") if isinstance(dep, dict) else str(dep)
-            if dep_id and dep_id not in all_mods:
-                missing.append(dep_id)
-
-        passed = len(missing) == 0
-        return CheckResult(
-            check_name=self.name,
-            passed=passed,
-            severity="warning",
-            message=f"Отсутствуют зависимости: {', '.join(missing)}"
-            if missing
-            else "Все зависимости найдены",
-            details={"missing": missing},
-        )
-
-
-class TranslationStructureCheck(VerificationCheck):
-    """Проверка структуры переводов"""
-
-    @property
-    def name(self) -> str:
-        return "translation_structure"
-
-    @property
-    def description(self) -> str:
-        return "Проверка структуры файлов переводов"
-
-    def run(self, mod_info: dict, context: dict) -> CheckResult:
-        mod_path = mod_info.get("mod_path", "")
-
-        # Проверяем наличие Languages
-        langs_path = os.path.join(mod_path, "Languages")
-        has_languages = os.path.exists(langs_path)
-
-        # Проверяем наличие Defs
-        defs_path = os.path.join(mod_path, "Defs")
-        has_defs = os.path.exists(defs_path)
-
-        warnings = []
-        if mod_info.get("is_translation") and not has_languages:
-            warnings.append("Переводной мод не содержит папку Languages")
-        if not has_defs and not has_languages:
-            warnings.append("Мод не содержит ни Defs, ни Languages")
-
-        return CheckResult(
-            check_name=self.name,
-            passed=len(warnings) == 0,
-            severity="warning",
-            message="; ".join(warnings) if warnings else "Структура переводов корректна",
-            details={"warnings": warnings},
-        )
-
-
-# ============================================================================
 # КООРДИНАТОР ВЕРИФИКАЦИИ
 # ============================================================================
 
@@ -369,10 +253,11 @@ class VerificationCoordinator:
         report = coordinator.generate_report(format='html')
     """
 
-    def __init__(self, mods_path: str, logger: logging.Logger | None = None, language: str = "ru"):
+    def __init__(self, mods_path: str, logger: logging.Logger | None = None, language: str = "ru", game_path: str | None = None):
         self.mods_path = mods_path
         self.logger = logger or logging.getLogger(__name__)
         self.language = language
+        self.game_path = game_path
 
         # Слушатели событий
         self.listeners: list[VerificationListener] = []
@@ -392,6 +277,7 @@ class VerificationCoordinator:
         self._conflict_detector: ConflictDetector | None = None
         self._translation_validator: TranslationValidator | None = None
         self._report_generator: ReportGenerator | None = None
+        self._game_data_loader: Any | None = None  # GameReferenceManager (lazy loaded)
 
         # Регистрируем встроенные проверки
         self._register_default_checks()
@@ -402,10 +288,77 @@ class VerificationCoordinator:
 
     def _register_default_checks(self) -> None:
         """Регистрирует встроенные проверки"""
+        # Ленивый импорт чтобы избежать циклических зависимостей
+        from .checks import (
+            AboutXmlCheck,
+            AnchorConsistencyCheck,
+            CoreAutoFillCheck,
+            CoreTerminologyConsistencyCheck,
+            CrossModConflictCheck,
+            DependenciesCheck,
+            FuzzyPollutionCheck,
+            OrphanTagDetectionCheck,
+            PathMigrationCheck,
+            SmartRevisionCheck,
+            StructuralIntegrityCheck,
+            TranslationStructureCheck,
+        )
         self.register_check(AboutXmlCheck())
         self.register_check(DependenciesCheck())
         self.register_check(TranslationStructureCheck())
-        self.logger.info("Зарегистрированы встроенные проверки")
+        self.register_check(SmartRevisionCheck())
+        self.register_check(FuzzyPollutionCheck())
+        self.register_check(AnchorConsistencyCheck())
+        self.register_check(OrphanTagDetectionCheck())
+        self.register_check(PathMigrationCheck())
+        self.register_check(CoreAutoFillCheck())
+        self.register_check(CoreTerminologyConsistencyCheck())
+        self.register_check(CrossModConflictCheck())
+        self.register_check(StructuralIntegrityCheck())
+        self.logger.info("Зарегистрированы встроенные проверки (12 шт.)")
+
+        # Инициализируем лингвистические проверки
+        # Оборачиваем инспекторы в адаптер для совместимости с интерфейсом VerificationCheck
+
+        from .checks import (
+            CaseInspector,
+            FormatTagValidator,
+            GrammarConsistencyChecker,
+            LangDetector,
+            LLMDetector,
+            RulePackValidator,
+            StyleLint,
+            YoInspector,
+        )
+
+        def wrap_check(name, description, instance, method_name='verify'):
+            class CheckAdapter(VerificationCheck):
+                @property
+                def name(self): return name
+                @property
+                def description(self): return description
+
+                def run(self, mod_info, context):
+                    # Проверки запускаются отдельно на каждом тексте в TranslationValidator
+                    return CheckResult(
+                        check_name=name,
+                        passed=True,
+                        severity="info",
+                        message=f"Проверка {name} загружена"
+                    )
+            return CheckAdapter()
+
+        # Регистрируем адаптеры проверок (реальная проверка выполняется в translation_validator)
+        self.register_check(wrap_check("case_inspector", "Проверка падежей после предлогов", CaseInspector()))
+        self.register_check(wrap_check("yo_inspector", "Проверка буквы Ё", YoInspector()))
+        self.register_check(wrap_check("style_lint", "Стилистический контроль", StyleLint()))
+        self.register_check(wrap_check("lang_detector", "Детектор непереведенного текста", LangDetector()))
+        self.register_check(wrap_check("rulepack_validator", "Валидация RulePackDef", RulePackValidator()))
+        self.register_check(wrap_check("grammar_consistency", "Согласование родов/падежей", GrammarConsistencyChecker()))
+        self.register_check(wrap_check("llm_detector", "Детектор машинного перевода (LLM)", LLMDetector()))
+        self.register_check(wrap_check("format_tag_validator", "Проверка тегов форматирования и токенов", FormatTagValidator()))
+
+        self.logger.info("Зарегистрированы лингвистические проверки (8 шт.)")
 
     def add_listener(self, listener: VerificationListener) -> None:
         """Добавить listener для событий"""
@@ -566,6 +519,28 @@ class VerificationCoordinator:
 
         self._report_generator = ReportGenerator(self.logger)
 
+        # ✅ НОВОЕ: Загрузка официальных данных игры (Core/DLC) для верификации
+        if self.game_path:
+            try:
+                from integrity.game_data_processor import GameReferenceManager
+                self._game_data_loader = GameReferenceManager(
+                    game_path=self.game_path,
+                    lang=self.language
+                )
+                success = self._game_data_loader.load_all_official_data()
+                if success:
+                    self.logger.info(
+                        f"Загружено {len(self._game_data_loader.reference_db)} строк из официальных данных игры"
+                    )
+                else:
+                    self.logger.warning("Не удалось загрузить официальные данные игры")
+                    self._game_data_loader = None
+            except Exception as e:
+                self.logger.error(f"Ошибка загрузки официальных данных: {e}")
+                self._game_data_loader = None
+        else:
+            self.logger.info("game_path не указан, пропуск загрузки официальных данных")
+
         self.logger.info("Модули системы инициализированы")
 
     def _run_checks(self) -> None:
@@ -597,10 +572,20 @@ class VerificationCoordinator:
             parent_mod_id=mod_info.get("parent_mod_id"),
         )
 
-        context = {"mod_info": mod_info, "all_mods": self._mods_cache, "mods_path": self.mods_path}
+        # Расширенный контекст для проверок
+        context = {
+            "mod_info": mod_info,
+            "all_mods": self._mods_cache,
+            "mods_path": self.mods_path,
+            "target_language": self.language,
+            "conflict_detector": self._conflict_detector,
+            "dependency_checker": self._dependency_checker,
+            "translation_validator": self._translation_validator,
+            "game_data_loader": self._game_data_loader,  # ✅ НОВОЕ: официальные данные игры
+        }
 
         # Получаем файл для контекста
-        file_path = mod_info.get("about_path", "")  # Путь к About.xml
+        file_path = mod_info.get("about_path", "")
 
         # Выполняем каждую проверку
         for check in self.checks:
@@ -735,7 +720,7 @@ class VerificationCoordinator:
             if not mod_path:
                 continue
 
-            # Проверяем наличие английной папки
+            # Проверяем наличие английской папки
             keyed_path = os.path.join(mod_path, "Languages", english_folder, "Keyed")
             if not os.path.exists(keyed_path):
                 continue
@@ -937,6 +922,7 @@ def run_verification(
     format: str = "html",
     language: str = "ru",
     logger: logging.Logger = None,
+    game_path: str | None = None,
 ) -> list[VerificationResult]:
     """
     Удобная функция для запуска верификации.
@@ -947,11 +933,12 @@ def run_verification(
         format: Формат отчета
         language: Язык валидации
         logger: Логгер
+        game_path: Путь к папке RimWorld (для загрузки официальных данных)
 
     Returns:
         Список результатов верификации
     """
-    coordinator = VerificationCoordinator(mods_path, logger, language)
+    coordinator = VerificationCoordinator(mods_path, logger, language, game_path)
     results = coordinator.run_verification()
 
     if output_path:
