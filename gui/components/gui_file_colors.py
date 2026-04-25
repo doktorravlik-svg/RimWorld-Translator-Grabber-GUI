@@ -9,7 +9,9 @@
 """
 
 import os
-import xml.etree.ElementTree as ET
+
+from lxml import etree
+from verification.xml_parser import safe_parse_xml
 
 try:
     from gui.gui_i18n import tr
@@ -59,8 +61,9 @@ class FileColorMarker:
             return FILE_COLORS["missing"]
 
         try:
-            tree = ET.parse(file_path)
-            root = tree.getroot()
+            root = safe_parse_xml(file_path)
+            if root is None:
+                return FILE_COLORS["error"]
 
             # Считаем записи
             total_entries = 0
@@ -93,7 +96,7 @@ class FileColorMarker:
 
             return FILE_COLORS["empty"]
 
-        except ET.ParseError:
+        except etree.XMLSyntaxError:
             return FILE_COLORS["error"]
         except Exception:
             return FILE_COLORS["error"]
