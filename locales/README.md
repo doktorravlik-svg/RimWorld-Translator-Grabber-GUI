@@ -73,7 +73,7 @@ python -c "import json; json.load(open('locales/de.json',encoding='utf-8')); pri
 Или расширенную проверку:
 
 ```bash
-python scripts/validate_locale.py locales/de.json
+python scripts/validate_locales.py locales/de.json
 ```
 
 ### Шаг 4: Протестировать
