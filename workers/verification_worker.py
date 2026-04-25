@@ -52,7 +52,8 @@ class VerificationWorker(BaseWorker):
         mods_folder: str,
         checks: list[str] | None = None,
         logger: logging.Logger | None = None,
-        language: str = "Russian",  # Язык для верификации
+        language: str = "Russian",
+        game_path: str | None = None,
     ):
         """
         Инициализация VerificationWorker.
@@ -62,13 +63,15 @@ class VerificationWorker(BaseWorker):
             checks: Список названий проверок для выполнения (None - все проверки)
             logger: Логгер для вывода сообщений
             language: Язык для верификации ('Russian', 'English', etc.)
+            game_path: Путь к папке RimWorld (для загрузки официальных данных)
         """
         super().__init__()
 
         self.mods_folder = mods_folder
         self.checks = checks or []
         self.logger = logger or logging.getLogger(__name__)
-        self.language = language  # Сохраняем язык
+        self.language = language
+        self.game_path = game_path  # Сохраняем
 
         # Координатор верификации
         self._coordinator: VerificationCoordinator | None = None
@@ -95,6 +98,7 @@ class VerificationWorker(BaseWorker):
                 mods_path=self.mods_folder,
                 logger=self.logger,
                 language=self.language,  # Передаём язык
+                game_path=self.game_path,  # Передаём путь к игре
             )
 
             # Регистрация проверок

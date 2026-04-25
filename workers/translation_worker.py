@@ -92,12 +92,12 @@ class TranslationWorker(BaseWorker):
         from utils.log_formatter import LogSection
 
         self.logger.info("═══════════════════════════════════════════════════════")
-        self.logger.info(f"🚀 НАЧАЛО ПЕРЕВОДА: {self.source_lang} → {self.target_lang}")
+        self.logger.info(f"НАЧАЛО ПЕРЕВОДА: {self.source_lang} → {self.target_lang}")
         self.logger.info("═══════════════════════════════════════════════════════")
 
         self._progress(0, 100, "Инициализация переводчика...")
         try:
-            with LogSection(self, "📦 Инициализация", "🔧") as section:
+            with LogSection(self, "Инициализация", "") as section:
                 self._auto_translator = AutoTranslator(
                     enabled=True,
                     logger=self.logger,
@@ -106,22 +106,22 @@ class TranslationWorker(BaseWorker):
                 )
                 if not self._auto_translator.enabled:
                     section.add_item(
-                        "⚠️ Переводчик отключен - будут использованы только существующие переводы",
+                        "Переводчик отключен - будут использованы только существующие переводы",
                         "warning",
                     )
                     self._warnings.append("Переводчик отключен")
                 else:
-                    section.add_item("✅ Переводчик инициализирован")
+                    section.add_item("Переводчик инициализирован")
 
                 os.makedirs(self.output_folder, exist_ok=True)
-                section.add_item(f"📁 Папка вывода: {self.output_folder}")
+                section.add_item(f"Папка вывода: {self.output_folder}")
 
             mods = self._scan_mods()
             if not mods:
-                self.logger.info("ℹ️ Моды для обработки не найдены")
+                self.logger.info("Моды для обработки не найдены")
                 return TranslationResultDTO(success=True, warnings=self._warnings)
 
-            self.logger.info(f"\n📊 Найдено модов: {len(mods)}")
+            self.logger.info(f"\nНайдено модов: {len(mods)}")
             self.logger.info("━" * 60)
 
             for idx, mod_path in enumerate(mods):
@@ -129,14 +129,14 @@ class TranslationWorker(BaseWorker):
                     break
 
                 mod_name = os.path.basename(mod_path)
-                self.logger.info(f"\n📦 [{idx + 1}/{len(mods)}] Обработка мода: {mod_name}")
+                self.logger.info(f"\n[{idx + 1}/{len(mods)}] Обработка мода: {mod_name}")
                 self.logger.info("─" * 60)
 
                 self._progress(
                     20 + int((idx / len(mods)) * 70), 100, f"Перевод {idx + 1}/{len(mods)}"
                 )
 
-                with LogSection(self, f"Мод: {mod_name}", "📦") as section:
+                with LogSection(self, f"Мод: {mod_name}", "") as section:
                     self._translate_mod(mod_path, section)
 
             if not self._auto_translator or not self._auto_translator.enabled:
@@ -145,7 +145,7 @@ class TranslationWorker(BaseWorker):
             self._progress(100, 100, "Перевод завершён")
 
             self.logger.info(f"\n{'=' * 60}")
-            self.logger.info("✅ ПЕРЕВОД ЗАВЕРШЁН")
+            self.logger.info("ПЕРЕВОД ЗАВЕРШЁН")
             self.logger.info(f"{'=' * 60}")
             self.logger.info(f"   Модов обработано: {self._mods_processed}")
             self.logger.info(f"   Переведено записей: {self._translations_count}")
@@ -164,7 +164,7 @@ class TranslationWorker(BaseWorker):
             )
         except Exception as e:
             self._errors.append(str(e))
-            self.logger.error(f"\n❌ КРИТИЧЕСКАЯ ОШИБКА: {e}")
+            self.logger.error(f"\nКРИТИЧЕСКАЯ ОШИБКА: {e}")
             raise
 
     def _scan_mods(self) -> list[str]:
@@ -240,10 +240,10 @@ class TranslationWorker(BaseWorker):
             all_defs_folders = find_all_defs_folders(mod_path)
 
             if section:
-                section.add_item(f"📁 Папок Languages: {len(prioritized_lang_folders)}", "info")
-                section.add_item(f"📁 Папок Defs: {len(all_defs_folders)}", "info")
+                section.add_item(f"Папок Languages: {len(prioritized_lang_folders)}", "info")
+                section.add_item(f"Папок Defs: {len(all_defs_folders)}", "info")
 
-            # ✅ ВАЖНО: Сохраняем для использования в методах обработки
+            # ВАЖНО: Сохраняем для использования в методах обработки
             self._current_mod_output = mod_output
             self._current_defs_folders = all_defs_folders
 
@@ -267,16 +267,14 @@ class TranslationWorker(BaseWorker):
             )
 
             if section:
-                section.add_item(f"🔑 Keyed обработано: {translations_count} записей", "success")
+                section.add_item(f"Keyed обработано: {translations_count} записей", "success")
 
             self._progress(60, 100, f"Обработка DefInjected файлов: {mod_name}")
             defs_translations = self._process_defs(all_defs_folders, mod_path, mod_output)
             translations_count += defs_translations
 
             if section:
-                section.add_item(
-                    f"📝 DefInjected обработано: {defs_translations} файлов", "success"
-                )
+                section.add_item(f"DefInjected обработано: {defs_translations} файлов", "success")
 
             # 4. Финализация (создание About.xml для separate mode)
             self._progress(85, 100, f"Финализация: {mod_name}")
@@ -387,27 +385,27 @@ class TranslationWorker(BaseWorker):
         mod_version = "1.6"  # Версия по умолчанию
 
         try:
-            import xml.etree.ElementTree as ET
+            import lxml.etree as etree
 
             original_about = os.path.join(original_mod_path, "About", "About.xml")
             if os.path.exists(original_about):
-                tree = ET.parse(original_about)
-                root = tree.getroot()
-                package_id_elem = root.find("packageId")
-                if package_id_elem is not None and package_id_elem.text:
-                    original_package_id = package_id_elem.text.strip()
+                root = safe_parse_xml(original_about)
+                if root is not None:
+                    package_id_elem = root.find("packageId")
+                    if package_id_elem is not None and package_id_elem.text:
+                        original_package_id = package_id_elem.text.strip()
 
-                # Извлекаем версию из оригинального мода
-                version_elem = root.find("version")
-                if version_elem is not None and version_elem.text:
-                    mod_version = version_elem.text.strip()
-                else:
-                    # Пробуем найти в supportedVersions
-                    supported_versions = root.find("supportedVersions")
-                    if supported_versions is not None:
-                        version_list = [v.text.strip() for v in supported_versions if v.text]
-                        if version_list:
-                            mod_version = sorted(version_list, reverse=True)[0]
+                    # Извлекаем версию из оригинального мода
+                    version_elem = root.find("version")
+                    if version_elem is not None and version_elem.text:
+                        mod_version = version_elem.text.strip()
+                    else:
+                        # Пробуем найти в supportedVersions
+                        supported_versions = root.find("supportedVersions")
+                        if supported_versions is not None:
+                            version_list = [v.text.strip() for v in supported_versions if v.text]
+                            if version_list:
+                                mod_version = sorted(version_list, reverse=True)[0]
         except Exception as e:
             self.logger.warning(f"Не удалось прочитать метаданные: {e}")
 
@@ -484,9 +482,9 @@ class TranslationWorker(BaseWorker):
                 os.makedirs(output_dir, exist_ok=True)
 
             # Записываем XML
-            import xml.etree.ElementTree as ET
+            import lxml.etree as etree
 
-            tree = ET.ElementTree(root)
+            tree = etree.ElementTree(root)
             tree.write(output_file, encoding="utf-8", xml_declaration=True)
         except Exception as e:
             self._warnings.append(f"Ошибка парсинга XML {source_file}: {e}")
@@ -527,17 +525,18 @@ class TranslationWorker(BaseWorker):
         if not os.path.exists(target_lang_folder):
             return result
         result["exists"] = True
-        import xml.etree.ElementTree as ET
+        import lxml.etree as etree
 
         for root, _, files in os.walk(target_lang_folder):
             for f in files:
                 if f.endswith(".xml"):
                     result["files_count"] += 1
                     try:
-                        tree = ET.parse(os.path.join(root, f))
-                        for elem in tree.getroot().iter():
-                            if elem.text and elem.text.strip():
-                                result["entries_count"] += 1
+                        xml_root = safe_parse_xml(os.path.join(root, f))
+                        if xml_root is not None:
+                            for elem in xml_root.iter():
+                                if elem.text and elem.text.strip():
+                                    result["entries_count"] += 1
                     except Exception:
                         pass
         return result
@@ -556,7 +555,7 @@ class TranslationWorker(BaseWorker):
         - Обнаружение устаревших тегов
         - Универсальная проверка папок (Ability/ vs AbilityDef/)
         """
-        import xml.etree.ElementTree as ET
+        import lxml.etree as etree
 
         from collectors.collectors import (
             collect_defs_full,
@@ -635,8 +634,9 @@ class TranslationWorker(BaseWorker):
                                 content = f.read()
 
                             # Парсим XML для тегов
-                            tree = ET.parse(path)
-                            root = tree.getroot()
+                            root = safe_parse_xml(path)
+                            if root is None:
+                                continue
 
                             # Ищем EN: комментарии в тексте
                             import re
@@ -708,25 +708,25 @@ class TranslationWorker(BaseWorker):
             )
             return 0
 
-        import xml.etree.ElementTree as ET
+        import lxml.etree as etree
 
         try:
-            tree = ET.parse(source_file)
-            root = tree.getroot()
-            for def_elem in root:
-                if not isinstance(def_elem, ET.Element):
-                    continue
-                if def_elem.get("Abstract", "false").lower() == "true":
-                    continue
-                def_name_elem = def_elem.find("defName")
-                if def_name_elem is None or not def_name_elem.text:
-                    continue
-                def_name = def_name_elem.text.strip().replace(" ", "_")
-                def_type = def_elem.tag
-                entries = self._extract_translatable_strings(
-                    def_elem, def_type, def_name, {t.lower() for t in TRANSLATABLE_TAGS}
-                )
-                extracted_entries.extend(entries)
+            root = safe_parse_xml(source_file)
+            if root is not None:
+                for def_elem in root:
+                    if not isinstance(def_elem, etree._Element):
+                        continue
+                    if def_elem.get("Abstract", "false").lower() == "true":
+                        continue
+                    def_name_elem = def_elem.find("defName")
+                    if def_name_elem is None or not def_name_elem.text:
+                        continue
+                    def_name = def_name_elem.text.strip().replace(" ", "_")
+                    def_type = def_elem.tag
+                    entries = self._extract_translatable_strings(
+                        def_elem, def_type, def_name, {t.lower() for t in TRANSLATABLE_TAGS}
+                    )
+                    extracted_entries.extend(entries)
             translated_entries = []
             for def_type, def_name, path, original_text in extracted_entries:
                 if self._auto_translator and self._auto_translator.enabled:
@@ -746,7 +746,7 @@ class TranslationWorker(BaseWorker):
                     translations_count += 1
             if translated_entries:
                 self._write_def_injected_file(output_file, translated_entries)
-        except ET.ParseError as e:
+        except etree.XMLSyntaxError as e:
             self._warnings.append(f"Ошибка парсинга XML {source_file}: {e}")
         return translations_count
 
