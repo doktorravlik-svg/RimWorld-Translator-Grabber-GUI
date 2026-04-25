@@ -1,121 +1,80 @@
-# 🌍 Локализация интерфейса
+🌍 Interface Localization
+This folder contains translation files for RimWorld Translator Grabber.
 
-Эта папка содержит файлы переводов для RimWorld Translator Grabber.
-
-## 📁 Структура файлов
-
-Каждый язык хранится в **отдельном файле** с простым именем:
-
-```
+📁 File Structure
+Each language is stored in a separate file with a simple name:
 locales/
 ├── ru.json      # Русский
 ├── en.json      # English
 ├── ua.json      # Українська
 ├── ja.json      # 日本語
-└── README.md    # Этот файл
-```
+└── README.md    # This file
 
-## 🚀 Как добавить новый язык (5 минут)
-
-### Шаг 1: Создать файл перевода
-
-Скопируйте существующий файл (например, `en.json`) и переименуйте его в `{код_языка}.json`:
-
-```bash
-# Пример для немецкого языка:
+🚀 How to Add a New Language (5 minutes)
+**Step 1: Create a Translation File**
+Copy an existing file (e.g., `en.json`) and rename it to `{language_code}.json`:
+# Example for German:
 copy locales\en.json locales\de.json
-```
 
-**Популярные коды языков:**
-- `de` — Deutsch (немецкий)
-- `fr` — Français (французский)
-- `es` — Español (испанский)
-- `it` — Italiano (итальянский)
-- `pl` — Polski (польский)
-- `zh` — 中文 (китайский)
-- `ko` — 한국어 (корейский)
+Popular language codes:
+- `de` — Deutsch (German)
+- `fr` — Français (French)
+- `es` — Español (Spanish)
+- `it` — Italiano (Italian)
+- `pl` — Polski (Polish)
+- `zh` — 中文 (Chinese)
+- `ko` — 한국어 (Korean)
 
-### Шаг 2: Перевести значения
-
-Откройте файл и переведите **только значения** (правая часть). **НЕ меняйте ключи!**
-
-```json
+**Step 2: Translate Values**
+Open the file and translate only the values (right side). Do NOT change the keys!
 {
   "de": {
-    "app_title": "RimWorld Translator Grabber",  ← переведено
-    "menu_file": "Datei",                        ← переведено
-    "menu_exit": "Beenden",                      ← переведено
+    "app_title": "RimWorld Translator Grabber",  ← translated
+    "menu_file": "Datei",                        ← translated
+    "menu_exit": "Beenden",                      ← translated
     ...
   }
 }
-```
-
-❌ **НЕЛЬЗЯ:**
-```json
+❌ DO NOT:
 {
-  "menu_file": "Datei",  ← ключ изменён — ПЛОХО!
+  "menu_file": "Datei",  ← key changed — BAD!
 }
-```
-
-✅ **МОЖНО:**
-```json
+✅ DO:
 {
-  "menu_file": "Datei"  ← ключ сохранён, значение переведено — ХОРОШО!
+  "menu_file": "Datei"  ← key preserved, value translated — GOOD!
 }
-```
 
-### Шаг 3: Проверить файл
-
-```bash
-python -c "import json; json.load(open('locales/de.json',encoding='utf-8')); print('✅ Файл валиден!')"
-```
-
-Или расширенную проверку:
-
-```bash
+**Step 3: Validate the File**
+python -c "import json; json.load(open('locales/de.json',encoding='utf-8')); print('✅ File is valid!')"
+Or run extended validation:
 python scripts/validate_locales.py locales/de.json
-```
 
-### Шаг 4: Протестировать
+**Step 4: Test**
+- Launch the application
+- Open the 🌐 Interface Language menu
+- Select the new language
+- Verify that all texts are translated
 
-1. Запустите приложение
-2. Откройте меню **🌐 Язык интерфейса**
-3. Выберите новый язык
-4. Проверьте, все ли тексты переведены
+**Step 5: Submit a PR**
+Create a Pull Request with your translation file.
 
-### Шаг 5: Отправить PR
+🔧 Automatic Installation
+A new language appears automatically when a `locales/{code}.json` file exists.
+No additional registration required!
 
-Создайте Pull Request с файлом перевода.
+📝 Translation Rules
+**Formatting**
+✅ Use UTF-8 encoding
+✅ Preserve emojis (📦, ✅, 🌐, etc.)
+✅ Preserve trailing spaces in lines (if present in the original)
 
----
+**Special Characters**
+- `\n` — new line
+- `\"` — quote inside a string
+- `\\` — backslash
 
-## 🔧 Автоматическая установка
-
-Новый язык появляется **автоматически** при наличии файла `locales/{код}.json`.
-
-Ничего больше регистрировать не нужно!
-
----
-
-## 📝 Правила перевода
-
-### Форматирование
-
-- ✅ Используйте **UTF-8** кодировку
-- ✅ Сохраняйте **эмодзи** (📦, ✅, 🌐 и т.д.)
-- ✅ Сохраняйте **пробелы** в конце строк (если они есть в оригинале)
-
-### Специальные символы
-
-- `\n` — новая строка
-- `\"` — кавычка внутри строки
-- `\\` — обратный слэш
-
-### Статусы перевода
-
-В начале файла можно добавить комментарий:
-
-```json
+**Translation Status**
+You can add a comment at the beginning of the file:
 {
   "_meta": {
     "language": "de",
@@ -127,45 +86,32 @@ python scripts/validate_locales.py locales/de.json
     ...
   }
 }
-```
 
----
+🐛 Troubleshooting
+**Translation not loading**
+- Cause: Invalid JSON file
+- Solution: Validate the file using `python -m json.tool locales/de.json`
 
-## 🐛 Проблемы и решения
+**Some strings not translated**
+- Cause: Missing keys
+- Solution: Compare with `en.json` and add missing keys
 
-### Перевод не загружается
+**Text gets cut off**
+- Cause: Translation too long
+- Solution: Shorten the text or use abbreviations
 
-**Причина:** Файл не валидный JSON  
-**Решение:** Проверьте файл через `python -m json.tool locales/de.json`
+💡 Tips
+- Use the original file as a template — don't start from scratch
+- Context matters — keys indicate where the string is used:
+  - `menu.*` — menu items
+  - `tab.*` — tab names
+  - `editor.*` — translation editor
+  - `dialog.*` — dialog windows
+  - `status.*` — status bar
+- Test frequently — run the app after every 50-100 lines
+- Preserve emojis — they are part of the UI
 
-### Некоторые строки не переведены
+📞 Help
+If you have questions — create an Issue on GitHub or contact the developers.
 
-**Причина:** Отсутствуют ключи  
-**Решение:** Сравните с `en.json` и добавьте недостающие
-
-### Текст обрезается
-
-**Причина:** Слишком длинный перевод  
-**Решение:** Сократите текст или используйте сокращения
-
----
-
-## 💡 Советы
-
-1. **Используйте оригинальный файл как шаблон** — не начинайте с нуля
-2. **Контекст важен** — ключи показывают где используется строка
-   - `menu.*` — пункты меню
-   - `tab.*` — названия вкладок
-   - `editor.*` — редактор переводов
-   - `dialog.*` — диалоговые окна
-   - `status.*` — статус-бар
-3. **Тестируйте часто** — запускайте приложение после каждых 50-100 строк
-4. **Сохраняйте эмодзи** — они часть интерфейса
-
----
-
-## 📞 Помощь
-
-Если есть вопросы — создайте Issue на GitHub или свяжитесь с разработчиками.
-
-✨ **Спасибо за ваш вклад в локализацию!**
+✨ Thank you for contributing to localization!
