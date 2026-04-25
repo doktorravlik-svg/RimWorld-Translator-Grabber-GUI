@@ -2,7 +2,8 @@
 import os
 import shutil
 import tempfile
-import xml.etree.ElementTree as ET
+import lxml.etree as etree
+from verification.xml_parser import safe_parse_xml
 from collections import defaultdict
 
 
@@ -183,8 +184,9 @@ def scan_translations(directory: str, logger=None, mod_path=None) -> dict[str, l
 
             filepath = os.path.join(root, filename)
             try:
-                tree = ET.parse(filepath)
-                xml_root = tree.getroot()
+                xml_root = safe_parse_xml(filepath)
+                if xml_root is None:
+                    continue
 
                 for child in xml_root:
                     tag = child.tag
@@ -277,8 +279,9 @@ def merge_duplicates(
                 continue
 
             try:
-                tree = ET.parse(entry["file"])
-                root = tree.getroot()
+                root = safe_parse_xml(entry["file"])
+                if root is None:
+                    continue
 
                 found = False
                 for child in root:
@@ -296,7 +299,7 @@ def merge_duplicates(
                     if logger:
                         logger.info(f"Удалён пустой файл: {entry['file']}")
                 else:
-                    tree = ET.ElementTree(root)
+                    tree = etree.Element("root")
                     tree.write(entry["file"], encoding="utf-8", xml_declaration=True)
 
             except Exception as e:
