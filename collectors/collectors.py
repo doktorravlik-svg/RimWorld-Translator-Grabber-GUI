@@ -157,11 +157,11 @@ def collect_defs_with_meta(defs_dir, logger=None, filters_config=None):
 
             path = os.path.join(root_dir, fn)
             tree = parse_xml_file(path, logger)
-            if not tree:
+            if tree is None:
                 continue
 
             try:
-                root = tree.getroot()
+                root = tree
                 if root is None:
                     continue
 
@@ -241,9 +241,7 @@ def collect_english_source(lang_eng_dir, logger=None):
                 continue
             tree = parse_xml_file(os.path.join(root_dir, fn), logger)
             if tree:
-                root = tree.getroot()
-                if root is None:
-                    continue
+                root = tree
                 for c in root:
                     if c.tag in ("LanguageData", "Keyed"):
                         continue
@@ -268,9 +266,7 @@ def collect_keyed_entities(lang_eng_dir, logger=None):
                 continue
             tree = parse_xml_file(os.path.join(root_dir, fn), logger)
             if tree:
-                root = tree.getroot()
-                if root is None:
-                    continue
+                root = tree
                 kv = {
                     c.tag: c.text.strip()
                     for c in root
@@ -297,9 +293,7 @@ def collect_existing_translations(target_lang_dir, logger=None):
             path = os.path.join(root_dir, fn)
             tree = parse_xml_file(path, logger)
             if tree:
-                root = tree.getroot()
-                if root is None:
-                    continue
+                root = tree
                 for c in root:
                     if c.tag and c.text:
                         emap[c.tag] = c.text.strip()
@@ -349,6 +343,12 @@ def collect_defs_with_parent_resolution(
     from utils.def_field_enhancer import enhance_def_element
 
     # Шаг 2: Проходим по всем XML файлам и извлекаем Defs
+    if logger:
+        logger.info(f"  Начало обработки папки Defs: {defs_dir}")
+
+    processed_count = 0
+    skipped_count = 0
+
     for root_dir, _, files in safe_walk(defs_dir, max_depth=10):
         for fn in files:
             if not fn.lower().endswith(".xml"):
@@ -356,14 +356,16 @@ def collect_defs_with_parent_resolution(
 
             path = os.path.join(root_dir, fn)
             tree = parse_xml_file(path, logger)
-            if not tree:
+            if tree is None:
+                skipped_count += 1
+                if logger:
+                    logger.debug(f"  Пропущен файл: {os.path.basename(path)}")
                 continue
 
-            try:
-                root = tree.getroot()
-                if root is None:
-                    continue
+            processed_count += 1
 
+            try:
+                root = tree
                 for def_el in root:
                     if not isinstance(def_el.tag, str):
                         continue
