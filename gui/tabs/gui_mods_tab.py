@@ -17,8 +17,10 @@ from gui.constants import (
     PAD_Y,
 )
 from gui.gui_i18n import tr
+from lxml import etree
 from ttkbootstrap.constants import *
 from ttkbootstrap.tooltip import ToolTip
+from verification.xml_parser import safe_parse_xml
 
 
 class ModsManagerTab(ttk.Frame):
@@ -332,7 +334,6 @@ class ModsManagerTab(ttk.Frame):
 
     def _parse_about(self, about_path: str, mod_path: str) -> dict:
         """Парсить About.xml"""
-        import xml.etree.ElementTree as ET
 
         info = {
             "mod_id": os.path.basename(mod_path),
@@ -344,8 +345,9 @@ class ModsManagerTab(ttk.Frame):
             "parent_mod_id": None,
         }
         try:
-            tree = ET.parse(about_path)
-            root = tree.getroot()
+            root = safe_parse_xml(about_path)
+            if root is None:
+                raise etree.XMLSyntaxError("Empty or invalid XML")
             for field in ["packageId", "name", "author", "version"]:
                 elem = root.find(field)
                 if elem is not None and elem.text:
@@ -357,7 +359,7 @@ class ModsManagerTab(ttk.Frame):
                 if target_id is not None and target_id.text:
                     info["is_translation"] = True
                     info["parent_mod_id"] = target_id.text.strip()
-        except ET.ParseError as e:
+        except etree.XMLSyntaxError as e:
             logging.getLogger(__name__).warning(f"Ошибка парсинга {about_path}: {e}")
             # ✅ НОВОЕ: При ошибке парсинга помечаем мод как проблемный
             info["parse_error"] = True
@@ -543,7 +545,7 @@ class ModsManagerTab(ttk.Frame):
 
     def _on_filter_change_debounced(self, event=None):
         """Debounce для фильтрации модов (300мс задержка)"""
-        if self._filter_debounce_timer:
+        if hasattr(self, '_filter_debounce_timer') and self._filter_debounce_timer:
             self.after_cancel(self._filter_debounce_timer)
         self._filter_debounce_timer = self.after(300, self._apply_filters)
 

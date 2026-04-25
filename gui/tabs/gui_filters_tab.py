@@ -135,6 +135,8 @@ DEFAULT_PATTERNS = [
     "shader",
     "mesh",
     "costList",
+    r".*\.points\.\d+",
+    r".*\.li\d*",
 ]
 
 DEFAULT_PRIORITY_SUFFIXES = [
