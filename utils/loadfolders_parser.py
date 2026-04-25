@@ -21,7 +21,8 @@
 """
 
 import os
-import xml.etree.ElementTree as ET
+import lxml.etree as etree
+from verification.xml_parser import safe_parse_xml
 
 # Версии для которых ищем LoadFolders
 SUPPORTED_VERSIONS = ["1.6", "1.5", "1.4", "1.3"]
@@ -43,8 +44,9 @@ def parse_loadfolders(mod_path: str, target_version: str = None) -> list[str]:
         return []
 
     try:
-        tree = ET.parse(loadfolders_path)
-        root = tree.getroot()
+        root = safe_parse_xml(loadfolders_path)
+        if root is None:
+            return []
     except Exception:
         return []
 
@@ -259,18 +261,18 @@ def _detect_version(mod_path: str) -> str | None:
     about_path = os.path.join(mod_path, "About", "About.xml")
     if os.path.exists(about_path):
         try:
-            tree = ET.parse(about_path)
-            root = tree.getroot()
-            sv = root.find("supportedVersions")
-            if sv is not None:
-                versions = [li.text.strip() for li in sv.findall("li") if li.text]
-                # Возвращаем самую новую версию
-                for version in SUPPORTED_VERSIONS:
-                    if version in versions:
-                        return version
-                # Или последнюю из списка
-                if versions:
-                    return versions[-1]
+            root = safe_parse_xml(about_path)
+            if root is not None:
+                sv = root.find("supportedVersions")
+                if sv is not None:
+                    versions = [li.text.strip() for li in sv.findall("li") if li.text]
+                    # Возвращаем самую новую версию
+                    for version in SUPPORTED_VERSIONS:
+                        if version in versions:
+                            return version
+                    # Или последнюю из списка
+                    if versions:
+                        return versions[-1]
         except Exception:
             pass
 

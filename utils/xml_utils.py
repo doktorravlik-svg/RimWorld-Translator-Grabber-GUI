@@ -7,7 +7,7 @@
 """
 
 import os
-import xml.etree.ElementTree as ET
+from lxml import etree
 from typing import Optional
 
 # Импортируем основные функции из verification/xml_parser.py
@@ -24,27 +24,27 @@ from verification.xml_parser import (
 )
 
 
-def read_xml_text(file_path: str) -> Optional[ET.ElementTree]:
+def read_xml_text(file_path: str) -> etree._Element | None:
     """
-    Читает XML файл и возвращает ElementTree.
-    
+    Читает XML файл и возвращает корневой Element.
+
     Args:
         file_path: Путь к XML файлу
-    
+
     Returns:
-        ElementTree или None при ошибке
+        Корневой Element или None при ошибке
     """
     return parse_xml_file(file_path)
 
 
-def write_xml_text(tree: ET.ElementTree, file_path: str) -> bool:
+def write_xml_text(tree: etree._Element, file_path: str) -> bool:
     """
     Записывает XML дерево в файл с красивым форматированием.
-    
+
     Args:
-        tree: XML ElementTree
+        tree: XML Element
         file_path: Путь для записи
-    
+
     Returns:
         True при успехе, False при ошибке
     """
@@ -81,10 +81,10 @@ def get_xml_entries(file_path: str) -> dict[str, str]:
     Returns:
         Словарь {ключ: значение}
     """
-    root = safe_parse_xml(file_path)
-    if root is None:
+    tree = safe_parse_xml(file_path)
+    if tree is None:
         return {}
-    return get_entries_from_xml(root)
+    return get_entries_from_xml(tree)
 
 
 def create_keyed_xml(entries: dict[str, str], file_path: str) -> bool:
@@ -99,12 +99,12 @@ def create_keyed_xml(entries: dict[str, str], file_path: str) -> bool:
         True при успехе, False при ошибке
     """
     try:
-        root = ET.Element("Keyed")
+        root = etree.Element("Keyed")
         for key, value in entries.items():
-            elem = ET.SubElement(root, key)
+            elem = etree.SubElement(root, key)
             elem.text = value
-        
-        tree = ET.ElementTree(root)
+
+        tree = etree.ElementTree(root)
         return write_tree_pretty(tree, file_path)
     except Exception:
         return False
@@ -113,5 +113,7 @@ def create_keyed_xml(entries: dict[str, str], file_path: str) -> bool:
 def safe_walk(*args, **kwargs):
     """
     Безопасный walk для XML элементов (обратная совместимость).
+    Делегирует в utils.fs_utils.safe_walk.
     """
-    return ET.ElementTree(*args).getroot()
+    from utils.fs_utils import safe_walk as _fs_safe_walk
+    return _fs_safe_walk(*args, **kwargs)

@@ -3,7 +3,8 @@
 """
 
 import os
-import xml.etree.ElementTree as ET
+import lxml.etree as etree
+from verification.xml_parser import safe_parse_xml
 
 
 def get_mod_version(mod_path: str) -> str | None:
@@ -24,8 +25,9 @@ def get_mod_version(mod_path: str) -> str | None:
             return None
 
     try:
-        tree = ET.parse(about_file)
-        root = tree.getroot()
+        root = safe_parse_xml(about_file)
+        if root is None:
+            return None
 
         # Ищем version
         for version_tag in root.iter("version"):
@@ -65,12 +67,13 @@ def get_mod_name(mod_path: str) -> str:
             return os.path.basename(mod_path)
 
     try:
-        tree = ET.parse(about_file)
-        root = tree.getroot()
+        root = safe_parse_xml(about_file)
+        if root is None:
+            return os.path.basename(mod_path)
 
-        for name_tag in root.iter("name"):
-            if name_tag.text:
-                return name_tag.text.strip()
+        name_elem = root.find("name")
+        if name_elem is not None and name_elem.text:
+            return name_elem.text.strip()
 
     except Exception:
         pass

@@ -15,7 +15,7 @@
 и применяет их к существующим Def-ам.
 """
 
-import xml.etree.ElementTree as ET
+from lxml import etree
 
 
 def process_patches(
@@ -73,7 +73,7 @@ def process_patches(
 
 
 def _apply_operation(
-    operation: ET.Element, defs_index: dict[str, dict], logger=None, filters_config: dict = None
+    operation: etree._Element, defs_index: dict[str, dict], logger=None, filters_config: dict = None
 ) -> None:
     """
     Применяет одну PatchOperation к defs_index.
@@ -117,7 +117,7 @@ def _apply_operation(
 
 
 def _handle_sequence(
-    sequence: ET.Element, defs_index: dict[str, dict], logger=None, filters_config: dict = None
+    sequence: etree._Element, defs_index: dict[str, dict], logger=None, filters_config: dict = None
 ) -> None:
     """Обрабатывает PatchOperationSequence."""
     for operation in sequence:
@@ -126,7 +126,7 @@ def _handle_sequence(
 
 
 def _handle_add(
-    operation: ET.Element, defs_index: dict[str, dict], logger=None, filters_config: dict = None
+    operation: etree._Element, defs_index: dict[str, dict], logger=None, filters_config: dict = None
 ) -> None:
     """
     Обрабатывает PatchOperationAdd - добавляет элементы.
@@ -155,7 +155,7 @@ def _handle_add(
 
 
 def _handle_replace(
-    operation: ET.Element, defs_index: dict[str, dict], logger=None, filters_config: dict = None
+    operation: etree._Element, defs_index: dict[str, dict], logger=None, filters_config: dict = None
 ) -> None:
     """
     Обрабатывает PatchOperationReplace - заменяет элементы.
@@ -178,7 +178,7 @@ def _handle_replace(
         _extract_element_text_recursive(child, xpath, defs_index)
 
 
-def _handle_remove(operation: ET.Element, defs_index: dict[str, dict], logger=None) -> None:
+def _handle_remove(operation: etree._Element, defs_index: dict[str, dict], logger=None) -> None:
     """
     Обрабатывает PatchOperationRemove - удаляет элементы.
     """
@@ -200,7 +200,7 @@ def _handle_remove(operation: ET.Element, defs_index: dict[str, dict], logger=No
         defs_index.pop(key, None)
 
 
-def _handle_name(operation: ET.Element, defs_index: dict[str, dict], logger=None) -> None:
+def _handle_name(operation: etree._Element, defs_index: dict[str, dict], logger=None) -> None:
     """
     Обрабатывает PatchOperationName - переименование Def.
     """
@@ -222,7 +222,7 @@ def _handle_name(operation: ET.Element, defs_index: dict[str, dict], logger=None
 
 
 def _extract_text_from_unknown(
-    operation: ET.Element, defs_index: dict[str, dict], logger=None
+    operation: etree._Element, defs_index: dict[str, dict], logger=None
 ) -> None:
     """Извлекает текст из неизвестных типов операций."""
     for child in operation:
@@ -234,7 +234,7 @@ def _extract_text_from_unknown(
 
 
 def _extract_element_text_recursive(
-    element: ET.Element, parent_path: str, defs_index: dict[str, dict], current_path: str = ""
+    element: etree._Element, parent_path: str, defs_index: dict[str, dict], current_path: str = ""
 ) -> None:
     """
     Рекурсивно извлекает весь переводимый текст из элемента.
@@ -313,7 +313,7 @@ def _xpath_matches_key(xpath: str, key: str) -> bool:
 
 
 def _handle_mod_settings_framework(
-    operation: ET.Element, defs_index: dict[str, dict], logger=None, filters_config: dict = None
+    operation: etree._Element, defs_index: dict[str, dict], logger=None, filters_config: dict = None
 ) -> None:
     """
     Обрабатывает ModSettingsFramework и XmlExtensions патчи.

@@ -9,13 +9,14 @@ RimWorld использует систему наследования через
 Этот модуль разрешает цепочки наследования и объединяет содержимое.
 """
 
-import xml.etree.ElementTree as ET
 from copy import deepcopy
+
+from lxml import etree
 
 
 def resolve_parent_chains(
     defs_folder_paths: list[str], logger=None, max_depth: int = 10
-) -> dict[str, dict[str, ET.Element]]:
+) -> dict[str, dict[str, etree._Element]]:
     """
     Разрешает все цепочки наследования в указанной папке Defs.
 
@@ -32,7 +33,7 @@ def resolve_parent_chains(
     from verification.xml_parser import safe_parse_xml
 
     # Шаг 1: Собираем все элементы с атрибутом Name
-    name_registry: dict[str, dict[str, ET.Element]] = {}  # {file_path: {name: element}}
+    name_registry: dict[str, dict[str, etree._Element]] = {}  # {file_path: {name: element}}
 
     all_xml_files = []
     for folder_path in defs_folder_paths:
@@ -56,8 +57,7 @@ def resolve_parent_chains(
                 logger.debug(f"Не удалось распарсить: {file_path}")
             continue
 
-        # root - это Element, не ElementTree
-        file_names: dict[str, ET.Element] = {}
+        file_names: dict[str, etree._Element] = {}
         for element in root:
             name_attr = element.get("Name")
             if name_attr:
@@ -70,10 +70,10 @@ def resolve_parent_chains(
 
 
 def resolve_def_inheritance(
-    def_element: ET.Element,
-    name_registry: dict[str, dict[str, ET.Element]],
+    def_element: etree._Element,
+    name_registry: dict[str, dict[str, etree._Element]],
     visited: set[str] | None = None,
-) -> ET.Element:
+) -> etree._Element:
     """
     Разрешает наследование для одного Def элемента.
 
@@ -116,8 +116,8 @@ def resolve_def_inheritance(
 
 
 def _find_parent_element(
-    name: str, name_registry: dict[str, dict[str, ET.Element]]
-) -> ET.Element | None:
+    name: str, name_registry: dict[str, dict[str, etree._Element]]
+) -> etree._Element | None:
     """
     Ищет элемент с указанным Name во всех файлах.
 
@@ -136,7 +136,7 @@ def _find_parent_element(
     return None
 
 
-def _merge_elements(parent: ET.Element, child: ET.Element) -> ET.Element:
+def _merge_elements(parent: etree._Element, child: etree._Element) -> etree._Element:
     """
     Объединяет родителя и ребёнка. Поля ребёнка перезаписывают родительские.
 
@@ -156,7 +156,7 @@ def _merge_elements(parent: ET.Element, child: ET.Element) -> ET.Element:
         Объединённый XML элемент
     """
     # Создаём новый элемент с атрибутами ребёнка (приоритетнее)
-    merged = ET.Element(child.tag)
+    merged = etree.Element(child.tag)
 
     # Копируем атрибуты родителя
     for key, value in parent.attrib.items():
@@ -206,16 +206,16 @@ def _merge_elements(parent: ET.Element, child: ET.Element) -> ET.Element:
         merged.append(deepcopy(child_elem))
 
     # Копируем текст элемента если есть
-    if child_elem := child:
-        if child_elem.text and child_elem.text.strip():
-            merged.text = child_elem.text
-        if child_elem.tail:
-            merged.tail = child_elem.tail
+    if child is not None:
+        if child.text and child.text.strip():
+            merged.text = child.text
+        if child.tail:
+            merged.tail = child.tail
 
     return merged
 
 
-def _find_by_name(parent: ET.Element, name: str) -> ET.Element | None:
+def _find_by_name(parent: etree._Element, name: str) -> etree._Element | None:
     """
     Ищет дочерний элемент по атрибуту Name.
 
@@ -232,7 +232,7 @@ def _find_by_name(parent: ET.Element, name: str) -> ET.Element | None:
     return None
 
 
-def _merge_list_elements(existing: ET.Element, new: ET.Element) -> None:
+def _merge_list_elements(existing: etree._Element, new: etree._Element) -> None:
     """
     Объединяет li элементы списков.
 
@@ -273,9 +273,9 @@ def _merge_list_elements(existing: ET.Element, new: ET.Element) -> None:
 
 def collect_all_parents_recursive(
     parent_name: str,
-    name_registry: dict[str, dict[str, ET.Element]],
+    name_registry: dict[str, dict[str, etree._Element]],
     visited: set[str] | None = None,
-) -> list[ET.Element]:
+) -> list[etree._Element]:
     """
     Рекурсивно собирает всех предков элемента.
 
