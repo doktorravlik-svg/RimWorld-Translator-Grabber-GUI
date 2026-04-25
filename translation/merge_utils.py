@@ -8,7 +8,8 @@
 4. Дубликаты пропускаются при записи
 """
 
-import xml.etree.ElementTree as ET
+import lxml.etree as etree
+from verification.xml_parser import safe_parse_xml
 from typing import Optional
 
 
@@ -76,8 +77,9 @@ def scan_existing_translations_per_file(def_injected_dir: str, logger=None) -> d
             
             filepath = os.path.join(root_dir, fn)
             try:
-                tree = ET.parse(filepath)
-                root = tree.getroot()
+                root = safe_parse_xml(filepath)
+                if root is None:
+                    continue
                 
                 last_en_comment = None  # Последний EN: комментарий
                 

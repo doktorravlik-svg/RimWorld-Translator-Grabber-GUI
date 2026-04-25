@@ -10,7 +10,6 @@ import os
 from collections import defaultdict
 from typing import Any
 
-
 def find_existing_translation(
     tagname: str,
     existing_map: dict[str, str],
@@ -18,6 +17,8 @@ def find_existing_translation(
     logger: Any | None = None,
     mode: str = "strict",
     fuzzy: bool = False,
+    original_text: str | None = None,
+    use_anchors: bool = True,
 ) -> tuple[str | None, str | None]:
     """
     Ищет существующий перевод для указанного тега.
@@ -108,35 +109,138 @@ def find_existing_translation(
                     logger.debug(f"find_existing_translation(loose): last-token {last} -> {k}")
                 return v, existing_index.get(k)
 
-    # Fuzzy режим: поиск по частичному совпадению ключа (как RimTrans)
+    # Fuzzy режим: поиск по частичному совпадению ключа (как RimTrans) - УЛУЧШЕННЫЙ
     if fuzzy:
-        # Извлекаем ключевые части тега
-        t_parts = set(t.lower().replace(".", " ").replace("_", " ").split())
+        # Используем rapidfuzz для точного нечёткого сравнения
+        try:
+            from rapidfuzz import fuzz
+        except ImportError:
+            fuzz = None
 
-        best_match = None
-        best_score = 0
+        if fuzz:
+            best_match = None
+            best_score = 0
+            best_defname_similarity = 0
 
-        for k, v in existing_map.items():
-            if not k or not v or not v.strip():
-                continue
+            t_lower = t.lower()
+            # Разделяем t на части один раз
+            t_parts = t_lower.split('.', 1)
+            if len(t_parts) < 2:
+                # Нет поля после точки - пропускаем fuzzy
+                pass
+            else:
+                t_def_part = t_parts[0]
+                t_def_parts = t_def_part.split('_', 1)
+                if len(t_def_parts) >= 2:
+                    t_def_type, t_def_name = t_def_parts
+                    t_field = t_parts[1] if len(t_parts) > 1 else ""
 
-            k_parts = set(k.lower().replace(".", " ").replace("_", " ").split())
+                    for k, v in existing_map.items():
+                        if not k or not v or not v.strip():
+                            continue
 
-            # Считаем совпадающие части
-            common = t_parts & k_parts
-            score = len(common) / max(len(t_parts), len(k_parts))
+                        k_lower = k.lower()
+                        k_parts = k_lower.split('.', 1)
+                        if len(k_parts) < 2:
+                            continue
 
-            # Нужно минимум 40% совпадения (для fuzzy как RimTrans)
-            if score > 0.4 and score > best_score:
-                best_score = score
-                best_match = (v, existing_index.get(k))
+                        k_def_part = k_parts[0]
+                        k_def_parts = k_def_part.split('_', 1)
+                        if len(k_def_parts) < 2:
+                            continue
 
-        if best_match:
+                        k_def_type, k_def_name = k_def_parts
+                        k_field = k_parts[1] if len(k_parts) > 1 else ""
+
+                        # 1. DefType должен совпадать
+                        if t_def_type != k_def_type and not (
+                            (t_def_type.endswith('def') and k_def_type.endswith('def')) or
+                            (t_def_type.rstrip('s') == k_def_type.rstrip('s'))
+                        ):
+                            continue
+
+                        # 2. DefName должен быть очень похож (>= 80%)
+                        defname_sim = fuzz.ratio(t_def_name, k_def_name)
+                        if defname_sim < 80:
+                            continue
+
+                        # 3. Поле должно быть очень похожим
+                        field_sim = fuzz.ratio(t_field, k_field) if t_field and k_field else 100
+                        if field_sim < 90:
+                            continue
+
+                        # Общая оценка
+                        overall_score = (defname_sim * 0.7) + (field_sim * 0.3)
+
+                        if overall_score > best_score:
+                            best_score = overall_score
+                            best_defname_similarity = defname_sim
+                            best_match = (v, existing_index.get(k), k)
+
+            if best_match:
+                v, path, matched_key = best_match
+                # Логируем подозрительные совпадения для ручной проверки
+                if 80 <= best_defname_similarity < 92:
+                    try:
+                        with open("fuzzy_review_needed.log", "a", encoding="utf-8") as f:
+                            f.write(f"[DefName:{best_defname_similarity:.0f}%] {t}\n")
+                            f.write(f"      Matched: {matched_key}\n")
+                            f.write(f"      File: {path}\n")
+                            f.write(f"      Value: {v[:80]}\n")
+                            f.write("-" * 60 + "\n")
+                    except Exception:
+                        pass
+
+                if logger:
+                    logger.info(
+                        f"✅ Fuzzy: {t} → {matched_key} (DefName: {best_defname_similarity:.0f}%, overall: {best_score:.0f}%)"
+                    )
+                return v, path
+
+        else:
+            # Fallback без rapidfuzz - используем difflib
+            import difflib
+
+            best_match = None
+            best_ratio = 0
+            best_key = None
+
+            for k, v in existing_map.items():
+                if not k or not v or not v.strip():
+                    continue
+
+                ratio = difflib.SequenceMatcher(None, t.lower(), k.lower()).ratio()
+                if ratio > 0.85 and ratio > best_ratio:  # Очень высокий порог
+                    best_ratio = ratio
+                    best_match = (v, existing_index.get(k))
+                    best_key = k
+
+            if best_match:
+                if logger:
+                    logger.info(f"✅ Fuzzy (fallback): {t} → {best_key} ({best_ratio:.0%})")
+                return best_match
+
+    # ✅ EN ЯКОРЯ - ПОИСК ПО ОРИГИНАЛЬНОМУ ТЕКСТУ С УЧЁТОМ КОНТЕКСТА (DefType)
+    # Самый надёжный способ: учитывает и смысл, и тип Def'а
+    if use_anchors and original_text is not None:
+        try:
+            from translation.anchor_manager import AnchorManager
+            anchor_mgr = AnchorManager.get_instance()
+            # Извлекаем DefType из tagname как контекст
+            context = ""
+            if '_' in tagname:
+                context = tagname.split('_', 1)[0]
+            anchor_translation = anchor_mgr.find(original_text.strip(), context=context)
+            if anchor_translation:
+                if logger:
+                    logger.info(
+                        f"✅ EN якорь найден (ctx={context}): "
+                        f"'{original_text[:60]}' -> '{anchor_translation[:60]}'"
+                    )
+                return anchor_translation, "anchor_db"
+        except Exception as e:
             if logger:
-                logger.debug(
-                    f"find_existing_translation(fuzzy): {best_score:.0%} match {best_match[1]} for {t}"
-                )
-            return best_match
+                logger.debug(f"AnchorManager error: {e}")
 
     if logger:
         logger.debug(f"find_existing_translation({mode}): no match for {t}")
@@ -146,11 +250,11 @@ def find_existing_translation(
 def find_best_existing_file_for_def(
     defname: str,
     tags: list,
-    existing_index: Dict[str, str],
-    existing_map: Dict[str, str],
-    defs_source_rel: Dict[str, str],
-    logger: Optional[Any] = None,
-) -> Optional[str]:
+    existing_index: dict[str, str],
+    existing_map: dict[str, str],
+    defs_source_rel: dict[str, str],
+    logger: Any | None = None,
+) -> str | None:
     """
     Находит лучший существующий файл для defname на основе тегов.
 
@@ -236,4 +340,8 @@ def find_best_existing_file_for_def(
                 return candidate_file
             return None
         return best
-    return None
+
+
+__all__ = [
+    "find_existing_translation",
+]

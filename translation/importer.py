@@ -6,11 +6,11 @@
 
 import logging
 import os
-import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from typing import Any
 
 from translation_db import get_translation_db
+from verification.xml_parser import safe_parse_xml
 
 logger = logging.getLogger(__name__)
 
@@ -220,11 +220,8 @@ class TranslationImporter:
             source_lang: Язык оригинала (из пути Languages/{Language}/)
             target_lang: Целевой язык
         """
-        try:
-            tree = ET.parse(file_path)
-            root = tree.getroot()
-        except ET.ParseError as e:
-            logger.error(f"Ошибка парсинга XML {file_path}: {e}")
+        root = safe_parse_xml(file_path)
+        if root is None:
             return
 
         # ✅ ИСПРАВЛЕНО: Загружаем фильтры и применяем их
@@ -337,3 +334,10 @@ def get_importer(db: Any | None = None) -> "TranslationImporter":
         Экземпляр TranslationImporter
     """
     return TranslationImporter(db)
+
+
+__all__ = [
+    "TranslationImporter",
+    "_load_filters_config",
+    "get_importer",
+]

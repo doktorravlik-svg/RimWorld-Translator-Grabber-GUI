@@ -1,8 +1,8 @@
 # obsolete_detector.py
 """
-Модуль для обнаружения и обработки устаревших тегов перевода.
+Модуль для обнаружения и обработки устаревших тегов первода.
 
-После обновления мода некоторые теги могут быть удалены или переименованы.
+После обнаружения мода некоторые теги могут быть удалены или переименованы.
 Этот модуль находит такие теги в существующих DefInjected файлах и:
 1. Закомментирует их (префикс _OBSOLETE_)
 2. Добавит XML-комментарий с пояснением
@@ -10,15 +10,15 @@
 """
 
 import os
-import xml.etree.ElementTree as ET
+import lxml.etree as etree
 
 from utils.mod_version import get_mod_name, get_mod_version
-from verification.xml_parser import write_tree_pretty
+from verification.xml_parser import safe_parse_xml, write_tree_pretty
 
 
 def _scan_mod_for_additional_defs(mod_path, all_current_def_names, logger=None):
     """
-    Сканирует ВСЕ XML файлы мода (Defs, Patches, все версии) чтобы найти дополнительные Defs.
+    Сканирует все XML файлы мода (Defs, Patches, все версии) чтобы найти дополнительные Defs.
 
     Это предотвращает ложные срабатывания obsolete detector когда Defs существуют
     но находятся в патчах или других версиях мода.
@@ -28,7 +28,7 @@ def _scan_mod_for_additional_defs(mod_path, all_current_def_names, logger=None):
         all_current_def_names: Множество имён Def-ов (будет дополнено)
         logger: Логгер
     """
-    import xml.etree.ElementTree as ET
+    import lxml.etree as etree
 
     if not mod_path or not os.path.exists(mod_path):
         return
@@ -48,9 +48,7 @@ def _scan_mod_for_additional_defs(mod_path, all_current_def_names, logger=None):
             filepath = os.path.join(root_dir, filename)
 
             try:
-                tree = ET.parse(filepath)
-                root = tree.getroot()
-
+                root = safe_parse_xml(filepath)
                 if root is None:
                     continue
 
@@ -73,7 +71,7 @@ def _scan_mod_for_additional_defs(mod_path, all_current_def_names, logger=None):
     added_count = len(all_current_def_names) - initial_count
     if logger and added_count > 0:
         logger.debug(
-            f"   📊 Найдено дополнительных Defs в моде: {added_count} (всего: {len(all_current_def_names)})"
+            f"   ▶ Найдено дополнительных Defs в моде: {added_count} (всего: {len(all_current_def_names)})"
         )
 
 
@@ -100,9 +98,9 @@ def find_obsolete_tags(perdef_base, defs_index, logger=None, mod_path=None):
             logger.warning(f"DefInjected папка не существует: {perdef_base}")
         return obsolete
 
-    # ✅ ОТЛАДКА: логируем входные данные
+    # INFO: логируем входные данные
     if logger:
-        logger.info("🔍 Проверка устаревших тегов:")
+        logger.info("ℹ Проверка устаревших тегов:")
         logger.info(f"   DefInjected папка: {perdef_base}")
         logger.info(f"   Defs в индексе: {len(defs_index)}")
         if defs_index:
@@ -126,15 +124,13 @@ def find_obsolete_tags(perdef_base, defs_index, logger=None, mod_path=None):
             tagname = f"{orig_def_name}.{field_path}"
             all_current_tags.add(tagname)
 
-    # ✅ УЛУЧШЕНИЕ: Сканируем ВСЕ XML файлы мода чтобы найти дополнительные Defs
-    # Это предотвращает ложные срабатывания когда Defs есть в патчах но не в основном defs_index
+    # ВАЖНО: Сканируем VSE XML файлы мода чтобы найти дополнительные Defs
     if mod_path:
         _scan_mod_for_additional_defs(mod_path, all_current_def_names, logger)
 
     if logger:
         logger.debug(f"Актуальных тегов в Defs: {len(all_current_tags)}")
         logger.debug(f"Актуальных Def-ов: {len(all_current_def_names)}")
-        # Логируем первые 10 Def-ов для отладки
         for def_name in list(all_current_def_names)[:10]:
             logger.debug(f"  DEF: {def_name}")
 
@@ -151,12 +147,13 @@ def find_obsolete_tags(perdef_base, defs_index, logger=None, mod_path=None):
             files_checked += 1
 
             try:
-                tree = ET.parse(filepath)
-                root = tree.getroot()
+                root = safe_parse_xml(filepath)
+                if root is None:
+                    continue
 
                 file_obsolete = []
                 for child in root:
-                    # Пропускаем комментарии и нестроковые теги
+                    # Пропускаем комментарии и нестандартные теги
                     if not isinstance(child.tag, str):
                         continue
 
@@ -166,39 +163,39 @@ def find_obsolete_tags(perdef_base, defs_index, logger=None, mod_path=None):
 
                     total_tags_in_files += 1
 
-                    # Извлекаем Def имя из тега (например "TentacleMonster.lifeStages.0.label" -> "TentacleMonster")
+                    # Извлекаем Def имя из тега (пример "TentacleMonster.lifeStages.0.label" -> "TentacleMonster")
                     tag_def_name = child.tag.split(".")[0]
 
                     # Проверяем наличие Def в актуальных Defs
-                    # Если Def существует - ВСЕ его теги валидны
+                    # Если Def отсутствует - считаем тег устаревшим
                     if (
                         tag_def_name not in all_current_def_names
                         and child.text
                         and child.text.strip()
                     ):
                         file_obsolete.append((child.tag, child.text.strip()))
-                        # ✅ ОТЛАДКА: логируем первые 3 obsolete тега
+                        # INFO: логируем первые 3 obsolete тега
                         if logger and len(file_obsolete) <= 3:
                             logger.debug(
-                                f"   ⚠️ OBSOLETE: {child.tag} (Def '{tag_def_name}' не найден в all_current_def_names)"
+                                f"   ▶ OBSOLETE: {child.tag} (Def '{tag_def_name}' не найден в all_current_def_names)"
                             )
 
                 if file_obsolete:
                     rel_path = os.path.relpath(filepath, perdef_base)
                     obsolete[rel_path] = file_obsolete
                     if logger:
-                        logger.info(f"   📄 {rel_path}: {len(file_obsolete)} устаревших тегов")
+                        logger.info(f"   ✜ {rel_path}: {len(file_obsolete)} устаревших тегов")
 
             except Exception as e:
                 if logger:
                     logger.debug(f"Ошибка проверки {filepath}: {e}")
 
-    # ✅ ИТОГОВАЯ ОТЛАДКА
+    # ИТОГОВАЯ ОТЧЁТНОСТЬ
     if logger:
-        logger.info(f"   📊 Проверено файлов: {files_checked}")
-        logger.info(f"   📊 Всего тегов в файлах: {total_tags_in_files}")
-        logger.info(f"   📊 Найдено устаревших: {sum(len(v) for v in obsolete.values())}")
-        logger.info(f"   📊 Файлов с устаревшими: {len(obsolete)}")
+        logger.info(f"   ▶ Проверено файлов: {files_checked}")
+        logger.info(f"   ▶ Всего тегов в файлах: {total_tags_in_files}")
+        logger.info(f"   ▶ Найдено устаревших: {sum(len(v) for v in obsolete.values())}")
+        logger.info(f"   ▶ Файлов с устаревшими: {len(obsolete)}")
 
     return obsolete
 
@@ -225,7 +222,7 @@ def comment_obsolete_tags(perdef_base, obsolete_tags_map, logger=None):
     if not obsolete_tags_map:
         return 0
 
-    # ✅ ИСПРАВЛЕНО: Используем централизованный менеджер бекапов
+    # ИСПРАВЛЕНО: Используем централизованный менеджер бэкапов
     backup_manager = get_backup_manager()
     backup_dir = backup_manager.create_backup(perdef_base, logger=logger)
 
@@ -242,8 +239,9 @@ def comment_obsolete_tags(perdef_base, obsolete_tags_map, logger=None):
             continue
 
         try:
-            tree = ET.parse(filepath)
-            root = tree.getroot()
+            root = safe_parse_xml(filepath)
+            if root is None:
+                continue
             modified_file = False
 
             # Создаём словарь для быстрого поиска
@@ -267,7 +265,7 @@ def comment_obsolete_tags(perdef_base, obsolete_tags_map, logger=None):
 
                     # Добавляем комментарий перед тегом
                     comment_text = f" Устаревший тег (удалён в новой версии мода): {old_tag} "
-                    comment = ET.Comment(comment_text)
+                    comment = etree.Comment(comment_text)
 
                     # Вставляем комментарий перед тегом
                     children = list(root)
@@ -281,10 +279,9 @@ def comment_obsolete_tags(perdef_base, obsolete_tags_map, logger=None):
                         logger.debug(f"  Закомментирован: {old_tag} → {new_tag}")
 
             if modified_file:
-                tree = ET.ElementTree(root)
                 if write_tree_pretty(tree, filepath, logger):
                     if logger:
-                        logger.info(f"  📝 Закомментированы устаревшие теги: {rel_path}")
+                        logger.info(f"  ✔ Закомментированы устаревшие теги: {rel_path}")
 
         except Exception as e:
             if logger:
@@ -312,7 +309,7 @@ def log_obsolete_report(obsolete_tags_map, commented_count, perdef_base, logger=
     mod_name = get_mod_name(mod_path)
 
     logger.info(f"\n{'=' * 60}")
-    logger.info(f"⚠️  ОБНАРУЖЕНО УСТАРЕВШИХ ТЕГОВ: {commented_count}")
+    logger.info(f"▶  ОБНАРУЖЕНО УСТАРЕВШИХ ТЕГОВ: {commented_count}")
 
     if mod_name or mod_version:
         if mod_name:
@@ -324,17 +321,17 @@ def log_obsolete_report(obsolete_tags_map, commented_count, perdef_base, logger=
     logger.info("Эти теги есть в переводе, но удалены из новой версии мода:")
 
     for rel_path, tags in obsolete_tags_map.items():
-        logger.info(f"\n  📄 {rel_path}:")
+        logger.info(f"\n  ✜ {rel_path}:")
         for tag, text in tags[:5]:  # Показываем первые 5
             display_text = text[:50] + "..." if len(text) > 50 else text
             logger.info(f"    • <{tag}>: {display_text}")
         if len(tags) > 5:
             logger.info(f"    ... и ещё {len(tags) - 5} тегов")
 
-    logger.info("\n💡 Рекомендация:")
+    logger.info("\nℹ Рекомендация:")
     logger.info("  - Теги закомментированы (префикс _OBSOLETE_)")
     logger.info("  - Вы можете удалить их вручную если уверены что они не нужны")
-    logger.info("  - Или оставить на случай если мод снова их добавит")
+    logger.info("  - Или оставить на случай если мод снова добавит их обратно")
 
     if mod_version:
         logger.info("  - Теги были актуальны в предыдущей версии мода")

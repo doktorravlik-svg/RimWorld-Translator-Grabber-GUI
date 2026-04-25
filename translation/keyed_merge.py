@@ -7,9 +7,9 @@
 """
 
 import os
-import xml.etree.ElementTree as ET
 from typing import Any
 
+from lxml import etree
 from verification.xml_parser import get_xml_content_hash, safe_parse_xml, write_tree_pretty
 
 
@@ -94,14 +94,14 @@ def _is_valid_xml_tag(tag: str) -> bool:
 
 
 def write_keyed_files_mirror_with_merge(
-    keyed_files: Dict[str, Dict[str, Dict[str, Optional[str]]]],
+    keyed_files: dict[str, dict[str, dict[str, str | None]]],
     target_dir: str,
-    existing_map: Dict[str, str],
-    existing_index: Dict[str, str],
-    source_map: Dict[str, str],
-    logger: Optional[Any] = None,
+    existing_map: dict[str, str],
+    existing_index: dict[str, str],
+    source_map: dict[str, str],
+    logger: Any | None = None,
     aggressive: bool = False,
-) -> List[str]:
+) -> list[str]:
     """
     Записывает Keyed XML файлы с объединением переводов.
 
@@ -184,24 +184,23 @@ def write_keyed_files_mirror_with_merge(
             # Load existing tree if present
             if os.path.exists(chosen_path):
                 try:
-                    existing_tree = ET.parse(chosen_path)
-                    root = existing_tree.getroot()
-                    if root is None or not isinstance(root, ET.Element):
-                        root = ET.Element("LanguageData")
+                    root = safe_parse_xml(chosen_path)
+                    if root is None:
+                        root = etree.Element("LanguageData")
                 except Exception as e:
                     if logger:
                         logger.warn(
                             f"Keyed: failed to parse existing {chosen_path}: {e}; creating new root"
                         )
-                    root = ET.Element("LanguageData")
+                    root = etree.Element("LanguageData")
             else:
-                root = ET.Element("LanguageData")
+                root = etree.Element("LanguageData")
 
             # find existing keyed block and direct tags
             keyed_block = None
             # safe search for Keyed element(s)
             for el in root.findall(".//Keyed") + root.findall(".//keyed"):
-                if isinstance(el, ET.Element):
+                if isinstance(el, etree._Element):
                     keyed_block = el
                     break
 
@@ -265,10 +264,10 @@ def write_keyed_files_mirror_with_merge(
                             existing_el = None
                             for ch in list(root):
                                 try:
-                                    tag = getattr(ch, "tag", None)
-                                    if isinstance(tag, str) and tag == key:
-                                        existing_el = ch
-                                        break
+                                        tag = getattr(ch, "tag", None)
+                                        if isinstance(tag, str) and tag == key:
+                                            existing_el = ch
+                                            break
                                 except Exception:
                                     continue
                             if existing_el is not None:
@@ -277,19 +276,19 @@ def write_keyed_files_mirror_with_merge(
                                     added_any = True
                                     if logger:
                                         logger.debug(f"Keyed: filled existing direct tag <{key}>")
-                                elif logger:
+                            elif logger:
                                     logger.debug(
                                         f"Keyed: direct tag <{key}> already has value; skipped"
                                     )
                             else:
-                                el = ET.SubElement(root, key)
+                                el = etree.SubElement(root, key)
                                 el.text = str(final_val)
                                 added_any = True
                                 if logger:
                                     logger.debug(f"Keyed: added direct tag <{key}> (fallback)")
                         else:
                             try:
-                                el = ET.SubElement(root, key)
+                                el = etree.SubElement(root, key)
                                 el.text = str(final_val)
                                 added_any = True
                                 if logger:
@@ -299,18 +298,8 @@ def write_keyed_files_mirror_with_merge(
                                     logger.debug(
                                         f"Keyed: failed to create direct tag <{key}>: {e}; using Keyed list"
                                     )
-                                if keyed_block is None:
-                                    keyed_block = ET.SubElement(root, "Keyed")
-                                li = ET.SubElement(keyed_block, "li")
-                                key_el = ET.SubElement(li, "key")
-                                key_el.text = key
-                                val_el = ET.SubElement(li, "value")
-                                val_el.text = str(final_val)
-                                added_any = True
-                    else:
-                        # write into Keyed list; avoid duplicates
                         if keyed_block is None:
-                            keyed_block = ET.SubElement(root, "Keyed")
+                            keyed_block = etree.SubElement(root, "Keyed")
                         exists_in_keyed = False
                         for li in keyed_block.findall(".//li"):
                             ke = li.find("key")
@@ -326,10 +315,61 @@ def write_keyed_files_mirror_with_merge(
                                         )
                                 break
                         if not exists_in_keyed:
-                            li = ET.SubElement(keyed_block, "li")
-                            key_el = ET.SubElement(li, "key")
+                            li = etree.SubElement(keyed_block, "li")
+                            key_el = etree.SubElement(li, "key")
                             key_el.text = key
-                            val_el = ET.SubElement(li, "value")
+                            val_el = etree.SubElement(li, "value")
+                            val_el.text = str(final_val)
+                            added_any = True
+                            if logger:
+                                logger.debug(f"Keyed: added new keyed li for key='{key}'")
+                    else:
+                        # write into Keyed list; avoid duplicates
+                        if keyed_block is None:
+                            keyed_block = etree.SubElement(root, "Keyed")
+                        exists_in_keyed = False
+                        for li in keyed_block.findall(".//li"):
+                            ke = li.find("key")
+                            if ke is not None and ke.text and ke.text.strip() == key:
+                                exists_in_keyed = True
+                                ve = li.find("value")
+                                if ve is not None and not (ve.text and ve.text.strip()):
+                                    ve.text = str(final_val)
+                                    added_any = True
+                                    if logger:
+                                        logger.debug(
+                                            f"Keyed: filled existing keyed li for key='{key}'"
+                                        )
+                                break
+                        if not exists_in_keyed:
+                            li = etree.SubElement(keyed_block, "li")
+                            key_el = etree.SubElement(li, "key")
+                            key_el.text = key
+                            val_el = etree.SubElement(li, "value")
+                            val_el.text = str(final_val)
+                            added_any = True
+                            if logger:
+                                logger.debug(f"Keyed: added new keyed li for key='{key}'")
+                        else:
+                            # fill existing keyed li
+                            for li in keyed_block.findall(".//li"):
+                                ke = li.find("key")
+                                if ke is not None and ke.text and ke.text.strip() == key:
+                                    exists_in_keyed = True
+                                    ve = li.find("value")
+                                    if ve is not None and not (ve.text and ve.text.strip()):
+                                        ve.text = str(final_val)
+                                        added_any = True
+                                        if logger:
+                                            logger.debug(
+                                                f"Keyed: filled existing keyed li for key='{key}'"
+                                            )
+                                    break
+                        if not exists_in_keyed:
+                            li = etree.SubElement(keyed_block, "li")
+                            key_el = etree.SubElement(li, "key")
+                            key_el.text = key
+                            val_el = etree.SubElement(li, "value")
                             val_el.text = str(final_val)
                             added_any = True
                             if logger:
@@ -377,7 +417,7 @@ def write_keyed_files_mirror_with_merge(
                 # Проверяем, изменилось ли содержимое
                 try:
                     existing_root = safe_parse_xml(chosen_path)
-                    if existing_root:
+                    if existing_root is not None:
                         existing_hash = get_xml_content_hash(existing_root)
                         if existing_hash == new_content_hash:
                             # Содержимое не изменилось - пропускаем
@@ -391,8 +431,7 @@ def write_keyed_files_mirror_with_merge(
                 continue
 
             try:
-                tree = ET.ElementTree(root)
-                ok = write_tree_pretty(tree, chosen_path, logger)
+                ok = write_tree_pretty(root, chosen_path, logger)
                 if ok:
                     created.append(chosen_path)
                     if logger:
