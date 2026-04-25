@@ -2,7 +2,9 @@
 import logging
 import os
 import sys
-import xml.etree.ElementTree as ET
+
+from lxml import etree
+from verification.xml_parser import safe_parse_xml
 
 
 def get_config_folder() -> str | None:
@@ -82,8 +84,9 @@ def get_active_mods() -> set[str]:
         return active_mods
 
     try:
-        tree = ET.parse(config_path)
-        root = tree.getroot()
+        root = safe_parse_xml(config_path)
+        if root is None:
+            return active_mods
 
         # ✅ RimWorld 1.6+: Ищем activeMods
         active_mods_elem = root.find("activeMods")
@@ -121,20 +124,19 @@ def set_active_mods(active_mods: set[str]) -> bool:
 
     try:
         # Создаем XML
-        root = ET.Element("ModsConfigData")
+        root = etree.Element("ModsConfigData")
 
-        version = ET.SubElement(root, "version")
+        version = etree.SubElement(root, "version")
         version.text = "1.5.4243 rev1204"
 
-        mod_ids = ET.SubElement(root, "modIds")
+        mod_ids = etree.SubElement(root, "modIds")
         for mod_id in sorted(active_mods):
-            li = ET.SubElement(mod_ids, "li")
+            li = etree.SubElement(mod_ids, "li")
             li.text = mod_id
 
         # Сохраняем
-        tree = ET.ElementTree(root)
-        ET.indent(tree, space="  ")
-        tree.write(config_path, encoding="utf-8", xml_declaration=True)
+        tree = etree.Element("ModsConfig")
+        tree.write(config_path, encoding="utf-8", xml_declaration=True, pretty_print=True)
 
         return True
 
