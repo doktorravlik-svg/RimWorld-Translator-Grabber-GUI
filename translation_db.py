@@ -380,6 +380,8 @@ class TranslationDatabase:
             (term, translation, category, description),
         )
         self.conn.commit()
+        # Автоматически сохраняем в JSON при изменениях
+        self._sync_glossary_to_json()
 
     def get_glossary_term(self, term):
         """Получить перевод термина из глоссария"""
@@ -437,6 +439,73 @@ class TranslationDatabase:
         c = self.conn.cursor()
         c.execute("DELETE FROM glossary WHERE term = ?", (term,))
         self.conn.commit()
+        # Автоматически сохраняем в JSON при изменениях
+        self._sync_glossary_to_json()
+
+    def _sync_glossary_to_json(self):
+        """
+        Синхронизирует глоссарий с JSON-файлом.
+        
+        Экспортирует все термины из базы данных SQLite в файл glossary.json,
+        чтобы обеспечить совместимость с модулем translation.glossary.
+        """
+        import json
+        import os
+        
+        # Пробуем найти config/glossary.json
+        json_path = None
+        
+        # 1. Проверяем относительно текущего файла БД
+        if self.db_path:
+            base_dir = os.path.dirname(os.path.abspath(self.db_path))
+            # Пытаемся найти config/glossary.json
+            config_path = os.path.join(base_dir, "..", "config", "glossary.json")
+            config_path = os.path.normpath(config_path)
+            if os.path.exists(os.path.dirname(config_path)):
+                json_path = config_path
+            else:
+                # Пробуем найти в родительской папке
+                parent_dir = os.path.dirname(base_dir)
+                config_path = os.path.join(parent_dir, "config", "glossary.json")
+                if os.path.exists(os.path.dirname(config_path)):
+                    json_path = config_path
+        
+        # 2. Если не нашли, проверяем текущую директорию проекта
+        if json_path is None:
+            # Пробуем найти config/glossary.json относительно текущей директории
+            config_path = os.path.join("config", "glossary.json")
+            if os.path.exists(os.path.dirname(config_path)):
+                json_path = config_path
+            else:
+                # Просто используем glossary.json в текущей директории
+                json_path = "glossary.json"
+        
+        # Получаем все термины
+        terms = self.get_all_glossary()
+        
+        # Формируем данные для JSON
+        entries = {}
+        for term in terms:
+            entries[term["term"]] = term["translation"]
+        
+        data = {
+            "entries": entries,
+            "case_sensitive": False,
+        }
+        
+        # Сохраняем в JSON
+        try:
+            # Создаем директорию, если она не существует
+            os.makedirs(os.path.dirname(os.path.abspath(json_path)), exist_ok=True)
+            
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            if hasattr(self, '_logger') and self._logger:
+                self._logger.debug(f"Глоссарий сохранен в {json_path} ({len(terms)} терминов)")
+        except Exception as e:
+            if hasattr(self, '_logger') and self._logger:
+                self._logger.error(f"Ошибка сохранения глоссария в JSON: {e}")
 
     # ===== ИСТОРИЯ ВЕРСИЙ =====
 
