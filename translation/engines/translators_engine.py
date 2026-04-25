@@ -20,21 +20,7 @@ except ImportError:
     _TRANSLATORS_AVAILABLE = False
 
 from translation.engines.base import TranslationEngine
-
-# Маппинг языковых кодов для translators
-LANG_CODE_MAP = {
-    "ru": "ru",
-    "en": "en",
-    "de": "de",
-    "fr": "fr",
-    "es": "es",
-    "zh-CN": "zh-CN",
-    "ja": "ja",
-    "uk": "uk",
-    "pl": "pl",
-    "pt": "pt",
-    "it": "it",
-}
+from translation.constants import LANGUAGE_CODE_MAP
 
 # Доступные суб-движки в порядке приоритета
 SUB_ENGINE_PRIORITY = [
@@ -88,7 +74,7 @@ class TranslatorsEngine(TranslationEngine):
 
     def _get_target_code(self) -> str:
         """Получает код целевого языка для translators."""
-        return LANG_CODE_MAP.get(self.target_lang, self.target_lang)
+        return LANGUAGE_CODE_MAP.get(self.target_lang, self.target_lang)
 
     @property
     def name(self) -> str:
