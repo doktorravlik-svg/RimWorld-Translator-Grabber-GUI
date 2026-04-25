@@ -100,6 +100,28 @@ class HotkeyManager:
         """Привязывает глобальный обработчик ко всему приложению."""
         self.root.bind_all("<KeyPress>", self._on_key_press)
 
+        # ✅ Инженерный патч: Исправляет работу Ctrl+A/C/V/X/Z на русской раскладке для ВСЕХ полей ввода
+        # Работает по физическому keycode, не зависит от раскладки
+        shortcuts = [
+            (65, "<<SelectAll>>"),   # A
+            (67, "<<Copy>>"),        # C
+            (86, "<<Paste>>"),       # V
+            (88, "<<Cut>>"),         # X
+        ]
+
+        def _check_and_trigger(event):
+            for keycode, virtual_event in shortcuts:
+                if event.keycode == keycode:
+                    event.widget.event_generate(virtual_event)
+                    return "break"
+
+        # Применяем ко всем классам полей ввода
+        self.root.bind_class("Entry", "<Control-KeyPress>", _check_and_trigger)
+        self.root.bind_class("TEntry", "<Control-KeyPress>", _check_and_trigger)
+        self.root.bind_class("Text", "<Control-KeyPress>", _check_and_trigger)
+        self.root.bind_class("Combobox", "<Control-KeyPress>", _check_and_trigger)
+        self.root.bind_class("Searchbox", "<Control-KeyPress>", _check_and_trigger)
+
     def _on_key_press(self, event):
         """
         Глобальный обработчик нажатий клавиш.
@@ -107,6 +129,33 @@ class HotkeyManager:
         Args:
             event: Событие нажатия клавиши
         """
+        # ✅ Исправление: Если фокус в поле ввода, пропускаем только горячие клавиши
+        # с модификаторами Ctrl/Alt, обычные буквы идут в поле ввода
+        try:
+            focused = self.root.focus_get()
+            if focused and hasattr(focused, "winfo_class"):
+                if focused.winfo_class() in ("Entry", "Text", "Combobox", "Searchbox"):
+
+                    # ✅ Белый список комбинаций которые работают ВСЕГДА, даже в поле поиска
+                    ctrl = bool(event.state & MODIFIERS["CTRL"])
+                    alt = bool(event.state & MODIFIERS["ALT"])
+
+                    # F1-F12, Escape, Enter работают всегда
+                    if event.keysym.startswith('F') and event.keysym[1:].isdigit():
+                        # Это F клавиша - обрабатываем
+                        pass
+                    elif event.keysym in ("Escape", "Return", "F5"):
+                        # Служебные клавиши - обрабатываем
+                        pass
+                    elif ctrl or alt:
+                        # ✅ Все Ctrl и Alt комбинации работают даже при вводе текста
+                        pass
+                    else:
+                        # ✅ Все остальные клавиши идут напрямую в поле ввода
+                        return
+        except:
+            pass
+
         # Определяем модификаторы
         ctrl = bool(event.state & MODIFIERS["CTRL"])
         alt = bool(event.state & MODIFIERS["ALT"])
@@ -157,6 +206,19 @@ class HotkeyManager:
 
         # 4. Комбинации с Ctrl
         if ctrl:
+            # ✅ Если фокус в поле ввода — не перехватываем стандартные комбинации редактирования
+            try:
+                focused = self.root.focus_get()
+                if focused:
+                    widget_class = focused.winfo_class()
+                    if widget_class in ("Entry", "Text", "Combobox", "Searchbox", "TEntry"):
+                        # Стандартные комбинации для редактирования текста — пропускаем
+                        standard_ctrl_keys = {65, 67, 86, 88, 89, 90}  # A, C, V, X, Y, Z
+                        if event.keycode in standard_ctrl_keys:
+                            return
+            except:
+                pass
+
             handler_key = f"Ctrl+{event.keycode}"
             if handler_key in self.handlers:
                 return self.handlers[handler_key](event)
