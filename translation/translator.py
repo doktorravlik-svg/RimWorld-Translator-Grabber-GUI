@@ -26,6 +26,13 @@ from translation.text_splitter import join_translated_chunks, split_text
 from translation.translation_cache import TranslationCache
 from utils.error_handler import safe_execute_method
 
+# Type aliases (PEP 695, Python 3.12+)
+type TranslationResult = str | None
+type OptionalStr = str | None
+type TextList = list[str]
+type EngineList = list[str] | None
+type LoggerType = logging.Logger | None
+
 # Импорт для определения языка из текста
 try:
     from language.rules_engine import detect_language_from_text
@@ -70,10 +77,10 @@ class AutoTranslator:
     def __init__(
         self,
         enabled: bool = True,
-        logger: logging.Logger | None = None,
+        logger: LoggerType = None,
         source_lang: str = "English",
         target_lang: str = "Russian",
-        engine_names: list[str] | None = None,
+        engine_names: EngineList = None,
         use_proxy: bool = False,
         glossary_path: str | None = None,
         max_retries: int = DEFAULT_MAX_RETRIES,
@@ -160,7 +167,7 @@ class AutoTranslator:
         self._last_request_time = time.time()
 
     @safe_execute_method(fallback=None)
-    def translate(self, text: str, original_text: str | None = None) -> str | None:
+    def translate(self, text: str, original_text: OptionalStr = None) -> TranslationResult:
         """
         Переводит текст с применением кэша, fallback-цепочки, глоссария и rate limiting.
 
@@ -247,6 +254,13 @@ class AutoTranslator:
                 translated = self._translate_single(text_with_glossary)
 
             if translated:
+                # ✅ ИСПРАВЛЕНО: Предотвращение бесконечного автоперевода
+                # Если перевод идентичен оригиналу — пропускаем, не сохраняем ничего
+                if translated.strip() == text.strip():
+                    if self.logger:
+                        self.logger.debug(f"Перевод совпадает с оригиналом, пропускаем: '{text[:LOG_PREVIEW_LENGTH]}...'")
+                    return None
+
                 # Сохраняем в кэш
                 self.cache.set(text, self.target_lang, translated, self.source_lang)
 
@@ -284,7 +298,7 @@ class AutoTranslator:
             return self.fallback_chain.translate(text)
         return None
 
-    def translate_batch(self, texts: list[str]) -> list[str]:
+    def translate_batch(self, texts: TextList) -> TextList:
         """
         Переводит список текстов с автоматическим fallback.
 
