@@ -1,9 +1,11 @@
 # mod_scanner.py
 import os
-import xml.etree.ElementTree as ET
-from typing import Dict, List, Optional, Any
+from typing import Any
 
-def parse_about_xml(about_path: str) -> Dict[str, Any]:
+from verification.xml_parser import safe_parse_xml
+
+
+def parse_about_xml(about_path: str) -> dict[str, Any]:
     """
     Выполняет глубокий парсинг About.xml для извлечения метаданных мода.
     Поддерживает стандартные теги и расширения для зависимостей и версий.
@@ -27,8 +29,9 @@ def parse_about_xml(about_path: str) -> Dict[str, Any]:
 
     try:
         # Используем парсер с защитой от пустых файлов
-        tree = ET.parse(about_path)
-        root = tree.getroot()
+        root = safe_parse_xml(about_path)
+        if root is None:
+            return result
 
         # 1. Основные метаданные
         for child in root:
@@ -91,14 +94,14 @@ def parse_about_xml(about_path: str) -> Dict[str, Any]:
 
     return result
 
-def find_about_xml(mod_path: str) -> Optional[str]:
+def find_about_xml(mod_path: str) -> str | None:
     """Ищет About.xml в корне мода или в папке About."""
     for path in [os.path.join(mod_path, "About", "About.xml"), os.path.join(mod_path, "About.xml")]:
         if os.path.exists(path):
             return path
     return None
 
-def find_mod_structure(mod_path: str) -> Dict[str, Any]:
+def find_mod_structure(mod_path: str) -> dict[str, Any]:
     """
     Анализирует файловую структуру мода. Определяет наличие папок Defs, 
     Languages и Core с учетом версионности (1.1, 1.4, 1.5 и т.д.).
@@ -114,7 +117,7 @@ def find_mod_structure(mod_path: str) -> Dict[str, Any]:
 
     # Приоритетный список версий для поиска
     versions = ["1.6", "1.5", "1.4", "1.3", "1.2", "1.1", "1.0"]
-    
+
     # 1. Пытаемся найти версию по наличию папки Defs внутри версионных папок
     for v in versions:
         v_path = os.path.join(mod_path, v)
@@ -123,22 +126,22 @@ def find_mod_structure(mod_path: str) -> Dict[str, Any]:
             result['defs_path'] = os.path.join(v_path, "Defs")
             result['langs_path'] = os.path.join(v_path, "Languages")
             break
-            
+
     # 2. Если версионные папки не найдены, используем корень
     if not result['defs_path']:
         dp = os.path.join(mod_path, "Defs")
         if os.path.exists(dp):
             result['defs_path'] = dp
             result['langs_path'] = os.path.join(mod_path, "Languages")
-    
+
     # 3. Определяем, является ли мод переводом
     result['is_translation'] = result['about_data'].get('name', '').lower().endswith('translation') or \
                                 result['about_data'].get('name', '').lower().endswith('localization')
-    
+
     return result
 
 
-def analyze_languages(langs_base: str, logger=None) -> Dict[str, Any]:
+def analyze_languages(langs_base: str, logger=None) -> dict[str, Any]:
     """
     Анализирует доступные языки в папке Languages.
     
@@ -146,21 +149,21 @@ def analyze_languages(langs_base: str, logger=None) -> Dict[str, Any]:
         {язык: {keyed_files: int, def_files: int, total_keys: int}}
     """
     languages = {}
-    
+
     if not os.path.exists(langs_base):
         return languages
-    
+
     for lang_dir in os.listdir(langs_base):
         lang_path = os.path.join(langs_base, lang_dir)
         if not os.path.isdir(lang_path):
             continue
-        
+
         lang_info = {
             'keyed_files': 0,
             'def_files': 0,
             'total_keys': 0
         }
-        
+
         # Подсчёт Keyed файлов
         keyed_path = os.path.join(lang_path, "Keyed")
         if os.path.exists(keyed_path):
@@ -168,7 +171,7 @@ def analyze_languages(langs_base: str, logger=None) -> Dict[str, Any]:
                 for f in files:
                     if f.endswith('.xml'):
                         lang_info['keyed_files'] += 1
-        
+
         # Подсчёт DefInjected файлов
         def_injected_path = os.path.join(lang_path, "DefInjected")
         if os.path.exists(def_injected_path):
@@ -176,8 +179,8 @@ def analyze_languages(langs_base: str, logger=None) -> Dict[str, Any]:
                 for f in files:
                     if f.endswith('.xml'):
                         lang_info['def_files'] += 1
-        
+
         lang_info['total_keys'] = lang_info['keyed_files'] + lang_info['def_files']
         languages[lang_dir] = lang_info
-    
+
     return languages
