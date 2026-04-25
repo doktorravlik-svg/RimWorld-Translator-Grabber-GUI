@@ -1,6 +1,7 @@
 # mod_verifier.py - Верификация модов RimWorld
 import os
-import xml.etree.ElementTree as ET
+import lxml.etree as etree
+from verification.xml_parser import safe_parse_xml
 
 
 class ModVerifier:
@@ -71,10 +72,10 @@ class ModVerifier:
             return
 
         try:
-            tree = ET.parse(about_path)
-            root = tree.getroot()
-
-            # Проверка packageId
+            root = safe_parse_xml(about_path)
+            if root is None:
+                result["errors"].append("Не удалось распарсить About.xml")
+                return
             package_id = root.find("packageId")
             if package_id is None or not package_id.text or not package_id.text.strip():
                 result["errors"].append("Отсутствует packageId")
@@ -96,7 +97,7 @@ class ModVerifier:
             if supported_versions is None:
                 result["warnings"].append("Отсутствует supportedVersions")
 
-        except ET.ParseError as e:
+        except etree.XMLSyntaxError as e:
             result["errors"].append(f"Ошибка парсинга About.xml: {e}")
         except Exception as e:
             result["errors"].append(f"Неожиданная ошибка при проверке About.xml: {e}")
@@ -123,8 +124,8 @@ class ModVerifier:
                             xml_count += 1
                             filepath = os.path.join(root, filename)
                             try:
-                                ET.parse(filepath)
-                            except ET.ParseError:
+                                safe_parse_xml(filepath)
+                            except etree.XMLSyntaxError:
                                 error_count += 1
                                 result["errors"].append(f"Ошибка XML: {filepath}")
 
@@ -161,8 +162,8 @@ class ModVerifier:
                                     xml_count += 1
                                     filepath = os.path.join(root, filename)
                                     try:
-                                        ET.parse(filepath)
-                                    except ET.ParseError:
+                                        safe_parse_xml(filepath)
+                                    except etree.XMLSyntaxError:
                                         error_count += 1
                                         result["errors"].append(f"Ошибка XML: {filepath}")
 

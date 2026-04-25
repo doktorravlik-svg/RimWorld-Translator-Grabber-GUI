@@ -1,6 +1,7 @@
 # integrity_checker.py - Проверка целостности файлов модов
 import os
-import xml.etree.ElementTree as ET
+import lxml.etree as etree
+from verification.xml_parser import safe_parse_xml
 
 
 def check_integrity(mods_folder: str, language_filter=None, log_callback=None) -> bool:
@@ -70,10 +71,7 @@ def check_integrity(mods_folder: str, language_filter=None, log_callback=None) -
 
             # Проверка 3: Валидность XML
             try:
-                tree = ET.parse(filepath)
-                root_elem = tree.getroot()
-
-                # Проверка 4: Наличие корневого элемента
+                root_elem = safe_parse_xml(filepath)
                 if root_elem is None:
                     errors.append(f"Нет корневого элемента: {filepath}")
                     files_with_errors += 1
@@ -88,7 +86,7 @@ def check_integrity(mods_folder: str, language_filter=None, log_callback=None) -
                 if empty_tags > 10:
                     warnings.append(f"Много пустых тегов ({empty_tags}): {filepath}")
 
-            except ET.ParseError as e:
+            except etree.XMLSyntaxError as e:
                 errors.append(f"Ошибка XML: {filepath} - {e}")
                 files_with_errors += 1
             except Exception as e:
@@ -153,18 +151,20 @@ def check_mod_structure(mod_path: str, log_callback=None) -> dict:
     if os.path.exists(about_path):
         result["has_about"] = True
         try:
-            tree = ET.parse(about_path)
-            root = tree.getroot()
-
-            # Проверка обязательных полей
-            package_id = root.find("packageId")
-            if package_id is None or not package_id.text:
-                result["errors"].append("Отсутствует packageId в About.xml")
+            root = safe_parse_xml(about_path)
+            if root is None:
+                result["errors"].append("Не удалось распарсить About.xml")
                 result["about_valid"] = False
             else:
-                result["about_valid"] = True
+                # Проверка обязательных полей
+                package_id = root.find("packageId")
+                if package_id is None or not package_id.text:
+                    result["errors"].append("Отсутствует packageId в About.xml")
+                    result["about_valid"] = False
+                else:
+                    result["about_valid"] = True
 
-        except ET.ParseError as e:
+        except etree.XMLSyntaxError as e:
             result["errors"].append(f"Ошибка парсинга About.xml: {e}")
             result["about_valid"] = False
     else:

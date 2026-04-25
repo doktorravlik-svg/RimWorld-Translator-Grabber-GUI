@@ -8,7 +8,8 @@
 import os
 import re
 import tarfile
-import xml.etree.ElementTree as ET
+import lxml.etree as etree
+from verification.xml_parser import safe_parse_xml
 
 # ✅ ОБНОВЛЕНО: 2026-04 — добавлен Odyssey (1.6)
 # ✅ СИСТЕМА РАСШИРЯЕМА — новые DLC добавляются только сюда
@@ -46,8 +47,9 @@ class GameReferenceManager:
     def __init__(self, game_path: str, lang="Russian"):
         self.game_path = game_path
         self.lang = lang
-        self.reference_db = {}  # Ключ -> Перевод
+        self.reference_db = {}  # Ключ -> Перевод (официальный)
         self.special_symbols = set()
+        self.key_to_file = {}  # ✅ НОВОЕ: ключ -> файл источника (относительный путь)
 
     def _get_lang_folder_name(self, base_path: str) -> str | None:
         """
@@ -159,15 +161,20 @@ class GameReferenceManager:
 
     def _parse_file(self, file_path: str):
         try:
-            tree = ET.parse(file_path)
-            for child in tree.getroot():
+            root = safe_parse_xml(file_path)
+            if root is None:
+                return
+            for child in root:
                 if child.text and child.tag:
                     val = child.text.strip()
-                    self.reference_db[child.tag] = val
+                    key = child.tag
+                    self.reference_db[key] = val
+                    # ✅ НОВОЕ: запоминаем источник
+                    self.key_to_file[key] = file_path
                     # Собираем спецсимволы (например {0}, [Name])
                     found = re.findall(r"\{.*?\}|\[.*?\]|\(\^Cap\)", val)
                     self.special_symbols.update(found)
-        except ET.ParseError as e:
+        except etree.XMLSyntaxError as e:
             print(f"Ошибка парсинга XML в файле {file_path}: {e}")
         except Exception as e:
             print(f"Неизвестная ошибка при чтении файла {file_path}: {e}")
