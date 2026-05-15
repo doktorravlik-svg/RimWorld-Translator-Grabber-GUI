@@ -1,0 +1,98 @@
+# translation/engines/translators_engine.py
+"""
+Движок на основе библиотеки `translators`.
+
+Библиотека `translators` поддерживает 20+ переводчиков:
+- DeepL, Google, Bing, Baidu, Youdao, Yandex, и др.
+- Работает через веб-интерфейсы (без API ключей)
+- Автоматически обходит некоторые защиты через имитацию браузера
+
+Установка: pip install translators
+
+Используется как запасной вариант при бане основных движков.
+"""
+
+try:
+    import translators as ts
+
+    _TRANSLATORS_AVAILABLE = True
+except ImportError:
+    _TRANSLATORS_AVAILABLE = False
+
+from translation.engines.base import TranslationEngine
+from translation.constants import LANGUAGE_CODE_MAP
+
+# Доступные суб-движки в порядке приоритета
+SUB_ENGINE_PRIORITY = [
+    "deepl",
+    "google",
+    "bing",
+    "yandex",
+    "baidu",
+]
+
+
+class TranslatorsEngine(TranslationEngine):
+    """Движок на базе библиотеки translators (20+ переводчиков)."""
+
+    def __init__(
+        self,
+        source_lang: str = "auto",
+        target_lang: str = "ru",
+        proxy: dict | None = None,
+        sub_engine: str | None = None,
+    ):
+        super().__init__(source_lang, target_lang, proxy)
+        self._sub_engine = sub_engine  # Конкретный суб-движок (deepl, google...)
+        self._initialized = _TRANSLATORS_AVAILABLE
+
+    def translate(self, text: str) -> str | None:
+        if not self._initialized or not text or text.strip() == "":
+            self.increment_error_count()
+            return None
+
+        # Пробуем каждый суб-движок по порядку
+        engines_to_try = [self._sub_engine] if self._sub_engine else SUB_ENGINE_PRIORITY
+
+        source_code = self._get_source_code()
+        target_code = self._get_target_code()
+
+        for engine_name in engines_to_try:
+            try:
+                result = ts.translate_text(
+                    text,
+                    translator=engine_name,
+                    from_language=source_code,
+                    to_language=target_code,
+                    sleep_seconds=0.5,
+                )
+                if result:
+                    self.reset_error_count()
+                    return result
+            except Exception:
+                continue
+
+        self.increment_error_count()
+        return None
+
+    def _get_source_code(self) -> str:
+        """Получает код исходного языка для translators."""
+        if self.source_lang == "auto":
+            return "auto"
+        return LANGUAGE_CODE_MAP.get(self.source_lang, self.source_lang)
+
+    def _get_target_code(self) -> str:
+        """Получает код целевого языка для translators."""
+        return LANGUAGE_CODE_MAP.get(self.target_lang, self.target_lang)
+
+    @property
+    def name(self) -> str:
+        return "translators"
+
+    @property
+    def description(self) -> str:
+        engine_info = f" (суб-движок: {self._sub_engine})" if self._sub_engine else ""
+        return f"Translators{engine_info} (20+ переводчиков)"
+
+    def is_available(self) -> bool:
+        return self._initialized
