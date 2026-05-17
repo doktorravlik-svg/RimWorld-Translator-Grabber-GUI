@@ -1004,7 +1004,7 @@ class TranslationEditorDialog:
         )
         
         try:
-            translated = translator.translate(key)
+            translated = translator.translate(key, key)
             if translated:
                 for entry in self.entries:
                     if entry["key"] == key:
@@ -1564,7 +1564,7 @@ class TranslationEditorDialog:
         for e in self.entries:
             if not e.get("value", "").strip():
                 try:
-                    translated = translator.translate(e["key"])
+                    translated = translator.translate(e["key"], e["key"])
                     if translated:
                         e["value"] = translated
                         e["status"] = "partial"
