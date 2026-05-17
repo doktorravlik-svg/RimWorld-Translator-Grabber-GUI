@@ -385,7 +385,7 @@ def generate_or_update_per_def_files_v2(
                         # Формат: "pattern->output" где pattern нельзя переводить
                         if "->" in text:
                             parts = text.split("->", 1)
-                            pattern_part = parts[0]  # не переводим
+                            pattern_part = parts[0]  # не переводим - это PATTERN!
                             output_part = parts[1] if len(parts) > 1 else ""
 
                             # Переводим только output_part
@@ -402,13 +402,18 @@ def generate_or_update_per_def_files_v2(
                                         var_placeholder_map[placeholder] = var
                                         temp_output = temp_output.replace(var, placeholder)
 
-                                    # Переводим текст с защищёнными переменными
-                                    translated_output = translator.translate(temp_output)
+                                    # ✅ ВАЖНО: Передаём pattern_part как original_text
+                                    # Это предотвращает применение глоссария к output_part
+                                    # Глоссарий применяется к text, но мы хотим его применить к pattern_part
+                                    # Поэтому передаём pattern_part, чтобы глоссарий обработал его
+                                    # А output_part будет переведён "с нуля" API
+                                    translated_output = translator.translate(temp_output, pattern_part)
 
                                     if translated_output:
                                         # ✅ Восстанавливаем переменные обратно
                                         for placeholder, var in var_placeholder_map.items():
                                             translated_output = translated_output.replace(placeholder, var)
+                                        # ✅ pattern_part НИКОГДА не переводится!
                                         translated_list.append(f"{pattern_part}->{translated_output}")
                                     else:
                                         translated_list.append(text)
@@ -422,7 +427,7 @@ def generate_or_update_per_def_files_v2(
                                 translated_list.append(text)
                             else:
                                 if use_api:
-                                    translated = translator.translate(text)
+                                    translated = translator.translate(text, text)
                                     if translated:
                                         translated_list.append(translated)
                                     else:
@@ -466,7 +471,7 @@ def generate_or_update_per_def_files_v2(
                     final_val = source_map.get(tagname)
                     source_name = "Source файлы мода"
                 elif use_api:
-                    final_val = translator.translate(eng_val)
+                    final_val = translator.translate(eng_val, eng_val)
                     source_name = "Автоперевод API"
                     if final_val and logger:
                         logger.info(f"  🤖 Автоперевод: [{tagname}] '{eng_val}' -> '{final_val}'")
