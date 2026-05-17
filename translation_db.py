@@ -245,27 +245,60 @@ class TranslationDatabase:
 
         lang_code = get_lang_code_from_name(self.target_language)
         
-        json_paths = [
-            (os.path.join(self.glossary_dir, "user.json"), "user"),
-            (os.path.join(self.glossary_dir, "seed.json"), "seed"),
-        ]
+        # Ensure glossary directory exists
+        os.makedirs(self.glossary_dir, exist_ok=True)
         
-        for json_path, category in json_paths:
-            if json_path and os.path.exists(json_path):
-                try:
-                    with open(json_path, encoding="utf-8") as f:
-                        data = json.load(f)
-                        entries = data.get("entries", {})
-                        c = self.conn.cursor()
-                        for term, translation in entries.items():
-                            c.execute(
-                                "INSERT OR IGNORE INTO glossary (term, translation, category, description, target_language) VALUES (?, ?, ?, ?, ?)",
-                                (term, translation, category, "", self.target_language),
-                            )
-                        self.conn.commit()
-                        logger.debug(f"Загружено {len(entries)} терминов из {json_path}")
-                except Exception as e:
-                    logger.debug(f"Не удалось загрузить глоссарий из {json_path}: {e}")
+        # Check if there are any JSON files to load (excluding glossary_index.json)
+        json_files = []
+        try:
+            for filename in os.listdir(self.glossary_dir):
+                if not filename.endswith(".json"):
+                    continue
+                category = filename.replace(".json", "")
+                # Пропускаем системные файлы
+                if category in ("glossary_index",):
+                    continue
+                json_files.append((filename, category))
+        except Exception:
+            pass
+        
+        # If no JSON files exist, load seed glossary
+        if not json_files:
+            self._load_seed_glossary()
+            return
+            
+        c = self.conn.cursor()
+        
+        # Сначала загружаем user.json, затем категории
+        # Это позволяет категориям обновлять записи из user.json
+        
+        # Сортируем: сначала user.json, потом категории
+        def sort_key(item):
+            filename, category = item
+            if category == "user":
+                return (0, filename)  # user.json - первым
+            return (1, filename)  # категории - после
+        
+        json_files.sort(key=sort_key)
+        
+        for filename, category in json_files:
+            json_path = os.path.join(self.glossary_dir, filename)
+            try:
+                with open(json_path, encoding="utf-8") as f:
+                    data = json.load(f)
+                    entries = data.get("entries", {})
+                    for term, translation in entries.items():
+                        c.execute(
+                            "INSERT OR REPLACE INTO glossary (term, translation, category, description, target_language) VALUES (?, ?, ?, ?, ?)",
+                            (term, translation, category, "", self.target_language),
+                        )
+                    self.conn.commit()
+                    logger.debug(f"Загружено {len(entries)} терминов из {json_path}")
+            except Exception as e:
+                logger.debug(f"Не удалось загрузить глоссарий из {json_path}: {e}")
+        
+        # Ensure glossary_index.json exists
+        self._rebuild_glossary_index_for_dir(self.glossary_dir)
         
         self._load_seed_glossary()
 
@@ -274,9 +307,16 @@ class TranslationDatabase:
         import json
 
         c = self.conn.cursor()
-        c.execute("SELECT COUNT(*) FROM glossary WHERE category = 'seed' AND target_language = ?", (self.target_language,))
+        lang_lower = self.target_language.lower()
+        lang_code = get_lang_code_from_name(self.target_language)
+        # Проверяем наличие seed записей с разными форматами языка
+        c.execute(
+            "SELECT COUNT(*) FROM glossary WHERE category = 'seed' AND (target_language = ? OR target_language = ? OR target_language = ?)",
+            (self.target_language, lang_code, lang_lower)
+        )
         if c.fetchone()[0] > 0:
-            self._sync_glossary_to_json(self.target_language)
+            # Seed entries already exist - don't overwrite JSON files
+            # The _load_glossary_from_json already loaded from JSON files
             return
 
         base_dir = Path(__file__).parent
@@ -520,81 +560,122 @@ class TranslationDatabase:
 
         return stats
 
+    def _resolve_target_language(self, target_language=None):
+        """Разрешает язык: если None, использует target_language экземпляра"""
+        if target_language is None:
+            return self.target_language
+        return target_language
+
+    def _get_language_filters(self, target_language=None):
+        """Возвращает список значений для фильтрации по языку (поддержка разных форматов)"""
+        lang = self._resolve_target_language(target_language)
+        lang_lower = lang.lower()
+        lang_code = get_lang_code_from_name(lang)
+        return (lang, lang_code, lang_lower)
+
     def get_all_categories(self, target_language=None):
         """Получить все категории глоссария"""
-        if target_language is None:
-            target_language = self.target_language
         c = self.conn.cursor()
-        c.execute("SELECT DISTINCT category FROM glossary WHERE target_language = ?", (target_language,))
+        lang, lang_code, lang_lower = self._get_language_filters(target_language)
+        c.execute(
+            "SELECT DISTINCT category FROM glossary WHERE target_language = ? OR target_language = ? OR target_language = ?",
+            (lang, lang_code, lang_lower)
+        )
         return [row[0] for row in c.fetchall()]
 
     def get_all_glossary(self, target_language=None):
         """Получить все термины глоссария"""
-        if target_language is None:
-            target_language = self.target_language
         c = self.conn.cursor()
-        c.execute("SELECT * FROM glossary WHERE target_language = ? ORDER BY term", (target_language,))
+        lang, lang_code, lang_lower = self._get_language_filters(target_language)
+        c.execute(
+            "SELECT * FROM glossary WHERE target_language = ? OR target_language = ? OR target_language = ? ORDER BY term",
+            (lang, lang_code, lang_lower)
+        )
         return c.fetchall()
 
-    def get_glossary_total_count(self, category=None, target_language=None):
+    def get_glossary_total_count(self, target_language=None, category=None):
         """Получить общее количество терминов в глоссарии"""
-        if target_language is None:
-            target_language = self.target_language
         c = self.conn.cursor()
+        lang, lang_code, lang_lower = self._get_language_filters(target_language)
         if category:
-            c.execute("SELECT COUNT(*) FROM glossary WHERE target_language = ? AND category = ?", (target_language, category))
+            c.execute(
+                "SELECT COUNT(*) FROM glossary WHERE (target_language = ? OR target_language = ? OR target_language = ?) AND category = ?",
+                (lang, lang_code, lang_lower, category)
+            )
         else:
-            c.execute("SELECT COUNT(*) FROM glossary WHERE target_language = ?", (target_language,))
+            c.execute(
+                "SELECT COUNT(*) FROM glossary WHERE target_language = ? OR target_language = ? OR target_language = ?",
+                (lang, lang_code, lang_lower)
+            )
         return c.fetchone()[0]
 
     def get_glossary_total_count_by_confidence(self, confidence=None, category=None, target_language=None):
         """Получить количество терминов по уверенности (для совместимости)"""
-        if target_language is None:
-            target_language = self.target_language
         c = self.conn.cursor()
+        lang, lang_code, lang_lower = self._get_language_filters(target_language)
         if category:
-            c.execute("SELECT COUNT(*) FROM glossary WHERE target_language = ? AND category = ?", (target_language, category))
+            c.execute(
+                "SELECT COUNT(*) FROM glossary WHERE (target_language = ? OR target_language = ? OR target_language = ?) AND category = ?",
+                (lang, lang_code, lang_lower, category)
+            )
         else:
-            c.execute("SELECT COUNT(*) FROM glossary WHERE target_language = ?", (target_language,))
+            c.execute(
+                "SELECT COUNT(*) FROM glossary WHERE target_language = ? OR target_language = ? OR target_language = ?",
+                (lang, lang_code, lang_lower)
+            )
         return c.fetchone()[0]
 
     def get_glossary_by_confidence(self, confidence, category=None, limit=100, offset=0, target_language=None):
         """Получить термины по уверенности (для совместимости)"""
-        if target_language is None:
-            target_language = self.target_language
         c = self.conn.cursor()
+        lang, lang_code, lang_lower = self._get_language_filters(target_language)
         if category:
-            c.execute("SELECT * FROM glossary WHERE target_language = ? AND category = ? ORDER BY term LIMIT ? OFFSET ?", (target_language, category, limit, offset))
+            c.execute(
+                "SELECT * FROM glossary WHERE (target_language = ? OR target_language = ? OR target_language = ?) AND category = ? ORDER BY term LIMIT ? OFFSET ?",
+                (lang, lang_code, lang_lower, category, limit, offset)
+            )
         else:
-            c.execute("SELECT * FROM glossary WHERE target_language = ? ORDER BY term LIMIT ? OFFSET ?", (target_language, limit, offset))
+            c.execute(
+                "SELECT * FROM glossary WHERE target_language = ? OR target_language = ? OR target_language = ? ORDER BY term LIMIT ? OFFSET ?",
+                (lang, lang_code, lang_lower, limit, offset)
+            )
         return c.fetchall()
 
     def get_glossary_by_category(self, category, limit=100, offset=0, target_language=None):
         """Получить термины по категории с пагинацией"""
-        if target_language is None:
-            target_language = self.target_language
         c = self.conn.cursor()
-        c.execute("SELECT * FROM glossary WHERE target_language = ? AND category = ? ORDER BY term LIMIT ? OFFSET ?", (target_language, category, limit, offset))
+        lang, lang_code, lang_lower = self._get_language_filters(target_language)
+        c.execute(
+            "SELECT * FROM glossary WHERE (target_language = ? OR target_language = ? OR target_language = ?) AND category = ? ORDER BY term LIMIT ? OFFSET ?",
+            (lang, lang_code, lang_lower, category, limit, offset)
+        )
         return c.fetchall()
 
     def get_all_glossary_paginated(self, limit=100, offset=0, target_language=None):
         """Получить все термины глоссария с пагинацией"""
-        if target_language is None:
-            target_language = self.target_language
         c = self.conn.cursor()
-        c.execute("SELECT * FROM glossary WHERE target_language = ? ORDER BY term LIMIT ? OFFSET ?", (target_language, limit, offset))
+        lang, lang_code, lang_lower = self._get_language_filters(target_language)
+        c.execute(
+            "SELECT * FROM glossary WHERE target_language = ? OR target_language = ? OR target_language = ? ORDER BY term LIMIT ? OFFSET ?",
+            (lang, lang_code, lang_lower, limit, offset)
+        )
         return c.fetchall()
 
     def search_glossary(self, query, target_language=None, mod_name=None):
         """Поиск терминов в глоссарии"""
-        if target_language is None:
-            target_language = self.target_language
         c = self.conn.cursor()
         search = f"%{query}%"
+        lang, lang_code, lang_lower = self._get_language_filters(target_language)
         if mod_name:
-            c.execute("SELECT * FROM glossary WHERE target_language = ? AND (term LIKE ? OR translation LIKE ? OR description LIKE ?) AND mod_name = ? ORDER BY term", (target_language, search, search, search, mod_name))
+            c.execute(
+                "SELECT * FROM glossary WHERE (target_language = ? OR target_language = ? OR target_language = ?) AND (term LIKE ? OR translation LIKE ? OR description LIKE ?) AND mod_name = ? ORDER BY term",
+                (lang, lang_code, lang_lower, search, search, search, mod_name)
+            )
         else:
-            c.execute("SELECT * FROM glossary WHERE target_language = ? AND (term LIKE ? OR translation LIKE ? OR description LIKE ?) ORDER BY term", (target_language, search, search, search))
+            c.execute(
+                "SELECT * FROM glossary WHERE target_language = ? OR target_language = ? OR target_language = ? AND (term LIKE ? OR translation LIKE ? OR description LIKE ?) ORDER BY term",
+                (lang, lang_code, lang_lower, search, search, search)
+            )
         return c.fetchall()
 
     def add_glossary_term(self, term, translation, category, description, target_language=None, mod_name=""):
@@ -657,6 +738,7 @@ class TranslationDatabase:
             self._save_category_to_file(category, cat_entries)
         if uncategorized:
             self._save_category_to_file("uncategorized", uncategorized)
+        self._rebuild_index()
 
     def _save_category_to_file(self, category: str, entries: dict[str, str]) -> None:
         """Сохраняет категорию в отдельный файл."""
@@ -673,12 +755,23 @@ class TranslationDatabase:
         except Exception as e:
             logger.error(f"Ошибка сохранения категории {category}: {e}")
 
+    def _rebuild_index(self) -> None:
+        """Пересобирает индекс файлов глоссария."""
+        import json
+        index_path = os.path.join(self.glossary_dir, "glossary_index.json")
+        files = {}
+        for filename in os.listdir(self.glossary_dir):
+            if filename.endswith(".json") and filename != "glossary_index.json":
+                files[filename] = filename.replace(".json", "")
+        with open(index_path, "w", encoding="utf-8") as f:
+            json.dump({"files": files}, f, ensure_ascii=False, indent=2)
+
     def _sync_glossary_to_json(self, target_language=None):
         """
         Синхронизирует глоссарий с JSON-файлами.
         
         Экспортирует термины из базы данных SQLite:
-        - user.json: пользовательские термины (category != 'seed')
+        - user.json: пользовательские термины (category != 'seed' и не категория-файл)
         - seed.json: seed-термины
         - категории: weapons.json, materials.json и т.д. (при glossary_auto_split=True)
         """
@@ -688,8 +781,14 @@ class TranslationDatabase:
         
         c = self.conn.cursor()
         
-        c.execute("SELECT term, translation FROM glossary WHERE target_language = ? AND category != 'seed'", (target_language,))
-        user_entries = {row[0]: row[1] for row in c.fetchall()}
+        # Get all non-seed entries grouped by category
+        c.execute("SELECT term, translation, category FROM glossary WHERE target_language = ? AND category != 'seed'", (target_language,))
+        entries_by_category: dict[str, dict[str, str]] = {}
+        for row in c.fetchall():
+            category = row[2]
+            if category not in entries_by_category:
+                entries_by_category[category] = {}
+            entries_by_category[category][row[0]] = row[1]
         
         c.execute("SELECT term, translation FROM glossary WHERE target_language = ? AND category = 'seed'", (target_language,))
         seed_entries = {row[0]: row[1] for row in c.fetchall()}
@@ -701,27 +800,182 @@ class TranslationDatabase:
         except Exception:
             pass
 
-        if auto_split and len(user_entries) >= MAX_GLOSSARY_SIZE:
-            self._split_glossary_by_categories(target_language)
-        else:
-            for json_path, entries in [
-                (os.path.join(self.glossary_dir, "user.json"), user_entries),
-                (os.path.join(self.glossary_dir, "seed.json"), seed_entries),
-            ]:
+        # Ensure glossary directory exists
+        os.makedirs(self.glossary_dir, exist_ok=True)
+        
+        files_to_save: list[tuple[str, dict[str, str]]] = []
+        
+        if auto_split and len(entries_by_category) > 0:
+            # Save each category to its own file
+            for category, entries in entries_by_category.items():
                 if not entries:
                     continue
+                files_to_save.append((category, entries))
+        else:
+            # Save all non-seed entries to user.json
+            user_entries = {}
+            for cat_entries in entries_by_category.values():
+                user_entries.update(cat_entries)
+            if user_entries:
+                files_to_save.append(("user", user_entries))
+        
+        # Always save seed entries if present
+        if seed_entries:
+            files_to_save.append(("seed", seed_entries))
+        
+        # Save all files
+        for name, entries in files_to_save:
+            json_path = os.path.join(self.glossary_dir, f"{name}.json")
+            data = {
+                "entries": entries,
+                "source": name,
+                "auto_split": True if auto_split else False,
+            }
+            if auto_split:
+                data["auto_split"] = True
+            try:
+                with open(json_path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+                logger.debug(f"Глоссарий сохранен в {json_path} ({len(entries)} терминов)")
+            except Exception as e:
+                logger.error(f"Ошибка сохранения глоссария в JSON: {e}")
+        
+        # Rebuild glossary_index.json
+        self._rebuild_glossary_index_for_dir(self.glossary_dir)
+
+    def _rebuild_glossary_index_for_dir(self, glossary_dir: str):
+        """Пересобирает индекс файлов глоссария для указанной директории."""
+        import json
+        index_path = os.path.join(glossary_dir, "glossary_index.json")
+        files = {}
+        try:
+            for filename in os.listdir(glossary_dir):
+                if filename.endswith(".json") and filename != "glossary_index.json":
+                    category = filename.replace(".json", "")
+                    files[filename] = category
+            with open(index_path, "w", encoding="utf-8") as f:
+                json.dump({"files": files}, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.error(f"Ошибка пересоздания индекса глоссария: {e}")
+
+    def sync_glossary_to_all_languages(self, source_language: str = "Russian"):
+        """
+        Синхронизирует глоссарий со всеми языками на основе источника.
+        
+        Для каждого языка копирует категории и термины из источника,
+        создавая структуру файлов глоссария.
+        
+        Args:
+            source_language: Язык-источник для копирования категорий
+        """
+        import json
+        
+        c = self.conn.cursor()
+        
+        # Получаем все языки
+        c.execute("SELECT DISTINCT target_language FROM glossary WHERE target_language IS NOT NULL")
+        languages = [row[0] for row in c.fetchall()]
+        
+        # Получаем категории из источника
+        lang_code = get_lang_code_from_name(source_language)
+        c.execute(
+            "SELECT DISTINCT category FROM glossary WHERE target_language = ? OR target_language = ?",
+            (source_language, lang_code)
+        )
+        categories = [row[0] for row in c.fetchall()]
+        
+        for lang in languages:
+            lang_code = get_lang_code_from_name(lang)
+            glossary_dir = str(Path(__file__).parent / "data_storage" / lang_code / "glossary")
+            os.makedirs(glossary_dir, exist_ok=True)
+            
+            # Получаем термины для этого языка
+            c.execute(
+                "SELECT term, translation, category FROM glossary WHERE target_language = ? OR target_language = ?",
+                (lang, lang_code)
+            )
+            
+            entries_by_category: dict[str, dict[str, str]] = {}
+            for row in c.fetchall():
+                category = row[2] or "general"
+                if category not in entries_by_category:
+                    entries_by_category[category] = {}
+                entries_by_category[category][row[0]] = row[1]
+            
+            # Сохраняем термины по категориям
+            for category, entries in entries_by_category.items():
+                json_path = os.path.join(glossary_dir, f"{category}.json")
                 data = {
                     "entries": entries,
-                    "case_sensitive": False,
-                    "target_language": target_language,
+                    "source": category,
+                    "auto_split": True,
+                    "synced_at": datetime.now().isoformat()
                 }
-                try:
-                    os.makedirs(os.path.dirname(json_path), exist_ok=True)
+                with open(json_path, "w", encoding="utf-8") as f:
+                    json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            # Пересобираем индекс
+            self._rebuild_glossary_index_for_dir(glossary_dir)
+            logger.info(f"Глоссарий синхронизирован для языка: {lang}")
+
+    def initialize_glossary_for_all_languages(self):
+        """
+        Создаёт структуру глоссария для всех языков на основе категорий из базы данных.
+        
+        Для каждого языка создаёт пустые JSON-файлы категорий, если они отсутствуют.
+        Это обеспечивает наличие файлов глоссария для всех поддерживаемых языков.
+        """
+        from pathlib import Path
+        import json
+        
+        # Получаем все доступные языки из базы данных
+        c = self.conn.cursor()
+        c.execute("SELECT DISTINCT target_language FROM glossary WHERE target_language IS NOT NULL")
+        languages = [row[0] for row in c.fetchall()]
+        
+        # Если нет языков в базе, используем стандартные
+        if not languages:
+            languages = ["Russian", "English", "German", "French", "Spanish"]
+        
+        # Получаем все категории из базы данных
+        c.execute("SELECT DISTINCT category FROM glossary WHERE category IS NOT NULL")
+        categories = [row[0] for row in c.fetchall()]
+        
+        # Стандартные категории, если нет в базе
+        if not categories:
+            categories = ["game", "seed", "user", "auto", "general", "materials", "weapons", 
+                          "armor", "clothing", "plants", "interface", "names", "biomes", 
+                          "body_parts", "factions"]
+        
+        for lang in languages:
+            lang_code = get_lang_code_from_name(lang)
+            glossary_dir = str(Path(__file__).parent / "data_storage" / lang_code / "glossary")
+            
+            # Создаём директорию если её нет
+            os.makedirs(glossary_dir, exist_ok=True)
+            
+            # Создаём category_index.json для отслеживания категорий
+            category_index_path = os.path.join(glossary_dir, "category_index.json")
+            if not os.path.exists(category_index_path):
+                category_data = {"categories": categories, "created_at": datetime.now().isoformat()}
+                with open(category_index_path, "w", encoding="utf-8") as f:
+                    json.dump(category_data, f, ensure_ascii=False, indent=2)
+            
+            # Создаём пустые JSON-файлы для каждой категории если они отсутствуют
+            for category in categories:
+                json_path = os.path.join(glossary_dir, f"{category}.json")
+                if not os.path.exists(json_path):
+                    data = {
+                        "entries": {},
+                        "source": category,
+                        "auto_split": True,
+                        "created_at": datetime.now().isoformat()
+                    }
                     with open(json_path, "w", encoding="utf-8") as f:
                         json.dump(data, f, ensure_ascii=False, indent=2)
-                    logger.debug(f"Глоссарий сохранен в {json_path} ({len(entries)} терминов)")
-                except Exception as e:
-                    logger.error(f"Ошибка сохранения глоссария в JSON: {e}")
+            
+            # Пересобираем индекс
+            self._rebuild_glossary_index_for_dir(glossary_dir)
 
     # ===== ИСТОРИЯ ВЕРСИЙ =====
 
