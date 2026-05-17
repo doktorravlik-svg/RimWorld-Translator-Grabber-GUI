@@ -471,7 +471,40 @@ def generate_or_update_per_def_files_v2(
                     final_val = source_map.get(tagname)
                     source_name = "Source файлы мода"
                 elif use_api:
-                    final_val = translator.translate(eng_val, eng_val)
+                    # ✅ RulePackDef: обрабатываем формат "pattern->output"
+                    # Для rulesStrings полей тоже нужно сохранять pattern_part
+                    if isinstance(eng_val, str) and "->" in eng_val:
+                        import re
+                        parts = eng_val.split("->", 1)
+                        pattern_part = parts[0]
+                        output_part = parts[1] if len(parts) > 1 else ""
+                        
+                        if output_part and output_part.strip():
+                            # Защищаем [variable] переменные в output_part
+                            rVariables = re.findall(r'\[[^\]]+\]', output_part)
+                            var_placeholder_map = {}
+                            temp_output = output_part
+                            for i, var in enumerate(rVariables):
+                                placeholder = f"__VAR_{i}__"
+                                var_placeholder_map[placeholder] = var
+                                temp_output = temp_output.replace(var, placeholder)
+                            
+                            # Передаем pattern_part как original_text для глоссария
+                            translated_output = translator.translate(temp_output, pattern_part)
+                            
+                            if translated_output:
+                                # Восстанавливаем переменные
+                                for placeholder, var in var_placeholder_map.items():
+                                    translated_output = translated_output.replace(placeholder, var)
+                                # pattern_part НИКОГДА не переводится!
+                                final_val = f"{pattern_part}->{translated_output}"
+                            else:
+                                final_val = eng_val
+                        else:
+                            final_val = eng_val
+                    else:
+                        final_val = translator.translate(eng_val, eng_val)
+                    
                     source_name = "Автоперевод API"
                     if final_val and logger:
                         logger.info(f"  🤖 Автоперевод: [{tagname}] '{eng_val}' -> '{final_val}'")
