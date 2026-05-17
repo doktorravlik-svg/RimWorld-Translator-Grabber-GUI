@@ -410,9 +410,12 @@ def generate_or_update_per_def_files_v2(
                                     translated_output = translator.translate(temp_output, pattern_part)
 
                                     if translated_output:
-                                        # ✅ Восстанавливаем переменные обратно
+                                        # ✅ Восстанавливаем переменные обратно (регистронезависимый поиск)
                                         for placeholder, var in var_placeholder_map.items():
-                                            translated_output = translated_output.replace(placeholder, var)
+                                            # Используем регулярное выражение для case-insensitive замены
+                                            translated_output = re.sub(
+                                                re.escape(placeholder), var, translated_output, flags=re.IGNORECASE
+                                            )
                                         # ✅ pattern_part НИКОГДА не переводится!
                                         translated_list.append(f"{pattern_part}->{translated_output}")
                                     else:
@@ -493,9 +496,12 @@ def generate_or_update_per_def_files_v2(
                             translated_output = translator.translate(temp_output, pattern_part)
                             
                             if translated_output:
-                                # Восстанавливаем переменные
+                                # Восстанавливаем переменные (регистронезависимый поиск)
                                 for placeholder, var in var_placeholder_map.items():
-                                    translated_output = translated_output.replace(placeholder, var)
+                                    # Используем регулярное выражение для case-insensitive замены
+                                    translated_output = re.sub(
+                                        re.escape(placeholder), var, translated_output, flags=re.IGNORECASE
+                                    )
                                 # pattern_part НИКОГДА не переводится!
                                 final_val = f"{pattern_part}->{translated_output}"
                             else:
