@@ -101,9 +101,8 @@ class GlossaryManager:
             os.makedirs(self.glossary_dir, exist_ok=True)
             self._create_default_files()
 
-        index_path = os.path.join(self.glossary_dir, "..", "glossary_index.json")
-        if not os.path.exists(index_path):
-            index_path = os.path.join(self.glossary_dir, "glossary_index.json")
+        # glossary_index.json is in the glossary directory itself
+        index_path = os.path.join(self.glossary_dir, "glossary_index.json")
 
         if os.path.exists(index_path):
             self._load_index(index_path)
@@ -155,6 +154,7 @@ class GlossaryManager:
 
     def _rebuild_index(self) -> None:
         """Пересобирает индекс файлов."""
+        os.makedirs(self.glossary_dir, exist_ok=True)
         index_path = os.path.join(self.glossary_dir, "glossary_index.json")
         with open(index_path, "w", encoding="utf-8") as f:
             json.dump({"files": self._file_sources}, f, ensure_ascii=False, indent=2)

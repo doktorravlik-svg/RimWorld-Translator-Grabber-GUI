@@ -1,7 +1,12 @@
-MAX_GLOSSARY_SIZE = 5000
+MAX_GLOSSARY_SIZE = 1500
 
 CATEGORY_PREFIXES = {
     "weapon": "weapons",
+    "rifle": "weapons",
+    "sword": "weapons",
+    "axe": "weapons",
+    "gun": "weapons",
+    "bow": "weapons",
     "armor": "armor",
     "helmet": "armor",
     "apparel": "clothing",
@@ -35,7 +40,11 @@ def get_lang_code_from_name(target_language: str) -> str:
 
 def determine_category(term: str) -> str | None:
     term_lower = term.lower() if isinstance(term, str) else term
+    term_words = term_lower.split()
     for prefix, category in CATEGORY_PREFIXES.items():
         if prefix in term_lower:
             return category
+        for word in term_words:
+            if word.startswith(prefix) or prefix in word:
+                return category
     return None
