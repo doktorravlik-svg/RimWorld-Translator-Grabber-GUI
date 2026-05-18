@@ -1,0 +1,12 @@
+{
+  "entries": {
+    "Neolithic": "Neolithic",
+    "Medieval": "Medieval",
+    "Industrial": "Industrial",
+    "Spacer": "Spacer",
+    "Elite": "Elite",
+    "Tech level": "Tech level"
+  },
+  "source": "technology",
+  "auto_split": true
+}

@@ -1,0 +1,13 @@
+{
+  "entries": {
+    "Fresh": "Свежий",
+    "Rotting": "Гниение",
+    "Raw": "Сырой",
+    "Cooked": "Приготовленный",
+    "Food": "Еда",
+    "Meal": "Блюдо",
+    "Withdrawal": "От withdrawal"
+  },
+  "source": "food",
+  "auto_split": true
+}

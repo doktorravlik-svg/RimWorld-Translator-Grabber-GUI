@@ -1,0 +1,8 @@
+{
+  "entries": {
+    "Apparel": "Одежда",
+    "Uniform": "Форма"
+  },
+  "source": "clothing",
+  "auto_split": true
+}

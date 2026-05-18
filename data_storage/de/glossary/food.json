@@ -1,0 +1,12 @@
+{
+  "entries": {
+    "Fresh": "Frisch",
+    "Rotting": "Schleimig",
+    "Raw": "Rohe",
+    "Cooked": "Gekocht",
+    "Food": "Essen",
+    "Meal": "Mahlzeit"
+  },
+  "source": "food",
+  "auto_split": true
+}

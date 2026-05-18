@@ -1,0 +1,15 @@
+{
+  "entries": {
+    "Material": "Material",
+    "Metal": "Metal",
+    "Steel": "Steel",
+    "Iron": "Iron",
+    "Plasteel": "Plasteel",
+    "Wood": "Wood",
+    "Cloth": "Cloth",
+    "Component": "Component",
+    "Advanced Component": "Advanced Component"
+  },
+  "source": "materials",
+  "auto_split": true
+}

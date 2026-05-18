@@ -1,0 +1,17 @@
+{
+  "entries": {
+    "Biome": "Biom",
+    "Temperature": "Temperatur",
+    "Cold": "Kalt",
+    "Heat": "Hitze",
+    "Flood": "Überflutung",
+    "Drought": "Dürre",
+    "Heat wave": "Hitzwelle",
+    "Storm": "Sturm",
+    "Snow": "Schnee",
+    "Rain": "Regen",
+    "Season": "Saison"
+  },
+  "source": "world",
+  "auto_split": true
+}

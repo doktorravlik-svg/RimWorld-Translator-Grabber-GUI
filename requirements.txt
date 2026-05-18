@@ -1,0 +1,32 @@
+# ==========================================
+# RimWorld Translator Grabber - Dependencies (2026-05-05)
+# ==========================================
+
+# GUI Framework
+ttkbootstrap>=1.20.3
+
+# Translation Engines
+deep-translator>=1.11.4
+translators>=6.0.4
+argostranslate>=1.11.0
+
+# Spell Checker
+pyspellchecker>=0.9.0
+lxml>=6.1.0
+
+# System Paths
+platformdirs>=4.9.6
+
+# Testing
+pytest>=9.0.3
+pytest-cov>=7.1.0
+
+# Utilities
+pyperclip>=1.11.0
+rapidfuzz>=3.14.5
+loguru>=0.7.3
+requests>=2.33.1
+ahocorasick-rs>=1.0.3
+
+# Morphological analysis (for Slavic languages)
+pymorphy3>=2.0.6

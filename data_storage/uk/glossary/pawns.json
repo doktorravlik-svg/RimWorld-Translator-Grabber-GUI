@@ -1,0 +1,24 @@
+{
+  "entries": {
+    "Pawn": "Персонаж",
+    "Colonist": "Колоніст",
+    "PawnKind": "Тип персонажа",
+    "Childhood": "Дитинство",
+    "Adulthood": "Зрілість",
+    "Colonist bar": "Панель колоністів",
+    "Cold spell": "Холодна пора",
+    "Baby": "Ребенка",
+    "Child": "Ребенок",
+    "Adult": "Дорослий",
+    "Old": "Старий",
+    "Addiction threshold": "Поріг залежності",
+    "Overdose threshold": "Поріг передози",
+    "Withdrawal threshold": "Поріг від withdraw",
+    "Hold": "Держати",
+    "Character": "Персонаж",
+    "Creature": "Сутність",
+    "Monster": "Монстр"
+  },
+  "source": "pawns",
+  "auto_split": true
+}

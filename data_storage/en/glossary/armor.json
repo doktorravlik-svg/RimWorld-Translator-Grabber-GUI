@@ -1,0 +1,9 @@
+{
+  "entries": {
+    "Armor rating": "Armor rating",
+    "Armor suit": "Armor suit",
+    "Power armor": "Power armor"
+  },
+  "source": "armor",
+  "auto_split": true
+}

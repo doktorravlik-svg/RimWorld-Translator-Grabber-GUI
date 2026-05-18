@@ -1,0 +1,15 @@
+{
+  "entries": {
+    "Material": "Материал",
+    "Metal": "Металл",
+    "Steel": "Сталь",
+    "Iron": "Железо",
+    "Plasteel": "Пласталь",
+    "Cloth": "Ткань",
+    "Component": "Компонент",
+    "Advanced Component": "Продвинутый компонент",
+    "Wood": "Дерево"
+  },
+  "source": "materials",
+  "auto_split": true
+}

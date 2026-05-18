@@ -1,0 +1,12 @@
+{
+  "entries": {
+    "Neolithic": "Неолітичний",
+    "Medieval": "Середньовіччя",
+    "Industrial": "Індустріальний",
+    "Spacer": "Космічний",
+    "Elite": "Елітний",
+    "Tech level": "Рівень технологій"
+  },
+  "source": "technology",
+  "auto_split": true
+}

@@ -1,0 +1,22 @@
+{
+  "entries": {
+    "Health": "Здоровье",
+    "Injury": "Рана",
+    "Disease": "Болезнь",
+    "Infection": "Инфекция",
+    "Treatment": "Лечение",
+    "Surgery": "Операция",
+    "Body": "Тело",
+    "Head": "Голова",
+    "Arm": "Рука",
+    "Leg": "Нога",
+    "Torso": "Грудь",
+    "Pain": "Боль",
+    "Wound": "Ярка",
+    "Bleeding": "Кровотечение",
+    "Fracture": "Перелом",
+    "Body size": "Размер тела"
+  },
+  "source": "medical",
+  "auto_split": true
+}

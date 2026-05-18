@@ -1,0 +1,59 @@
+{
+    "title": "📖 Dependencies Tab Help",
+    "sections": {
+        "overview": {
+            "title": "🔗 OVERVIEW",
+            "items": [
+                "Analyzes mod dependencies and relationships",
+                "Detects missing or conflicting dependencies",
+                "Shows dependency chain for each mod",
+                "Helps resolve dependency issues before translation"
+            ]
+        },
+        "scan": {
+            "title": "🔍 SCANNING",
+            "items": [
+                "Click '🔍 Scan Dependencies' to analyze all mods",
+                "System reads About.xml and modDependencies files",
+                "Detects direct and indirect dependencies",
+                "Shows dependency tree for each mod"
+            ]
+        },
+        "results": {
+            "title": "📊 RESULTS",
+            "items": [
+                "✅ Valid — all dependencies satisfied",
+                "⚠️ Missing — some dependencies not found",
+                "❌ Conflict — dependency version mismatch",
+                "ℹ️ Info — additional information"
+            ]
+        },
+        "dependency_chain": {
+            "title": "⛓ DEPENDENCY CHAIN",
+            "items": [
+                "Shows full dependency path for each mod",
+                "Helps identify which mods need to be translated first",
+                "Highlights circular dependencies (if any)",
+                "Click on mod name to open its folder"
+            ]
+        },
+        "actions": {
+            "title": "🔧 ACTIONS",
+            "items": [
+                "📋 Copy Report — copy dependency info to clipboard",
+                "🔍 Find Missing — locate missing dependency mods",
+                "📁 Open Folder — open mod folder in file explorer",
+                "🔄 Refresh — rescan all dependencies"
+            ]
+        },
+        "tips": {
+            "title": "💡 TIPS",
+            "items": [
+                "Always check dependencies before mass translation",
+                "Translate required mods first (those with no dependencies)",
+                "Missing dependencies may cause translation errors",
+                "Circular dependencies are rare but problematic"
+            ]
+        }
+    }
+}

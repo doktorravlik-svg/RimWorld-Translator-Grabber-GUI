@@ -1,0 +1,13 @@
+{
+  "entries": {
+    "Mood": "Stimmung",
+    "Mental break": "Geistiger Zusammenbruch",
+    "Thought": "Gedanke",
+    "Need": "Bedürfnis",
+    "Hedonist": "Hedonist",
+    "Ascetic": "Ascetiker",
+    "Psychopath": "Psychopath"
+  },
+  "source": "psychology",
+  "auto_split": true
+}

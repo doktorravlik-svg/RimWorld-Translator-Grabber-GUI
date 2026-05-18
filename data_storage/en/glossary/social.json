@@ -1,0 +1,23 @@
+{
+  "entries": {
+    "Social": "Social",
+    "Kind": "Kind",
+    "Telekinesis": "Telekinesis",
+    "Pyrokinesis": "Pyrokinesis",
+    "Cryokinesis": "Cryokinesis",
+    "Electrokinesis": "Electrokinesis",
+    "Social impact": "Social impact",
+    "Love": "Love",
+    "Marriage": "Marriage",
+    "Family": "Family",
+    "Kin": "Kin",
+    "Friend": "Friend",
+    "Enemy": "Enemy",
+    "War": "War",
+    "Peace": "Peace",
+    "Diplomacy": "Diplomacy",
+    "Coward": "Coward"
+  },
+  "source": "social",
+  "auto_split": true
+}

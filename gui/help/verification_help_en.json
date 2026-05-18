@@ -1,0 +1,71 @@
+{
+  "title": "📖 Help for the \"Verification\" Tab",
+  "sections": {
+    "overview": {
+      "title": "✅ OVERVIEW",
+      "items": [
+        "This tab checks the quality of mod translations",
+        "Detects errors, warnings, and issues",
+        "Supports partial and full verification",
+        "Results can be exported to TXT, JSON, HTML"
+      ]
+    },
+    "settings": {
+      "title": "⚙️ SETTINGS",
+      "items": [
+        "Report format — TXT, JSON, or HTML",
+        "Translation check — analyzes XML files",
+        "Dependency check — analyzes modDependencies",
+        "Conflict detection — searches for conflicting mods",
+        "Verification language — select language to verify",
+        "Language integrity filtering — only verify files of the selected language"
+      ]
+    },
+    "verification": {
+      "title": "🔍 VERIFICATION TYPES",
+      "items": [
+        "Mod verification — quick check of selected mods",
+        "Full check — deep analysis of all mods",
+        "XML integrity check — validates structure correctness",
+        "Translation check — checks presence and completeness of Russian/Languages"
+      ]
+    },
+    "results": {
+      "title": "📊 RESULTS",
+      "items": [
+        "❌ Errors — critical issues that require fixing",
+        "⚠️ Warnings — potential issues",
+        "✅ Success — verified successfully",
+        "ℹ️ Info — reference data"
+      ]
+    },
+    "filters": {
+      "title": "📝 RESULT FILTERS",
+      "items": [
+        "Search — filter by text",
+        "Show errors — toggle errors on/off",
+        "Show warnings — toggle warnings on/off",
+        "Show info — toggle informational entries on/off"
+      ]
+    },
+    "export": {
+      "title": "📤 EXPORT",
+      "items": [
+        "TXT export — plain text report",
+        "JSON export — machine-readable format",
+        "HTML export — formatted report for browsers",
+        "All formats preserve the full results structure"
+      ]
+    },
+    "tips": {
+      "title": "💡 TIPS",
+      "items": [
+        "Run verification after every translation",
+        "Fix errors before publishing your mod",
+        "Use full verification for quality audits",
+        "Export reports to send to developers",
+        "Pay attention to warnings — they can turn into errors"
+      ]
+    }
+  }
+}

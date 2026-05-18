@@ -1,0 +1,18 @@
+{
+  "entries": {
+    "Kitchen": "Kitchen",
+    "Prisoner": "Prisoner",
+    "Window": "Window",
+    "Door": "Door",
+    "Wall": "Wall",
+    "Floor": "Floor",
+    "Roof": "Roof",
+    "Furniture": "Furniture",
+    "Table": "Table",
+    "Chair": "Chair",
+    "Chest": "Chest",
+    "Imprisonment": "Imprisonment"
+  },
+  "source": "buildings",
+  "auto_split": true
+}

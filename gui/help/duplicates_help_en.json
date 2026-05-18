@@ -1,0 +1,77 @@
+{
+    "title": "📖 Duplicates Tab Help",
+    "sections": {
+        "overview": {
+            "title": "🔄 OVERVIEW",
+            "items": [
+                "This tab detects duplicate translation tags across mods",
+                "Allows merging duplicates into a single file",
+                "Reduces mod size and improves performance",
+                "Supports automatic and manual merging"
+            ]
+        },
+        "setup": {
+            "title": "⚙️ SETUP",
+            "items": [
+                "Mods folder — path to the Mods directory",
+                "Output folder — where to save merge results",
+                "Auto-merge — merge without confirmation",
+                "Create backups — backup before merging"
+            ]
+        },
+        "scanning": {
+            "title": "🔍 SCANNING",
+            "items": [
+                "Click '🔍 Find duplicates' to start scanning",
+                "System analyzes all tags in the Mods folder",
+                "Results are grouped by duplicate tags",
+                "Each group shows files and entry count"
+            ]
+        },
+        "selection": {
+            "title": "✅ SELECTING GROUPS",
+            "items": [
+                "Click on a row — select/deselect group",
+                "'✅ Select all' — mark all groups",
+                "'☐ Deselect all' — clear all selections",
+                "Search — filter by group name or files"
+            ]
+        },
+        "context_menu": {
+            "title": "📋 CONTEXT MENU (right-click)",
+            "items": [
+                "☑ Select / ☐ Deselect — manage a single group",
+                "📂 Open folder — open the folder containing the duplicate file",
+                "📊 Information — show details about the duplicate",
+                "Tags, entry count, file list"
+            ]
+        },
+        "merge": {
+            "title": "🚀 START MERGING",
+            "items": [
+                "Select groups to merge",
+                "Click '🚀 Start merge'",
+                "Confirm the operation (unless auto-merge is enabled)",
+                "Results are displayed in the log at the bottom"
+            ]
+        },
+        "stats": {
+            "title": "📊 STATISTICS",
+            "items": [
+                "Found groups — total number of duplicate groups",
+                "Selected — number of marked groups",
+                "Updates on each select/deselect action"
+            ]
+        },
+        "hotkeys": {
+            "title": "⌨️ HOTKEYS",
+            "items": [
+                "Ctrl+A — select all groups",
+                "Ctrl+D — deselect all groups",
+                "Ctrl+F — focus on search",
+                "Delete — remove selected group from list",
+                "Enter — start merging selected"
+            ]
+        }
+    }
+}

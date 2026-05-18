@@ -1,0 +1,9 @@
+{
+  "entries": {
+    "Beast": "Звір",
+    "Animal": "Тварина",
+    "Plant": "Рослина"
+  },
+  "source": "animals",
+  "auto_split": true
+}

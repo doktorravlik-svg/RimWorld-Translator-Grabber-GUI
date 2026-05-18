@@ -1,0 +1,82 @@
+{
+    "title": "📖 Glossary Help",
+    "sections": {
+        "overview": {
+            "title": "🌐 OVERVIEW",
+            "items": [
+                "Custom terminology dictionary for consistent translations",
+                "Supports multiple source files with priority",
+                "Standard RimWorld terms loaded automatically",
+                "User terms can override default translations"
+            ]
+        },
+        "files": {
+            "title": "📁 GLOSSARY FILES",
+            "items": [
+                "config/glossary_seeds/rimworld_<lang>.json — Standard RimWorld terms",
+                "data_storage/<lang>/glossary/user.json — User-defined terms",
+                "translation/glossary.py — Core glossary engine",
+                "translation/glossary_manager.py — Multi-file manager"
+            ]
+        },
+        "standard_terms": {
+            "title": "📚 STANDARD TERMS",
+            "items": [
+                "Neolithic, Medieval, Industrial, Spacer, Elite — Tech levels",
+                "Pawn, Colonist, Room, Quality, Skill — Common terms",
+                "Armor, Weapon, Health, Food — Item/character terms",
+                "439+ terms for Russian, 300+ for other languages",
+                "Auto-loaded on first run for each language"
+            ]
+        },
+        "adding_terms": {
+            "title": "➕ ADDING TERMS",
+            "items": [
+                "Right-click on selected text in editor → 'Add to Glossary'",
+                "Edit data_storage/<lang>/glossary/user.json manually",
+                "Use GlossaryViewerDialog for bulk management",
+                "Format: {\"Original\": \"Translation\"}"
+            ]
+        },
+        "priority": {
+            "title": "⚡ PRIORITY ORDER",
+            "items": [
+                "1. User terms (highest priority)",
+                "2. Extracted terms from translations",
+                "3. Common terms",
+                "4. Base terms",
+                "5. Standard RimWorld terms (lowest priority)"
+            ]
+        },
+        "usage": {
+            "title": "💡 USAGE",
+            "items": [
+                "Glossary applied automatically during translation",
+                "Terms replaced with word-boundary matching",
+                "Preserves case (upper, lower, title)",
+                "Skip XML tags and RimWorld constructs (*Health, {0})",
+                "Open via 'View → Glossary' in main menu"
+            ]
+        },
+        "tips": {
+            "title": "📋 TIPS",
+            "items": [
+                "Add mod-specific terms to user.json for consistency",
+                "Seed files should not be edited (use user.json instead)",
+                "Backup user.json before major translations",
+                "Use GlossaryViewerDialog to manage large term lists",
+                "Search terms across all glossary sources"
+            ]
+        },
+        "auto_split": {
+            "title": "✂️ AUTO SPLIT GLOSSARY",
+            "items": [
+                "Glossary automatically splits into category files at 5000+ terms",
+                "Creates files: weapons.json, materials.json, plants.json, clothing.json, etc.",
+                "Setting available in 'Advanced' section: 'Auto-split glossary into files'",
+                "Disable if you prefer manual file management",
+                "Auto-split uses keyword matching in term names to determine categories"
+            ]
+        }
+    }
+}

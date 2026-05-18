@@ -1,0 +1,11 @@
+{
+  "entries": {
+    "Armor": "Броня",
+    "Helmet": "Шлем",
+    "Armor rating": "Броня",
+    "Armor suit": "Комбинезон",
+    "Power armor": "Мощная броня"
+  },
+  "source": "armor",
+  "auto_split": true
+}

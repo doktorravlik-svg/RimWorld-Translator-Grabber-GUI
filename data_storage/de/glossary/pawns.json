@@ -1,0 +1,17 @@
+{
+  "entries": {
+    "Pawn": "Pawn",
+    "Colonist": "Kolonist",
+    "PawnKind": "Pawn Kind",
+    "Childhood": "Kindergarden",
+    "Adulthood": "Erwachsenenalter",
+    "Colonist bar": "Kolonistenleiste",
+    "Cold spell": "Kalter Strom",
+    "Baby": "Baby",
+    "Child": "Kind",
+    "Adult": "Erwachsener",
+    "Old": "Alt"
+  },
+  "source": "pawns",
+  "auto_split": true
+}

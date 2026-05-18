@@ -1,0 +1,9 @@
+{
+  "entries": {
+    "Relationship": "Beziehung",
+    "Opinion": "Meinung",
+    "Social": "Sozial"
+  },
+  "source": "social",
+  "auto_split": true
+}

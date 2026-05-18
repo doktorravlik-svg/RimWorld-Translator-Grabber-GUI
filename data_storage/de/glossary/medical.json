@@ -1,0 +1,21 @@
+{
+  "entries": {
+    "Health": "Gesundheit",
+    "Injury": "Verletzung",
+    "Disease": "Krankheit",
+    "Infection": "Infektion",
+    "Treatment": "Behandlung",
+    "Surgery": "Chirurgie",
+    "Body": "Körper",
+    "Head": "Kopf",
+    "Arm": "Arm",
+    "Leg": "Bein",
+    "Torso": "Brustkorb",
+    "Pain": "Schmerz",
+    "Wound": "Wunde",
+    "Bleeding": "Blutung",
+    "Fracture": "Bruch"
+  },
+  "source": "medical",
+  "auto_split": true
+}

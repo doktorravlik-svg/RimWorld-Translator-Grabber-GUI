@@ -1,0 +1,17 @@
+{
+  "entries": {
+    "Belief system": "Убеждение",
+    "Tree of Life": "Дерево Жизни",
+    "Tree of Knowledge": "Дерево Знания",
+    "Tree": "Дерево",
+    "Flower": "Цветок",
+    "Fruit": "Фрукт",
+    "Seed": "Семя",
+    "Leaf": "Лист",
+    "Root": "Корень",
+    "Stem": "Стебель",
+    "Branch": "Ветка"
+  },
+  "source": "plants",
+  "auto_split": true
+}

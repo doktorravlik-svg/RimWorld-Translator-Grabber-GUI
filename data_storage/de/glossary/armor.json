@@ -1,0 +1,9 @@
+{
+  "entries": {
+    "Armor": "Panzer",
+    "Helmet": "Helm",
+    "Armor rating": "Panzerwert"
+  },
+  "source": "armor",
+  "auto_split": true
+}

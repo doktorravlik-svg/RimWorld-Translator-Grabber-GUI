@@ -1,0 +1,23 @@
+{
+  "entries": {
+    "Biome": "Биом",
+    "Temperature": "Температура",
+    "Cold": "Холод",
+    "Heat": "Жара",
+    "Flood": "Наводнение",
+    "Drought": "Засуха",
+    "Heat wave": "Жара",
+    "Storm": "Буря",
+    "Snow": "Снег",
+    "Rain": "Дождь",
+    "Season": "Сезон",
+    "Forest": "Лес",
+    "Grove": "Группа деревьев",
+    "Garden": "Сад",
+    "Field": "Поле",
+    "Meadow": "Луг",
+    "Plain": "Равнина"
+  },
+  "source": "world",
+  "auto_split": true
+}

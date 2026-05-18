@@ -1,0 +1,13 @@
+{
+  "entries": {
+    "Quality": "Качество",
+    "Masterwork": "Шедевр",
+    "Legendary": "Легендарное",
+    "Awful": "Ужасное",
+    "Poor": "Плохое",
+    "Good": "Хорошее",
+    "Excellent": "Отличное"
+  },
+  "source": "quality",
+  "auto_split": true
+}

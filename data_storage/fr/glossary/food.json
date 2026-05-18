@@ -1,0 +1,13 @@
+{
+  "entries": {
+    "Fresh": "Fresh",
+    "Rotting": "Rotting",
+    "Raw": "Raw",
+    "Cooked": "Cooked",
+    "Food": "Food",
+    "Meal": "Meal",
+    "Withdrawal": "Withdrawal"
+  },
+  "source": "food",
+  "auto_split": true
+}

@@ -1,0 +1,28 @@
+{
+  "entries": {
+    "Room": "Комната",
+    "Bedroom": "Спальня",
+    "Barracks": "Казарма",
+    "Hospital": "Больница",
+    "Prison": "Тюрьма",
+    "Kitchen": "Кухня",
+    "Dining": "Столовая",
+    "Workshop": "Мастерская",
+    "Manufacturing": "Производство",
+    "Research": "Исследование",
+    "Prisoner": "Заложник",
+    "Window": "Окно",
+    "Door": "Дверь",
+    "Wall": "Стена",
+    "Floor": "Пол",
+    "Roof": "Потолок",
+    "Furniture": "Мебель",
+    "Table": "Стол",
+    "Chair": "Стульчик",
+    "Storage": "Склад",
+    "Chest": "Сундук",
+    "Imprisonment": "Заключение"
+  },
+  "source": "buildings",
+  "auto_split": true
+}

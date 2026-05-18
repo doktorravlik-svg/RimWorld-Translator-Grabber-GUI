@@ -1,0 +1,22 @@
+{
+  "files": {
+    "pawns.json": "pawns",
+    "medical.json": "medical",
+    "technology.json": "technology",
+    "clothing.json": "clothing",
+    "world.json": "world",
+    "buildings.json": "buildings",
+    "plants.json": "plants",
+    "quality.json": "quality",
+    "skills.json": "skills",
+    "social.json": "social",
+    "db.json": "db",
+    "materials.json": "materials",
+    "animals.json": "animals",
+    "weapons.json": "weapons",
+    "seed.json": "seed",
+    "psychology.json": "psychology",
+    "armor.json": "armor",
+    "food.json": "food"
+  }
+}

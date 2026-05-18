@@ -1,0 +1,8 @@
+{
+  "entries": {
+    "Material": "Material",
+    "Iron": "Iron"
+  },
+  "source": "materials",
+  "auto_split": true
+}

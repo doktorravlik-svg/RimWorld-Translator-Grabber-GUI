@@ -1,0 +1,17 @@
+{
+  "entries": {
+    "Room": "Raum",
+    "Bedroom": "Schlafzimmer",
+    "Barracks": "Kaserne",
+    "Hospital": "Krankenhaus",
+    "Prison": "Gefängnis",
+    "Kitchen": "Küche",
+    "Dining": "Essen",
+    "Workshop": "Werkstatt",
+    "Manufacturing": "Herstellung",
+    "Research": "Forschung",
+    "Prisoner": "Gefangener"
+  },
+  "source": "buildings",
+  "auto_split": true
+}

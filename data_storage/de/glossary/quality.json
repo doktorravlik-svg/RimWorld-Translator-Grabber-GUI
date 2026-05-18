@@ -1,0 +1,14 @@
+{
+  "entries": {
+    "Quality": "Qualität",
+    "Masterwork": "Meisterwerk",
+    "Legendary": "Legendär",
+    "Awful": "Schlimm",
+    "Poor": "Schlecht",
+    "Normal": "Normal",
+    "Good": "Gut",
+    "Excellent": "Ausgezeichnet"
+  },
+  "source": "quality",
+  "auto_split": true
+}

@@ -1,0 +1,108 @@
+{
+    "source_language": "English",
+    "target_language": "Ukrainian",
+    "mods_folder": "",
+    "output_folder": "",
+    "preset_file": "",
+    "theme": "dark",
+    "max_history": 100,
+    "presets": {
+        "Steam Workshop": "C:\\Program Files (x86)\\Steam\\steamapps\\workshop\\content\\294100",
+        "Local Mods": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\RimWorld\\Mods",
+        "Custom": ""
+    },
+    "verbose": false,
+    "auto_backup": true,
+    "verification_language": "Все языки",
+    "translation_mode": "inplace",
+    "paths": {
+        "default_mods": "",
+        "game_path": "",
+        "temp_folder": "",
+        "backup_folder": "",
+        "cache_folder": "",
+        "module_overrides": {
+            "grabber": "",
+            "translator": "",
+            "editor": "",
+            "verifier": ""
+        },
+        "output_overrides": {
+            "grabber": "",
+            "translator": "",
+            "editor": ""
+        }
+    },
+    "editor": {
+        "last_edited_files": [
+            ""
+        ],
+        "auto_save": true
+    },
+    "game_path": "",
+    "hidden_tabs": [],
+    "ui_language": "ua",
+    "accent_color": "#4671ca",
+    "text_color": "#0f6c24",
+    "debug": {
+        "enabled": true,
+        "log_file": "",
+        "log_level": "DEBUG",
+        "log_to_file": true,
+        "log_to_console": false,
+        "log_gui_events": true,
+        "log_config_changes": true,
+        "log_file_operations": true,
+        "log_exceptions": true,
+        "max_log_size": 10
+    },
+    "force_update": false,
+    "fuzzy": true,
+    "use_morphy": true,
+    "engine_google_enabled": true,
+    "engine_mymemory_enabled": false,
+    "engine_deepl_enabled": false,
+    "engine_bing_enabled": false,
+    "engine_deeplx_enabled": false,
+    "engine_translators_enabled": false,
+    "engine_libre_enabled": false,
+    "engine_argos_enabled": false,
+    "smart_routing": true,
+    "split_long_text": true,
+    "rate_limit_delay": 0.5,
+    "max_chunk_size": 450,
+    "deeplx_url": "http://localhost:1188",
+    "source_languages": [
+        "English"
+    ],
+    "auto_detect_source_lang": true,
+    "check_mixed_language": true,
+    "mixed_language_threshold": 3,
+    "glossary_tree_bg": "#242237",
+    "glossary_tree_fg": "#626971",
+    "glossary_tree_heading_bg": "#582132",
+    "glossary_tree_select_bg": "#899342",
+    "glossary_tree_select_fg": "#00ff00",
+    "glossary_category_colors": {
+        "game": "#2e7d32",
+        "user": "#0ca3c9",
+        "auto": "#e65100",
+        "seed": "#595b5a",
+        "general": "#583a3a"
+    },
+    "glossary_auto_split": true,
+    "glossary_show_description": true,
+    "glossary_show_usage_count": true,
+    "glossary_confirm_on_delete": true,
+    "glossary_page_size": 100,
+    "glossary_default_confidence": 0.0,
+    "glossary_color_scheme": "dark",
+    "auto_split_glossary": true,
+    "glossary_category_names": {
+        "game": "Игра",
+        "user": "Пользователь",
+        "auto": "Авто",
+        "seed": "Семя",
+        "general": "Общий"
+    }
+}

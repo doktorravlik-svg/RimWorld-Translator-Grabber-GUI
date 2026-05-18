@@ -1,0 +1,22 @@
+{
+  "entries": {
+    "Health": "Health",
+    "Injury": "Injury",
+    "Disease": "Disease",
+    "Infection": "Infection",
+    "Treatment": "Treatment",
+    "Surgery": "Surgery",
+    "Body": "Body",
+    "Head": "Head",
+    "Arm": "Arm",
+    "Leg": "Leg",
+    "Torso": "Torso",
+    "Pain": "Pain",
+    "Wound": "Wound",
+    "Bleeding": "Bleeding",
+    "Fracture": "Fracture",
+    "Body size": "Body size"
+  },
+  "source": "medical",
+  "auto_split": true
+}

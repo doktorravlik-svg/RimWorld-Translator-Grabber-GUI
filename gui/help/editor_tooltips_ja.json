@@ -1,0 +1,57 @@
+{
+    "open_file": {
+        "text": "📂 翻訳ファイルを開く（XML）"
+    },
+    "open_folder": {
+        "text": "📁 Keyedフォルダーを開く"
+    },
+    "save": {
+        "text": "💾 ファイルを保存"
+    },
+    "refresh": {
+        "text": "🔄 ファイルからデータを更新"
+    },
+    "undo": {
+        "text": "↩️ 最後の操作を元に戻す"
+    },
+    "redo": {
+        "text": "↪️ 取り消した操作をやり直し"
+    },
+    "add_entry": {
+        "text": "➕ 新しいエントリーを追加"
+    },
+    "delete_entry": {
+        "text": "🗑️ 選択したエントリーを削除"
+    },
+    "mass_edit": {
+        "text": "✏️ エントリーの一括編集"
+    },
+    "auto_translate": {
+        "text": "🤖 空エントリーを自動翻訳"
+    },
+    "export_csv": {
+        "text": "📤 翻訳をCSVにエクスポート"
+    },
+    "quality_check": {
+        "text": "🔍 翻訳品質をチェック"
+    },
+    "spellcheck": {
+        "text": "🔤 綴りを確認"
+    },
+    "diff": {
+        "text": "🔀 原文と翻訳を比較",
+        "detail": "文字レベルの変更を表示:\n🟥 削除 | 🟨 変更 | 🟩 追加"
+    },
+    "glossary": {
+        "text": "📖 翻訳用語集を開く"
+    },
+    "history": {
+        "text": "📜 ファイルのバージョン履歴を閲覧"
+    },
+    "suggestions": {
+        "text": "💡 翻訳データベースからの提案を表示"
+    },
+    "search": {
+        "text": "🔍 エントリーを検索"
+    }
+}

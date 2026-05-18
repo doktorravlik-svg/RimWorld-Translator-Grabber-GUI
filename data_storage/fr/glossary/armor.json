@@ -1,0 +1,11 @@
+{
+  "entries": {
+    "Armor": "Armor",
+    "Helmet": "Helmet",
+    "Armor rating": "Armor rating",
+    "Armor suit": "Armor suit",
+    "Power armor": "Power armor"
+  },
+  "source": "armor",
+  "auto_split": true
+}

@@ -1,0 +1,70 @@
+{
+    "title": "📖 Filters Tab Help",
+    "sections": {
+        "overview": {
+            "title": "📝 OVERVIEW",
+            "items": [
+                "Configures rules for extracting text from XML mod files",
+                "Defines which tags to translate and which to skip",
+                "Affects translation quality and completeness",
+                "Settings saved to filters_config.json"
+            ]
+        },
+        "whitelist": {
+            "title": "✅ WHITELIST",
+            "items": [
+                "List of XML tags that ARE extracted for translation",
+                "Example: <li>, <label>, <description>",
+                "Add tags that need to be translated",
+                "Remove tags that are not needed"
+            ]
+        },
+        "blacklist": {
+            "title": "❌ BLACKLIST",
+            "items": [
+                "List of XML tags that ARE SKIPPED",
+                "Technical tags: defName, modDependencies, packageId",
+                "Tags with code, paths, identifiers",
+                "Not translated automatically"
+            ]
+        },
+        "patterns": {
+            "title": "🔍 PATTERNS",
+            "items": [
+                "Blacklist patterns — keywords to skip",
+                "If key contains pattern, it is skipped",
+                "Example: \"path\", \"url\", \"guid\"",
+                "Case-insensitive search"
+            ]
+        },
+        "settings": {
+            "title": "⚙️ SETTINGS",
+            "items": [
+                "Minimum length — strings shorter are not extracted",
+                "Priority suffixes — processed first",
+                "Aggressive fallback — extract all tags (may add noise)",
+                "Recommended to test settings before batch translation"
+            ]
+        },
+        "usage": {
+            "title": "💡 USAGE",
+            "items": [
+                "1. Open the 'Filters' tab",
+                "2. Add/remove tags in whitelist/blacklist",
+                "3. Configure minimum length and patterns",
+                "4. Click '💾 Save'",
+                "5. Restart the program to apply changes"
+            ]
+        },
+        "tips": {
+            "title": "📋 TIPS",
+            "items": [
+                "Don't remove tags from whitelist without need",
+                "Add only technical tags to blacklist",
+                "Use patterns for bulk filtering",
+                "Minimum length 2-3 characters is optimal",
+                "Aggressive fallback may add noise to translation"
+            ]
+        }
+    }
+}

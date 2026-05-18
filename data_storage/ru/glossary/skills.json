@@ -1,0 +1,29 @@
+{
+  "entries": {
+    "Skill": "Навык",
+    "Passion": "Привлечение",
+    "Skill gain": "Приrost навыка",
+    "Learning": "Обучение",
+    "Study": "Изучение",
+    "Artistic": "Творческий",
+    "Physical": "Физический",
+    "Manual": "Практический",
+    "Crafting": "Ремесленный",
+    "Construction": "Строительный",
+    "Farming": "Сельское хозяйство",
+    "Mining": "Добыча",
+    "Doctoring": "Врачебная",
+    "Shooting": "Стрельба",
+    "Melee": "Ближний бой",
+    "Animal handling": "Работа с животными",
+    "Animal training": "Обучение животных",
+    "Animal breeding": "Селекция животных",
+    "Plant cutting": "Размножение растений",
+    "Plant growing": "Выращивание растений",
+    "Cooking": "Готовка",
+    "Smithing": "Ковка",
+    "Tailoring": "Пошив"
+  },
+  "source": "skills",
+  "auto_split": true
+}

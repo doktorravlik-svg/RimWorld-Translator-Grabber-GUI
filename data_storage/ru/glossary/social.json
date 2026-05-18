@@ -1,0 +1,28 @@
+{
+  "entries": {
+    "Relationship": "Отношения",
+    "Opinion": "Мнение",
+    "Social": "Социальный",
+    "Kind": "Добрый",
+    "Telekinesis": "Телекинез",
+    "Pyrokinesis": "Пиромания",
+    "Cryokinesis": "Криокинез",
+    "Electrokinesis": "Электрокинез",
+    "Social impact": "Социальное воздействие",
+    "Love": "Любовь",
+    "Marriage": "Брак",
+    "Family": "Семья",
+    "Kin": "Родство",
+    "Friend": "Друг",
+    "Enemy": "Враг",
+    "War": "Война",
+    "Peace": "Мир",
+    "Diplomacy": "Дипломатия",
+    "Coward": "Трус",
+    "Forward": "Вперед",
+    "Backward": "Назад",
+    "Humankind": "Человечество"
+  },
+  "source": "social",
+  "auto_split": true
+}

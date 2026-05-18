@@ -1,0 +1,8 @@
+{
+  "entries": {
+    "Skill": "Fertigkeit",
+    "Passion": "Leidenschaft"
+  },
+  "source": "skills",
+  "auto_split": true
+}

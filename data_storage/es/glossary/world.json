@@ -1,0 +1,18 @@
+{
+  "entries": {
+    "Biome": "Biome",
+    "Temperature": "Temperature",
+    "Cold": "Cold",
+    "Heat": "Heat",
+    "Flood": "Flood",
+    "Drought": "Drought",
+    "Heat wave": "Heat wave",
+    "Storm": "Storm",
+    "Snow": "Snow",
+    "Rain": "Rain",
+    "Season": "Season",
+    "Garden": "Garden"
+  },
+  "source": "world",
+  "auto_split": true
+}

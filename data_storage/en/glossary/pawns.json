@@ -1,0 +1,18 @@
+{
+  "entries": {
+    "PawnKind": "PawnKind",
+    "Childhood": "Childhood",
+    "Adulthood": "Adulthood",
+    "Colonist bar": "Colonist bar",
+    "Cold spell": "Cold spell",
+    "Baby": "Baby",
+    "Child": "Child",
+    "Adult": "Adult",
+    "Old": "Old",
+    "Addiction threshold": "Addiction threshold",
+    "Overdose threshold": "Overdose threshold",
+    "Withdrawal threshold": "Withdrawal threshold"
+  },
+  "source": "pawns",
+  "auto_split": true
+}

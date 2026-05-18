@@ -1,0 +1,70 @@
+{
+    "title": "📖 Translation Tab Help",
+    "sections": {
+        "overview": {
+            "title": "🌐 OVERVIEW",
+            "items": [
+                "Main tab for automatic RimWorld mod translation",
+                "Supports 8+ translation engines",
+                "Smart routing and fallback chain",
+                "Caching for faster repeated translations"
+            ]
+        },
+        "setup": {
+            "title": "⚙️ SETUP",
+            "items": [
+                "Mods folder — path to Mods directory",
+                "Output folder — where to save translated mods",
+                "Source language — original language (usually English)",
+                "Target language — translation language (usually Russian)"
+            ]
+        },
+        "selection": {
+            "title": "✅ MOD SELECTION",
+            "items": [
+                "List of all mods in Mods folder",
+                "Status: ✅ Translated | ⚠️ Partial | ⬜ Not translated",
+                "Buttons: Select All, Deselect All, 🔄 Refresh",
+                "Filter by translation status",
+                "Search by mod name"
+            ]
+        },
+        "context_menu": {
+            "title": "📋 CONTEXT MENU (right click)",
+            "items": [
+                "☑ Select / ☐ Deselect — manage mod selection",
+                "📂 Open folder — open mod folder",
+                "Quick access to frequently used actions"
+            ]
+        },
+        "translation": {
+            "title": "🚀 START TRANSLATION",
+            "items": [
+                "Select mods to translate",
+                "Configure languages (source → target)",
+                "Click '🚀 Start Translation'",
+                "Watch progress on the progress bar",
+                "Can cancel translation at any time"
+            ]
+        },
+        "progress": {
+            "title": "📊 PROGRESS",
+            "items": [
+                "Progress bar — percentage complete",
+                "Status message — current action",
+                "Cancel button — abort translation",
+                "After completion — success/error message"
+            ]
+        },
+        "tips": {
+            "title": "💡 TIPS",
+            "items": [
+                "Translate one mod at a time for better control",
+                "Verify translation before publishing mod",
+                "Use verification to check quality",
+                "Cache speeds up repeated translations",
+                "Glossary helps with terminology"
+            ]
+        }
+    }
+}

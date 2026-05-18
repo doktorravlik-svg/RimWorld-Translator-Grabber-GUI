@@ -1,0 +1,29 @@
+{
+  "entries": {
+    "Skill": "Skill",
+    "Passion": "Passion",
+    "Skill gain": "Skill gain",
+    "Learning": "Learning",
+    "Study": "Study",
+    "Artistic": "Artistic",
+    "Physical": "Physical",
+    "Manual": "Manual",
+    "Crafting": "Crafting",
+    "Construction": "Construction",
+    "Farming": "Farming",
+    "Mining": "Mining",
+    "Doctoring": "Doctoring",
+    "Shooting": "Shooting",
+    "Melee": "Melee",
+    "Animal handling": "Animal handling",
+    "Animal training": "Animal training",
+    "Animal breeding": "Animal breeding",
+    "Plant cutting": "Plant cutting",
+    "Plant growing": "Plant growing",
+    "Cooking": "Cooking",
+    "Smithing": "Smithing",
+    "Tailoring": "Tailoring"
+  },
+  "source": "skills",
+  "auto_split": true
+}

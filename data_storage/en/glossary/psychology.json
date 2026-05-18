@@ -1,0 +1,14 @@
+{
+  "entries": {
+    "Mental break": "Mental break",
+    "Thought": "Thought",
+    "Need": "Need",
+    "Hedonist": "Hedonist",
+    "Ascetic": "Ascetic",
+    "Psychopath": "Psychopath",
+    "Idle thoughts": "Idle thoughts",
+    "Inspiration": "Inspiration"
+  },
+  "source": "psychology",
+  "auto_split": true
+}

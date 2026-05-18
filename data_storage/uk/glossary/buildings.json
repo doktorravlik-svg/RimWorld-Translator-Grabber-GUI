@@ -1,0 +1,28 @@
+{
+  "entries": {
+    "Room": "Кімната",
+    "Bedroom": "Спальня",
+    "Barracks": "Казарма",
+    "Hospital": "Больниця",
+    "Prison": "Тюрма",
+    "Kitchen": "Кухня",
+    "Dining": "Столова",
+    "Workshop": "Майстерська",
+    "Manufacturing": "Виробництво",
+    "Research": "Дослідження",
+    "Prisoner": "Залізнич",
+    "Window": "Вікно",
+    "Door": "Двері",
+    "Wall": "Стіна",
+    "Floor": "Підлога",
+    "Roof": "Дах",
+    "Furniture": "Меблі",
+    "Table": "Стіл",
+    "Chair": "Стільчак",
+    "Storage": "Склад",
+    "Chest": "Сундук",
+    "Imprisonment": "Заключення"
+  },
+  "source": "buildings",
+  "auto_split": true
+}

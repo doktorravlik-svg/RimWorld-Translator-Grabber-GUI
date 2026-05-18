@@ -1,0 +1,24 @@
+{
+  "entries": {
+    "Pawn": "Персонаж",
+    "Colonist": "Колонист",
+    "PawnKind": "Тип персонажа",
+    "Childhood": "Детство",
+    "Adulthood": "Взрослый возраст",
+    "Colonist bar": "Панель колонистов",
+    "Cold spell": "Холодный дождь",
+    "Baby": "Ребенок",
+    "Child": "Ребенок",
+    "Adult": "Взрослый",
+    "Old": "Старый",
+    "Addiction threshold": "Порог зависимости",
+    "Overdose threshold": "Порог передозы",
+    "Withdrawal threshold": "Порог withdrawal",
+    "Hold": "Держать",
+    "Character": "Персонаж",
+    "Creature": "Существо",
+    "Monster": "Монстр"
+  },
+  "source": "pawns",
+  "auto_split": true
+}

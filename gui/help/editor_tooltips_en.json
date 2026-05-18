@@ -1,0 +1,57 @@
+{
+    "open_file": {
+        "text": "📂 Open translation file (XML)"
+    },
+    "open_folder": {
+        "text": "📁 Open Keyed folder with translations"
+    },
+    "save": {
+        "text": "💾 Save file"
+    },
+    "refresh": {
+        "text": "🔄 Refresh data from file"
+    },
+    "undo": {
+        "text": "↩️ Undo last action"
+    },
+    "redo": {
+        "text": "↪️ Redo undone action"
+    },
+    "add_entry": {
+        "text": "➕ Add new entry"
+    },
+    "delete_entry": {
+        "text": "🗑️ Delete selected entry"
+    },
+    "mass_edit": {
+        "text": "✏️ Mass edit entries"
+    },
+    "auto_translate": {
+        "text": "🤖 Auto-translate empty entries"
+    },
+    "export_csv": {
+        "text": "📤 Export translations to CSV"
+    },
+    "quality_check": {
+        "text": "🔍 Check translation quality"
+    },
+    "spellcheck": {
+        "text": "🔤 Check spelling"
+    },
+    "diff": {
+        "text": "🔀 Compare translations with original",
+        "detail": "Shows character-level changes:\n🟥 Deleted | 🟨 Modified | 🟩 Added"
+    },
+    "glossary": {
+        "text": "📖 Open translation glossary"
+    },
+    "history": {
+        "text": "📜 View file version history"
+    },
+    "suggestions": {
+        "text": "💡 Show suggestions from translation database"
+    },
+    "search": {
+        "text": "🔍 Search entries"
+    }
+}

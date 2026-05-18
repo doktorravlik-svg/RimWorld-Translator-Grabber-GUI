@@ -1,0 +1,14 @@
+{
+  "entries": {
+    "Mood": "Настроение",
+    "Mental break": "Психический сбой",
+    "Thought": "Мысль",
+    "Need": "Потребность",
+    "Hedonist": "Гедонист",
+    "Ascetic": "Аскет",
+    "Idle thoughts": "Простые мысли",
+    "Inspiration": "Вдохновение"
+  },
+  "source": "psychology",
+  "auto_split": true
+}

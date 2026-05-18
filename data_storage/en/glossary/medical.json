@@ -1,0 +1,13 @@
+{
+  "entries": {
+    "Arm": "Arm",
+    "Leg": "Leg",
+    "Torso": "Torso",
+    "Wound": "Wound",
+    "Bleeding": "Bleeding",
+    "Fracture": "Fracture",
+    "Body size": "Body size"
+  },
+  "source": "medical",
+  "auto_split": true
+}
