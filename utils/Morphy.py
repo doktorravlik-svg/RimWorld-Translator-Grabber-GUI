@@ -26,8 +26,14 @@ class RimWorldUniversalParser:
     # Словник для збереження слів за категоріями
     WORD_CATEGORIES = ['AdjM', 'AdjF', 'AdjN', 'NounM', 'NounF', 'NounN']
 
+    # Маппинг полных названий языков к коротким кодам
+    LANG_NAME_TO_CODE = {
+        'russian': 'ru', 'ukrainian': 'uk', 'english': 'en',
+        'polish': 'pl', 'german': 'de', 'french': 'fr',
+    }
+
     def __init__(self, lang='ru'):
-        self.lang = lang.lower()
+        self.lang = self.LANG_NAME_TO_CODE.get(lang.lower(), lang.lower())
         logger.debug(f"RimWorldUniversalParser.__init__(lang='{lang}')")
         self.mode = 'simple'
         self.morph = None
@@ -281,7 +287,9 @@ class RimWorldUniversalParser:
             keyword = def_name.lower().replace('_', '')
 
         # Перевіряємо, чи є pymorphy3 для слов'янських мов
-        if self.lang in ['ru', 'uk']:
+        # Нормалізуємо код мови для порівняння (підтримуємо 'ru', 'uk', 'russian', 'ukrainian')
+        lang_normalized = self.lang[:2] if len(self.lang) > 2 else self.lang
+        if lang_normalized in ['ru', 'uk']:
             # Для російської та української обов'язково використовуємо pymorphy3
             if not self.morph:
                 logger.error(f"Помилка: pymorphy3 не ініціалізовано для {self.lang}")

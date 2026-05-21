@@ -115,6 +115,7 @@ def extract_subfields(
     max_text_length=200,
     partial_tag_matches=None,
     enable_space_fallback=True,
+    _depth=0,
 ):
     """
     Извлекает переводимые поля из XML элемента с учетом вложенности и списков.
@@ -130,7 +131,12 @@ def extract_subfields(
         max_text_length: Максимальная длина текста
         partial_tag_matches: Список частичных совпадений тегов
         enable_space_fallback: Включить fallback по пробелу
+        _depth: Текущая глубина рекурсии (внутренний параметр)
     """
+    if _depth > 20:
+        if logger:
+            logger.warning(f"extract_subfields: превышена максимальная глубина рекурсии для префикса '{prefix}'")
+        return {}
     # Значения по умолчанию
     if whitelist_tags is None:
         whitelist_tags = TRANSLATABLE_TAGS
@@ -157,10 +163,12 @@ def extract_subfields(
         if tag == "defName":
             continue
 
-        # ✅ Для RulePackDef: полностью пропускаем rulesStrings как обычное поле
+# ✅ Для RulePackDef и аналогичных: полностью пропускаем rulesStrings как обычное поле
         # Все тексты должны извлекаться только как ._list через <li> элементы
+        # Поддерживаемые паттерны: rulePack.rulesStrings, logRulesInitiator.rulesStrings,
+        # descriptionMaker.rules.rulesStrings, generalRules.rulesStrings и т.п.
         full_key = f"{prefix}.{tag}" if prefix else tag
-        if "rulePack.rulesStrings" in full_key and tag == "rulesStrings":
+        if tag == "rulesStrings" and prefix and ".rulesStrings" in prefix:
             # Пропускаем rulesStrings - его дети <li> обработаются рекурсивно
             if len(child) > 0:
                 fields.update(
@@ -172,14 +180,18 @@ def extract_subfields(
                         blacklist_tags,
                         blacklist_patterns,
                         min_text_length,
+                        max_text_length,
+                        _depth=_depth + 1,
                     )
                 )
             continue
 
         # Обработка списков <li>
         if tag == "li":
-            # RulePackDef: собираем <li> в список с уникальным ключом
-            if "rulePack.rulesStrings" in prefix:
+            # RulePackDef и аналогичные: собираем <li> в список с уникальным ключом
+            # Поддерживаемые паттерны: rulePack.rulesStrings, logRulesInitiator.rulesStrings,
+            # descriptionMaker.rules.rulesStrings, generalRules.rulesStrings и т.п.
+            if prefix and ".rulesStrings" in prefix:
                 # ✅ ИСПРАВЛЕНО: Используем полный префикс включая defName
                 # Это гарантирует что списки разных RulePackDef не перемешиваются
                 cur_pre = prefix
@@ -221,6 +233,7 @@ def extract_subfields(
                         blacklist_tags,
                         blacklist_patterns,
                         min_text_length,
+                        _depth=_depth + 1,
                     )
                 )
             continue
@@ -251,6 +264,7 @@ def extract_subfields(
                     blacklist_tags,
                     blacklist_patterns,
                     min_text_length,
+                    _depth=_depth + 1,
                 )
             )
 

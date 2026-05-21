@@ -108,7 +108,7 @@ class AnchorManager:
 
     def _index_file(self, file_path):
         try:
-            parser = etree.XMLParser(recover=True, remove_comments=False)
+            parser = etree.XMLParser(recover=True, remove_comments=False, resolve_entities=False, no_network=True)
             tree = etree.parse(file_path, parser)
             # Ищем комментарии и следующие за ними теги
             for comment in tree.xpath("//comment()"):
@@ -242,7 +242,7 @@ class AnchorManager:
             return 0
 
         count = 0
-        parser = etree.XMLParser(recover=True)
+        parser = etree.XMLParser(recover=True, resolve_entities=False, no_network=True)
 
         for root_dir, _, files in os.walk(en_path):
             for filename in files:

@@ -9,13 +9,17 @@
 - write_tree_pretty: красивая запись XML
 - get_xml_content_hash: получение хеша содержимого
 - find_duplicate_xml_files: поиск дубликатов файлов
+- parse_strings_file: парсинг .txt файлов Strings папки
+- parse_rules_files_element: обработка rulesFiles элементов
 """
 
 from loguru import logger
 import os
 import re
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Iterator
+from collections import OrderedDict
+import hashlib
 
 # Используем lxml (recover=True для поврежденных XML)
 from lxml import etree
@@ -25,18 +29,21 @@ from lxml import etree
 # ============================================================================
 
 # Типы XML файлов RimWorld
+# ВАЖНО: DefInjected и Keyed файлы используют LanguageData как корневой тег
 XML_FILE_TYPES = {
-    "KEYED": ["Keyed", "keyed"],
-    "DEF_INJECTED": ["DefInjected", "DefInjected"],
-    "LANGUAGE_DATA": ["LanguageData", "LanguageData", "Language"],
+    "KEYED": ["LanguageData"],
+    "DEF_INJECTED": ["LanguageData"],
+    "LANGUAGE_DATA": ["LanguageData"],
     "ABOUT": ["About", "ModMetaData"],
+    "RULE_PACK_DEF": ["RulePackDef"],
 }
 
 # Корневые теги для разных типов файлов
 VALID_ROOT_TAGS = {
-    "keyed": ["Keyed", "keyed"],
-    "def_injected": ["DefInjected", "DefInjected", "LanguageData"],
+    "keyed": ["LanguageData"],
+    "def_injected": ["LanguageData"],
     "about": ["ModMetaData", "About"],
+    "rule_pack_def": ["RulePackDef"],
 }
 
 
@@ -142,6 +149,119 @@ def _decode_xml_bytes(raw_bytes: bytes) -> bytes:
 
 
 # ============================================================================
+# ПАРСИНГ STRINGS ПАПКИ И RULESFILES
+# ============================================================================
+
+def parse_strings_file(file_path: str) -> list[str]:
+    """
+    Парсит текстовый файл Strings папки языка (например, WordBanks, NameBanks).
+    
+    Каждая строка содержит один элемент для генерации имён, описаний и т.д.
+    Пустые строки и строки начинающиеся с # пропускаются.
+    
+    Args:
+        file_path: Путь к .txt файлу
+        
+    Returns:
+        Список строк из файла
+    """
+    lines = []
+    try:
+        # Пробуем разные кодировки
+        for encoding in ("utf-8", "cp1251", "cp1252", "latin-1"):
+            try:
+                with open(file_path, "r", encoding=encoding) as f:
+                    content = f.read()
+                break
+            except UnicodeDecodeError:
+                continue
+        else:
+            logger.warning(f"Не удалось определить кодировку для {file_path}")
+            return lines
+        
+        for line in content.splitlines():
+            stripped = line.strip()
+            # Пропускаем пустые строки и комментарии
+            if stripped and not stripped.startswith("#"):
+                lines.append(stripped)
+                
+    except Exception as e:
+        logger.error(f"Ошибка чтения Strings файла {file_path}: {e}")
+    
+    return lines
+
+
+def parse_rules_files_element(root: etree._Element) -> dict[str, list[str]]:
+    """
+    Парсит rulesFiles элементы RulePackDef.
+    
+    rulesFiles позволяет определять дополнительные word banks для генерации текста.
+    Формат:
+    <rulesFiles>
+      <li>keyword->Words/Nouns/MyNewKeyword</li>
+    </rulesFiles>
+    
+    Args:
+        root: Корневой элемент XML (RulePackDef)
+        
+    Returns:
+        Словарь {keyword: [список слов]}
+    """
+    result = {}
+    
+    for child in root.iter():
+        if child.tag == "rulesFiles":
+            for li in child.findall("li"):
+                if li.text and li.text.strip():
+                    text = li.text.strip()
+                    if "->" in text:
+                        keyword, path = text.split("->", 1)
+                        keyword = keyword.strip()
+                        path = path.strip()
+                        # Здесь мы возвращаем путь - фактическое содержимое файла
+                        # будет загружено при необходимости
+                        result[keyword] = [path]
+    
+    return result
+
+
+def extract_named_indexes(root: etree._Element) -> dict[str, str]:
+    """
+    Извлекает именованные индексы из списков.
+    
+    В RimWorld 1.6 можно ссылаться на элементы списков по имени вместо индекса:
+    <NaturalMood.degreeDatas.pessimist.label>translation</NaturalMood.degreeDatas.pessimist.label>
+    
+    Это позволяет избежать проблем с нарушением порядка элементов.
+    
+    Args:
+        root: Корневой элемент XML
+        
+    Returns:
+        Словарь {имя_элемента: значение}
+    """
+    named_indexes = {}
+    
+    # Ищем теги с атрибутом name (именованные элементы списков)
+    for elem in root.iter():
+        name_attr = elem.get("name")
+        if name_attr:
+            # Ищем текст в дочерних элементах или самом элементе
+            text = elem.text and elem.text.strip()
+            if not text:
+                # Ищем первый дочерний текст
+                for child in elem:
+                    if child.text and child.text.strip():
+                        text = child.text.strip()
+                        break
+            
+            if text:
+                named_indexes[name_attr] = text
+    
+    return named_indexes
+
+
+# ============================================================================
 # ОСНОВНЫЕ ФУНКЦИИ ПАРСИНГА
 # ============================================================================
 
@@ -159,7 +279,7 @@ def safe_parse_xml(file_path: str) -> etree._Element | None:
     """
     try:
         # Парсер как в Text-Grabber: remove_comments=True, recover=True
-        parser = etree.XMLParser(remove_comments=True, recover=True)
+        parser = etree.XMLParser(remove_comments=True, recover=True, resolve_entities=False, no_network=True)
 
         with open(file_path, "rb") as f:
             content = f.read()
@@ -212,6 +332,12 @@ def get_entries_from_xml(root: etree._Element, prefix: str = "") -> dict[str, st
     Рекурсивно извлекает все записи (ключ -> значение) из XML элемента.
     Обрабатывает вложенные структуры (например, <li> внутри списков).
 
+    Поддерживает:
+    - Обычные теги с текстовыми значениями
+    - DefInjected dotted path теги: <DefName.field.subfield>value</DefName.field.subfield>
+    - <li> элементы в rulesStrings (собираются как единый блок текста)
+    - Именованные индексы в списках
+
     Args:
         root: Корневой элемент XML (lxml)
         prefix: Префикс для вложенных тегов (например, "parent.child")
@@ -222,20 +348,33 @@ def get_entries_from_xml(root: etree._Element, prefix: str = "") -> dict[str, st
     entries = {}
 
     for child in root:
-        # Формируем полное имя тега с учётом иерархии
         full_tag = f"{prefix}.{child.tag}" if prefix else child.tag
 
-        # Если есть текстовое значение, сохраняем
-        if child.text and child.text.strip():
-            entries[full_tag] = child.text.strip()
-        else:
-            entries[full_tag] = ""
+        # Проверяем, есть ли <li> дети у этого элемента (для rulesStrings)
+        li_children = [c for c in child if c.tag == "li"]
 
-        # Рекурсивно обрабатываем вложенные элементы
-        # Особенно важно для <li> элементов в списках DefInjected
-        if len(child) > 0:
-            nested = get_entries_from_xml(child, prefix=full_tag)
-            entries.update(nested)
+        if li_children:
+            # Для тегов с <li> детьми (rulesStrings) — собираем все <li> тексты
+            # как единый блок, разделённый переводами строк
+            li_texts = []
+            for li_child in li_children:
+                if li_child.text and li_child.text.strip():
+                    li_texts.append(li_child.text.strip())
+            if li_texts:
+                entries[full_tag] = "\n".join(li_texts)
+            else:
+                entries[full_tag] = ""
+        else:
+            # Обычная обработка: сохраняем текстовое значение
+            if child.text and child.text.strip():
+                entries[full_tag] = child.text.strip()
+            else:
+                entries[full_tag] = ""
+
+            # Рекурсивно обрабатываем вложенные элементы
+            if len(child) > 0:
+                nested = get_entries_from_xml(child, prefix=full_tag)
+                entries.update(nested)
 
     return entries
 
@@ -243,24 +382,30 @@ def get_entries_from_xml(root: etree._Element, prefix: str = "") -> dict[str, st
 def detect_xml_file_type(root: etree._Element) -> str | None:
     """
     Определяет тип XML файла RimWorld по корневому тегу.
-
+    
     Args:
         root: Корневой элемент XML
-
+        
     Returns:
         Тип файла или None если не распознан
     """
     tag = root.tag.lower()
-
-    if tag in ["keyed"]:
+    
+    if tag in ["languagedata"]:
+        # Определяем, является ли это DefInjected или Keyed по структуре
+        # Оба используют LanguageData как корневой тег
+        # Проверяем, есть ли атрибут DefInjected в дочерних тегах
+        for child in root:
+            if "definjected" in child.tag.lower():
+                return "def_injected"
         return "keyed"
-    elif tag in ["definjected", "definjected", "languagedata"]:
-        return "def_injected"
     elif tag in ["about", "modmetadata"]:
         return "about"
+    elif tag in ["rulepackdef"]:
+        return "rule_pack_def"
     elif tag in ["languages", "languagemeta"]:
         return "language"
-
+    
     return None
 
 
@@ -280,9 +425,10 @@ class XMLParser:
     - Извлечение переводов
     """
 
-    def __init__(self, logger: Any | None = None):
+    def __init__(self, logger: Any | None = None, max_cache_size: int = 256):
         self.logger = logger
-        self._parsed_files: dict[str, XMLParseResult] = {}
+        self._parsed_files: OrderedDict[str, XMLParseResult] = OrderedDict()
+        self._max_cache_size = max_cache_size
 
     def parse(self, file_path: str) -> XMLParseResult:
         """
@@ -312,7 +458,9 @@ class XMLParser:
                 success=True, root=root, file_path=file_path, file_type=file_type, entries=entries
             )
 
-        # Кэшируем результат
+        # Кэшируем результат с LRU-вытеснением
+        if len(self._parsed_files) >= self._max_cache_size:
+            self._parsed_files.popitem(last=False)
         self._parsed_files[file_path] = result
         return result
 
@@ -359,14 +507,15 @@ class XMLParser:
         errors = []
         warnings = []
 
-        root = safe_parse_xml(file_path)
-        if root is None:
+        parsed = self.parse(file_path)
+        if not parsed.success:
             return XMLValidationResult(
                 is_valid=False,
                 errors=[f"Не удалось распарсить файл: {file_path}"],
                 warnings=[],
                 file_path=file_path,
             )
+        root = parsed.root
 
         # Проверяем корневой тег
         file_type = detect_xml_file_type(root)
@@ -449,7 +598,6 @@ def write_tree_pretty(
         )
 
         with open(target_path, "wb") as fw:
-            fw.write(b"\xef\xbb\xbf")  # UTF-8 BOM
             fw.write(xml_bytes)
         if logger:
             logger.debug(f"Wrote pretty XML: {target_path}")
@@ -537,41 +685,50 @@ def add_or_update_translation(root: etree._Element, tag_name: str, original_text
     """
     Добавляет или обновляет перевод с комментарием оригинала.
     Использует нативный etree.Comment для корректного экранирования символов.
-
+    
     Args:
         root: Корневой элемент XML
         tag_name: Имя тега для перевода
         original_text: Оригинальный текст на английском
         translated_text: Переведенный текст
         logger: Опциональный логгер
-
+        
     Returns:
         Созданный или обновленный элемент перевода
     """
-    # RulePackDef: текст должен быть в <li> узлах
-    is_rulepack = "rulePack.rulesStrings" in tag_name
+    # RulePackDef и аналогичные: текст должен быть в <li> узлах
+    # Поддерживаемые паттерны: rulePack.rulesStrings, logRulesInitiator.rulesStrings,
+    # descriptionMaker.rules.rulesStrings, generalRules.rulesStrings и т.п.
+    is_rulepack = ".rulesStrings" in tag_name
 
     if is_rulepack:
-        # Для RulePackDef: ищем или создаём тег с <li> дочерними узлами
-        # Tag name может содержать индекс (например, DefName.rulePack.rulesStrings.0)
-        # Но правильный формат: один тег на все <li> элементы
-        # Извлекаем базовое имя (без индекса)
-        import re
-        match = re.match(r"(.*\.?rulePack\.rulesStrings)", tag_name)
+        # Для DefInjected: используем плоский dotted path как имя тега
+        # Например: <Zoophile.generalRules.rulesStrings>
+        match = re.match(r"(.*\w+\.rulesStrings)", tag_name)
         if match:
             base_tag = match.group(1)
         else:
-            base_tag = tag_name.split(".")[0] + ".rulePack.rulesStrings"
+            first_part = tag_name.split(".")[0]
+            base_tag = f"{first_part}.rulePack.rulesStrings"
 
-        # Ищем существующий тег
-        existing_node = root.find(base_tag)
+        # Ищем существующий тег по dotted path имени
+        existing_node = None
+        for child in root:
+            if child.tag == base_tag:
+                existing_node = child
+                break
+
         if existing_node is None:
-            # Создаём новый тег
+            # Создаём плоский тег с dotted path именем
             existing_node = etree.SubElement(root, base_tag)
             existing_node.text = "\n    "
             existing_node.tail = "\n"
 
-        # Добавляем <li> с переводом
+        # Добавляем <li> с anchor комментарием
+        comment = etree.Comment(f" EN: {original_text} ")
+        comment.tail = "\n    "
+        existing_node.append(comment)
+
         li_elem = etree.SubElement(existing_node, "li")
         li_elem.text = translated_text
         li_elem.tail = "\n    "
@@ -584,8 +741,25 @@ def add_or_update_translation(root: etree._Element, tag_name: str, original_text
         existing_node = root.find(tag_name)
 
         if existing_node is not None:
-            # Если тег есть, просто обновляем текст перевода
+            # ✅ ИСПРАВЛЕНИЕ: Обновляем текст и проверяем/обновляем комментарий
             existing_node.text = translated_text
+            
+            # Проверяем, есть ли комментарий-анкор перед тегом
+            prev_comment = None
+            for sibling in root.iterchildren():
+                if sibling.tag == etree.Comment and sibling.tail and tag_name in sibling.tail:
+                    prev_comment = sibling
+                    break
+            
+            # Если комментария нет или он не содержит оригинал, создаём его
+            if prev_comment is None or original_text not in (prev_comment.text or ""):
+                # Создаём новый комментарий
+                new_comment = etree.Comment(f" EN: {original_text} ")
+                # Вставляем перед тегом
+                idx = list(root).index(existing_node) if existing_node in root else len(list(root))
+                root.insert(idx, new_comment)
+                new_comment.tail = "\n    "
+            
             if logger:
                 logger.debug(f"Updated translation for tag {tag_name}")
             return existing_node
@@ -603,35 +777,63 @@ def add_or_update_translation(root: etree._Element, tag_name: str, original_text
 # ============================================================================
 
 
-def add_rulepack_with_li(root: etree._Element, tag_name: str, texts_list: list[str], logger: Any | None = None) -> etree._Element:
+def add_rulepack_with_li(
+    root: etree._Element,
+    tag_name: str,
+    texts_list: list[str],
+    originals_list: list[str] | None = None,
+    logger: Any | None = None
+) -> etree._Element:
     """
-    Добавляет RulePackDef тег с <li> детьми.
+    Добавляет DefInjected тег с <li> детьми используя плоский dotted path.
+
+    В правильном DefInjected формате тег rulesStrings — это один плоский тег
+    с dotted path именем, например:
+    <Zoophile.generalRules.rulesStrings>
+        <li>memeAdjective->bestial</li>
+    </Zoophile.generalRules.rulesStrings>
+
+    Поддерживает anchor комментарии <!-- EN: original_text --> перед каждым <li>.
 
     Args:
         root: Корневой элемент XML
-        tag_name: Имя тега (например, "LeaderTitleMaker_RatkinKingdom.rulePack.rulesStrings")
-        texts_list: Список текстов для <li> элементов
+        tag_name: Имя тега с dotted path (например, "Zoophile.generalRules.rulesStrings")
+        texts_list: Список текстов для <li> элементов (переведённые)
+        originals_list: Опциональный список оригинальных текстов для anchor комментариев
         logger: Опциональный логгер
 
     Returns:
         Созданный или обновленный элемент
     """
-    # Ищем существующий тег
-    existing_node = root.find(tag_name)
+    # Ищем существующий тег с dotted path именем
+    existing_node = None
+    for child in root:
+        if child.tag == tag_name:
+            existing_node = child
+            break
 
     if existing_node is None:
-        # Создаём новый тег
+        # Создаём плоский тег с dotted path именем
         existing_node = etree.SubElement(root, tag_name)
         existing_node.text = "\n    "
         existing_node.tail = "\n"
+    else:
+        # Существующий тег — сбрасываем форматирование
+        existing_node.text = "\n    "
+        existing_node.tail = "\n"
 
-    # Удаляем все существующие <li> дети
+    # Удаляем все существующие <li> дети (включая комментарии)
     for child in list(existing_node):
-        if child.tag == "li":
-            existing_node.remove(child)
+        existing_node.remove(child)
 
-    # Добавляем новые <li> элементы
-    for text in texts_list:
+    # Добавляем новые <li> элементы с anchor комментариями
+    for i, text in enumerate(texts_list):
+        if originals_list and i < len(originals_list):
+            original = originals_list[i]
+            comment = etree.Comment(f" EN: {original} ")
+            comment.tail = "\n    "
+            existing_node.append(comment)
+
         li_elem = etree.SubElement(existing_node, "li")
         li_elem.text = text
         li_elem.tail = "\n    "
@@ -652,28 +854,7 @@ def get_xml_content_hash(element: etree._Element) -> str:
     Returns:
         Строка хеша
     """
-
-    def _normalize(elem: etree._Element) -> str:
-        parts = []
-        # Учитываем имя тега
-        parts.append(f"tag:{elem.tag}")
-        # Учитываем атрибуты (отсортированные)
-        if elem.attrib:
-            attrs = sorted(elem.attrib.items())
-            for k, v in attrs:
-                parts.append(f"attr:{k}={v}")
-        # Учитываем текстовое значение
-        if elem.text and elem.text.strip():
-            parts.append(f"text:{elem.text.strip()}")
-        # Учитываем tail (текст после закрывающего тега)
-        if elem.tail and elem.tail.strip():
-            parts.append(f"tail:{elem.tail.strip()}")
-        # Рекурсивно обрабатываем дочерние элементы
-        for child in elem:
-            parts.append(_normalize(child))
-        return "|".join(parts)
-
-    return _normalize(element)
+    return hashlib.md5(etree.tostring(element, encoding="unicode").encode("utf-8")).hexdigest()
 
 
 def find_duplicate_xml_files(
@@ -778,24 +959,93 @@ if __name__ == "__main__":
     print("\n[ТЕСТ] Определение типа файла:")
 
     # Создаем тестовые элементы с помощью lxml
-    keyed_root = etree.fromstring("<Keyed><Test>Value</Test></Keyed>")
-    print(f"  Keyed -> {detect_xml_file_type(keyed_root)}")
+    # Keyed файл использует LanguageData как корневой тег
+    keyed_root = etree.fromstring('<LanguageData><Test>Value</Test></LanguageData>')
+    print(f"  LanguageData (Keyed) -> {detect_xml_file_type(keyed_root)}")
 
-    def_injected_root = etree.fromstring("<DefInjected><Test>Value</Test></DefInjected>")
-    print(f"  DefInjected -> {detect_xml_file_type(def_injected_root)}")
+    def_injected_root = etree.fromstring('<LanguageData><DefInjected><Test>Value</Test></DefInjected></LanguageData>')
+    print(f"  LanguageData (DefInjected) -> {detect_xml_file_type(def_injected_root)}")
 
     about_root = etree.fromstring("<ModMetaData><Test>Value</Test></ModMetaData>")
     print(f"  ModMetaData -> {detect_xml_file_type(about_root)}")
+    
+    rule_pack_root = etree.fromstring('<RulePackDef><defName>Test</defName></RulePackDef>')
+    print(f"  RulePackDef -> {detect_xml_file_type(rule_pack_root)}")
 
     # Тест извлечения записей
     print("\n[ТЕСТ] Извлечение записей:")
     entries = get_entries_from_xml(keyed_root)
+    print(f"  Записи: {entries}")
+    
+    # Тест full-list translation (DefInjected rulesStrings с dotted path)
+    print("\n[ТЕСТ] Full-list translation (DefInjected dotted path):")
+    def_injected_rules = etree.fromstring('''
+    <LanguageData>
+        <Zoophile.generalRules.rulesStrings>
+            <li>memeAdjective->bestial</li>
+            <li>memeAdjective->zoophile</li>
+        </Zoophile.generalRules.rulesStrings>
+    </LanguageData>
+    ''')
+    entries = get_entries_from_xml(def_injected_rules)
     print(f"  Записи: {entries}")
 
     # Тест парсера
     print("\n[ТЕСТ] XMLParser:")
     parser = XMLParser()
     print("  Создан парсер")
+    
+    # Тест rulesFiles
+    print("\n[ТЕСТ] rulesFiles:")
+    rule_pack_with_files = etree.fromstring('''
+    <RulePackDef>
+        <rulePack>
+            <rulesFiles>
+                <li>keyword->Words/Nouns/MyKeyword</li>
+            </rulesFiles>
+        </rulePack>
+    </RulePackDef>
+    ''')
+    rules_files = parse_rules_files_element(rule_pack_with_files)
+    print(f"  rulesFiles: {rules_files}")
+    
+    # Тест именованных индексов
+    print("\n[ТЕСТ] Named indexes:")
+    named_root = etree.fromstring('''
+    <ThingDef>
+        <tools>
+            <tool name="point"><label>point label</label></tool>
+            <tool name="blade"><label>blade label</label></tool>
+        </tools>
+    </ThingDef>
+    ''')
+    named_indexes = extract_named_indexes(named_root)
+    print(f"  Named indexes: {named_indexes}")
+    
+    # Тест anchor комментариев для <li> в DefInjected формате
+    print("\n[ТЕСТ] Anchor comments for <li> (DefInjected dotted path):")
+    root = etree.Element("LanguageData")
+    tag_name = "Zoophile.generalRules.rulesStrings"
+    texts = ["memeAdjective->звериный", "memeAdjective->зоофильный"]
+    originals = ["memeAdjective->bestial", "memeAdjective->zoophile"]
+    add_rulepack_with_li(root, tag_name, texts, originals)
+
+    # Проверяем XML
+    xml_str = etree.tostring(root, encoding="unicode", pretty_print=True)
+    print(f"  Generated XML:\n{xml_str}")
+
+    # Проверяем структуру: должен быть один плоский тег
+    flat_tag = root.find(tag_name)
+    print(f"  Flat tag found: {flat_tag is not None}")
+    if flat_tag is not None:
+        li_count = len(flat_tag.findall("li"))
+        print(f"  <li> children: {li_count}")
+
+    # Проверяем наличие комментариев
+    comments = [c for c in root.iter() if isinstance(c, etree._Comment)]
+    print(f"  Comments found: {len(comments)}")
+    for c in comments:
+        print(f"    - {c.text}")
 
     print("\n" + "=" * 60)
     print("Все тесты пройдены!")

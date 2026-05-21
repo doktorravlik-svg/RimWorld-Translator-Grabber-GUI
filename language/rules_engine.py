@@ -23,9 +23,10 @@ class LanguageRules:
         # - RimWorld-формат коды x{0}, x{1} (лат. x + {цифра} — технический префикс)
         # - Внутренние плейсхолдеры переводчика __PLACEHOLDER_n__
         # - Временные placeholderы переменных __VAR_n__
+        # - Плейсхолдеры квадратных скобок __BVAR_n__
         # - Символы переводов строки \n / \r (не содержат букв, не влияют на has_latin)
         text_without_placeholders = re.sub(
-            r'[\n\r]|\{[^}]*\}|\[[^\]]*\]|[\\/]n[\\/]?n\*?|x\{\d{1,2}\}|__PLACEHOLDER_\d+__|__VAR_\d+__',
+            r'[\n\r]|\{[^}]*\}|\[[^\]]*\]|[\\/]n[\\/]?n\*?|x\{\d{1,2}\}|__PLACEHOLDER_\d+__|__VAR_\d+__|__BVAR_\d+__',
             '', text, flags=re.IGNORECASE
         )
         has_cyrillic = bool(self._cyrillic_pattern.search(text_without_placeholders))
@@ -100,13 +101,28 @@ class LanguageRules:
             if not original:
                 return text
 
+            # Проверяем: оригинал без латинских букв (корейский, китайский, японский)
+            # В этом случае isupper()/islower() не работают, используем стандартную капитализацию
+            if not re.search(r'[A-Za-z]', original):
+                if self.config.capitalizes_sentence_start:
+                    return text[0].upper() + text[1:] if len(text) > 1 else text.upper()
+                return text
+
             # Проверяем: вся строка заглавными
             if original.isupper():
                 return text.upper()
 
             # Проверяем: вся строка строчными
             if original.islower():
-                return text.lower()
+                bracket_placeholders = []
+                def _save_bracket(m):
+                    bracket_placeholders.append(m.group(0))
+                    return f"__BRACKET_{len(bracket_placeholders)-1}__"
+                text = re.sub(r'\[[^\]]+\]', _save_bracket, text)
+                text = text.lower()
+                for i, ph in enumerate(bracket_placeholders):
+                    text = re.sub(re.escape(f"__BRACKET_{i}__"), ph, text, flags=re.IGNORECASE)
+                return text
 
             # Смешанный регистр - сохраняем регистр каждого слова
             return self._preserve_word_case(text, original)
@@ -120,6 +136,7 @@ class LanguageRules:
     def _preserve_word_case(self, translated: str, original: str) -> str:
         """
         Сохраняет регистр каждого слова из оригинала в переводе.
+        Содержимое [bracket] плейсхолдеров всегда сохраняется как есть.
 
         Args:
             translated: Переведённый текст
@@ -128,28 +145,38 @@ class LanguageRules:
         Returns:
             Переведённый текст с сохранённым регистром
         """
-        orig_words = original.split()
-        trans_words = translated.split()
+        bracket_placeholders = []
+        def _save_bracket(m):
+            bracket_placeholders.append(m.group(0))
+            return f"__BRACKET_{len(bracket_placeholders)-1}__"
+
+        protected_translated = re.sub(r'\[[^\]]+\]', _save_bracket, translated)
+        protected_original = re.sub(r'\[[^\]]+\]', _save_bracket, original)
+
+        orig_words = protected_original.split()
+        trans_words = protected_translated.split()
         result_words = []
 
         for i, trans_word in enumerate(trans_words):
             if i < len(orig_words):
                 orig_word = orig_words[i]
-                # Проверяем регистр исходного слова
                 if orig_word.isupper():
                     result_words.append(trans_word.upper())
                 elif orig_word and orig_word[0].isupper():
-                    # Заглавная первая буква
                     result_words.append(
                         trans_word[0].upper() + trans_word[1:] if len(trans_word) > 1 else trans_word.upper()
                     )
                 else:
                     result_words.append(trans_word.lower())
             else:
-                # Если слов больше в переводе, чем в оригинале - обрабатываем по умолчанию
                 result_words.append(trans_word.lower())
 
-        return " ".join(result_words)
+        result = " ".join(result_words)
+
+        for i, ph in enumerate(bracket_placeholders):
+            result = re.sub(re.escape(f"__BRACKET_{i}__"), ph, result, flags=re.IGNORECASE)
+
+        return result
 
     def get_pronoun_case(self, pronoun: str, case: str) -> str:
         """
@@ -227,6 +254,9 @@ class LanguageRules:
         These are legitimate RimWorld template syntax and should not be
         considered as "partial translation" indicators.
 
+        Если текст содержит и кириллицу, и латиницу — это частичный перевод,
+        но он всё равно лучше, чем ничего. Пропускаем с предупреждением.
+
         Args:
             text: Текст для проверки
 
@@ -236,16 +266,8 @@ class LanguageRules:
         if not text or not text.strip():
             return False
 
-        # Remove template placeholders before checking for mixed alphabet
-        # RimWorld templates: {0}, {1}, {name}, {0_key}, {PAWN_gender ? A : B}, etc.
-        # Также удаляем RimWorld-формат коды x{0}, x{1} (лат. префикс + {цифра})
-        # Also remove RimWorld bracket placeholders: [deity0_name], [founderName], etc.
-        # Удаляем Google-артефакт /n/n* из Tip-подсказок (когда Google оставляет /n/n* как текст)
-        # Also remove internal translator placeholders: __PLACEHOLDER_0__, __PLACEHOLDER_1__, etc.
-        # And translation variable placeholders: __VAR_0__, __VAR_1__, etc.
-        # Удаляем символы переводов строки \n / \r (не содержат букв, не влияют на has_latin)
         text_without_placeholders = re.sub(
-            r'[\n\r]|\{[^}]*\}|\[[^\]]*\]|[\\/]n[\\/]?n\*?|x\{\d{1,2}\}|__PLACEHOLDER_\d+__|__VAR_\d+__',
+            r'[\n\r]|\{[^}]*\}|\[[^\]]*\]|[\\/]n[\\/]?n\*?|x\{\d{1,2}\}|x__PLACEHOLDER_\d+__|__PLACEHOLDER_\d+__|__VAR_\d+__|__BVAR_\d+__',
             '', text, flags=re.IGNORECASE
         )
 
@@ -254,8 +276,14 @@ class LanguageRules:
 
         # Для языков с кириллицей: текст не должен содержать латиницу
         if self.lang_code in ('ru', 'uk'):
-            # Если есть и кириллица, и латиница - это частичный перевод
+            # Если есть и кириллица, и латиница — это частичный перевод
+            # Но если кириллицы больше — пропускаем
             if has_cyrillic and has_latin:
+                cyrillic_count = len(self._cyrillic_pattern.findall(text_without_placeholders))
+                latin_count = len(self._latin_pattern.findall(text_without_placeholders))
+                # Если кириллицы хотя бы в 2 раза больше латиницы — считаем допустимым
+                if cyrillic_count > latin_count * 2:
+                    return True
                 return False
 
         return True

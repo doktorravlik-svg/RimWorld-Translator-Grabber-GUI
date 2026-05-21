@@ -2075,7 +2075,7 @@ class TarFile(object):
             raise ValueError("mode must be 'r', 'w' or 'x'")
 
         try:
-            from compression_backport.zstd import ZstdFile, ZstdError
+            from compression.zstd import ZstdFile, ZstdError
         except ImportError:
             raise CompressionError("compression.zstd module is not available") from None
 

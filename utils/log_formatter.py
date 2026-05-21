@@ -14,19 +14,23 @@ import time
 class LogSection:
     """Контекстный менеджер для создания секций в логе"""
 
+    __slots__ = ('parent', 'title', 'icon', 'start_time', '_items', '_log_method')
+
     def __init__(self, parent, title, icon="📄"):
         self.parent = parent
         self.title = title
         self.icon = icon
         self.start_time = None
-        self.items = []
-
-        # Ищем logger в разных местах
+        self._items = []
         self._log_method = None
 
+        # 0. Check if parent itself is a logger-like object (has info method)
+        if callable(getattr(parent, "info", None)):
+            self._log_method = parent.info
+
         # 1. Проверяем parent.logger (TranslationWorker)
-        if hasattr(parent, "logger") and parent.logger:
-            if hasattr(parent.logger, "info"):
+        if not self._log_method and hasattr(parent, "logger") and parent.logger:
+            if callable(getattr(parent.logger, "info", None)):
                 self._log_method = parent.logger.info
 
         # 2. Проверяем parent.log_callback (если есть)
@@ -43,6 +47,23 @@ class LogSection:
         if not self._log_method:
             self._log_method = print
 
+    @property
+    def items(self):
+        """Возвращает список элементов, восстанавливая его если нужно"""
+        if not isinstance(self._items, list):
+            # If _items is a Logger or other non-list object, create new list
+            self._items = []
+        return self._items
+
+    def _safe_len(self):
+        """Safe length calculation that handles non-list types"""
+        if isinstance(self._items, list):
+            return len(self._items)
+        return 0
+
+    def __len__(self):
+        return self._safe_len()
+
     def __enter__(self):
         self.start_time = time.time()
         separator = "─" * 60
@@ -55,13 +76,13 @@ class LogSection:
         elapsed = time.time() - self.start_time
         status = "✅ Успешно" if exc_type is None else f"❌ Ошибка: {exc_val}"
         self._log(f"   ⏱️  Время: {elapsed:.2f}с")
-        self._log(f"   📊 Элементов: {len(self.items)}")
+        self._log(f"   📊 Элементов: {self._safe_len()}")
         self._log(f"   Статус: {status}")
         return False
 
     def _log(self, message):
         """Универсальный метод логирования"""
-        if self._log_method:
+        if self._log_method and callable(self._log_method):
             self._log_method(message)
 
     def add_item(self, message, level="info"):

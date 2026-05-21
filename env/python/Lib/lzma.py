@@ -24,7 +24,7 @@ __all__ = [
 import builtins
 import io
 import os
-from compression_backport._common import _streams
+from compression._common import _streams
 from _lzma import *
 from _lzma import _encode_filter_properties, _decode_filter_properties  # noqa: F401
 

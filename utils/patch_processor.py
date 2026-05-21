@@ -16,6 +16,7 @@
 """
 
 from lxml import etree
+import re
 
 
 def process_patches(
@@ -303,8 +304,6 @@ def _xpath_matches_key(xpath: str, key: str) -> bool:
     normalized_xpath = xpath.replace("\\", "/")
 
     # Извлекаем все части пути (игнорируя предикаты в квадратных скобках)
-    import re
-
     # Удаляем предикаты [...], затем разбиваем по /
     path_without_predicates = re.sub(r"\[.*?\]", "", normalized_xpath)
     parts = [p for p in path_without_predicates.split("/") if p]

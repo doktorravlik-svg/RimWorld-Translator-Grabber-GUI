@@ -9,6 +9,7 @@
 """
 
 import os
+import re
 
 import lxml.etree as etree
 from verification.xml_parser import safe_parse_xml
@@ -120,7 +121,6 @@ def scan_existing_translations_per_file(def_injected_dir: str, logger=None) -> d
 
                     # Проверяем tail на EN: комментарий
                     if child.tail:
-                        import re
                         en_match = re.search(r'<!--\s*EN:\s*(.*?)\s*-->', child.tail)
                         if en_match:
                             last_en_comment = en_match.group(1).strip()

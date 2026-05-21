@@ -21,6 +21,11 @@ from verification.xml_parser import (
     get_entries_from_xml,
     detect_xml_file_type,
     validate_xml_structure,
+    parse_strings_file,
+    parse_rules_files_element,
+    extract_named_indexes,
+    add_rulepack_with_li,
+    add_or_update_translation,
 )
 
 
@@ -117,3 +122,42 @@ def safe_walk(*args, **kwargs):
     """
     from utils.fs_utils import safe_walk as _fs_safe_walk
     return _fs_safe_walk(*args, **kwargs)
+
+
+def read_strings_file(file_path: str) -> list[str]:
+    """
+    Парсит текстовый файл Strings папки языка.
+    
+    Args:
+        file_path: Путь к .txt файлу
+        
+    Returns:
+        Список строк из файла
+    """
+    return parse_strings_file(file_path)
+
+
+def read_rules_files(root: etree._Element) -> dict[str, list[str]]:
+    """
+    Парсит rulesFiles элементы RulePackDef.
+    
+    Args:
+        root: Корневой элемент XML (RulePackDef)
+        
+    Returns:
+        Словарь {keyword: [список слов]}
+    """
+    return parse_rules_files_element(root)
+
+
+def get_named_indexes(root: etree._Element) -> dict[str, str]:
+    """
+    Извлекает именованные индексы из списков.
+    
+    Args:
+        root: Корневой элемент XML
+        
+    Returns:
+        Словарь {имя_элемента: значение}
+    """
+    return extract_named_indexes(root)

@@ -15,6 +15,7 @@
 
 import os
 import sqlite3
+import threading
 from datetime import datetime
 from pathlib import Path
 
@@ -97,8 +98,24 @@ class TranslationDatabase:
         self.glossary_dir = get_glossary_dir_for_language(target_language)
         self.fuzzy_log_path = get_fuzzy_log_path_for_language(target_language)
         self.conn = None
+        self._lock = threading.Lock()
         self._connect()
         self._create_tables()
+
+    def close(self):
+        """Закрыть соединение с базой данных"""
+        if self.conn:
+            try:
+                self.conn.close()
+            except Exception:
+                pass
+            self.conn = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
 
     def _connect(self):
         """Подключиться к базе данных"""
@@ -292,10 +309,11 @@ class TranslationDatabase:
                             "INSERT OR REPLACE INTO glossary (term, translation, category, description, target_language) VALUES (?, ?, ?, ?, ?)",
                             (term, translation, category, "", self.target_language),
                         )
-                    self.conn.commit()
                     logger.debug(f"Загружено {len(entries)} терминов из {json_path}")
             except Exception as e:
                 logger.debug(f"Не удалось загрузить глоссарий из {json_path}: {e}")
+
+        self.conn.commit()
 
         # Ensure glossary_index.json exists
         self._rebuild_glossary_index_for_dir(self.glossary_dir)
@@ -370,38 +388,39 @@ class TranslationDatabase:
         """Добавить или обновить перевод"""
         if target_lang is None:
             target_lang = self.target_language
-        c = self.conn.cursor()
-        now = datetime.now().isoformat()
+        with self._lock:
+            c = self.conn.cursor()
+            now = datetime.now().isoformat()
 
-        c.execute(
-            """
-            INSERT INTO translations (key, original_value, translated_value, file_name, mod_name,
-                                     source_language, target_language, last_used, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(key, source_language, target_language, file_name)
-            DO UPDATE SET
-                translated_value = excluded.translated_value,
-                original_value = excluded.original_value,
-                last_used = ?,
-                updated_at = ?,
-                usage_count = usage_count + 1
-        """,
-            (
-                key,
-                original,
-                translated,
-                file_name,
-                mod_name,
-                source_lang,
-                target_lang,
-                now,
-                now,
-                now,
-                now,
-            ),
-        )
+            c.execute(
+                """
+                INSERT INTO translations (key, original_value, translated_value, file_name, mod_name,
+                                         source_language, target_language, last_used, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(key, source_language, target_language, file_name)
+                DO UPDATE SET
+                    translated_value = excluded.translated_value,
+                    original_value = excluded.original_value,
+                    last_used = ?,
+                    updated_at = ?,
+                    usage_count = usage_count + 1
+            """,
+                (
+                    key,
+                    original,
+                    translated,
+                    file_name,
+                    mod_name,
+                    source_lang,
+                    target_lang,
+                    now,
+                    now,
+                    now,
+                    now,
+                ),
+            )
 
-        self.conn.commit()
+            self.conn.commit()
 
     def get_translation(self, key, source_lang="English", target_lang=None):
         """Получить перевод по ключу"""
@@ -472,16 +491,11 @@ class TranslationDatabase:
         """Массовое добавление переводов"""
         if target_lang is None:
             target_lang = self.target_language
-        c = self.conn.cursor()
-        now = datetime.now().isoformat()
+        with self._lock:
+            c = self.conn.cursor()
+            now = datetime.now().isoformat()
 
-        for entry in entries:
-            key = entry.get("key", "")
-            original = entry.get("original_value", "")
-            translated = entry.get("value", "")
-
-            c.execute(
-                """
+            sql = """
                 INSERT INTO translations (key, original_value, translated_value, file_name, mod_name,
                                          source_language, target_language, last_used, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -491,11 +505,12 @@ class TranslationDatabase:
                     last_used = ?,
                     updated_at = ?,
                     usage_count = usage_count + 1
-        """,
+            """
+            data = [
                 (
-                    key,
-                    original,
-                    translated,
+                    entry.get("key", ""),
+                    entry.get("original_value", ""),
+                    entry.get("value", ""),
                     file_name,
                     mod_name,
                     source_lang,
@@ -504,10 +519,11 @@ class TranslationDatabase:
                     now,
                     now,
                     now,
-                ),
-            )
-
-        self.conn.commit()
+                )
+                for entry in entries
+            ]
+            c.executemany(sql, data)
+            self.conn.commit()
 
     def apply_glossary_to_text(self, text: str, target_language: str = None) -> str:
         """

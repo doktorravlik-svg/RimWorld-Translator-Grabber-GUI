@@ -13,7 +13,7 @@ import sys
 import time
 import weakref
 import zlib
-from compression_backport._common import _streams
+from compression._common import _streams
 
 __all__ = ["BadGzipFile", "GzipFile", "open", "compress", "decompress"]
 

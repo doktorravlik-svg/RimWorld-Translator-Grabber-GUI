@@ -10,7 +10,7 @@ __all__ = ["BZ2File", "BZ2Compressor", "BZ2Decompressor",
 __author__ = "Nadeem Vawda <nadeem.vawda@gmail.com>"
 
 from builtins import open as _builtin_open
-from compression_backport._common import _streams
+from compression._common import _streams
 import io
 import os
 

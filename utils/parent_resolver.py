@@ -73,6 +73,7 @@ def resolve_def_inheritance(
     def_element: etree._Element,
     name_registry: dict[str, dict[str, etree._Element]],
     visited: set[str] | None = None,
+    _depth: int = 0,
 ) -> etree._Element:
     """
     Разрешает наследование для одного Def элемента.
@@ -84,10 +85,13 @@ def resolve_def_inheritance(
         def_element: XML элемент Def для разрешения
         name_registry: Реестр всех именованных элементов
         visited: Множество уже посещённых имён (защита от циклов)
+        _depth: Текущая глубина рекурсии (внутренний параметр)
 
     Returns:
         Разрешённый XML элемент (копия оригинала с унаследованными полями)
     """
+    if _depth > 50:
+        return def_element
     if visited is None:
         visited = set()
 
@@ -109,7 +113,7 @@ def resolve_def_inheritance(
         return def_element
 
     # Рекурсивно разрешаем родителя
-    resolved_parent = resolve_def_inheritance(parent_element, name_registry, visited)
+    resolved_parent = resolve_def_inheritance(parent_element, name_registry, visited, _depth=_depth + 1)
 
     # Объединяем: родитель + ребёнок (ребёнок перезаписывает)
     return _merge_elements(resolved_parent, def_element)
@@ -275,6 +279,7 @@ def collect_all_parents_recursive(
     parent_name: str,
     name_registry: dict[str, dict[str, etree._Element]],
     visited: set[str] | None = None,
+    _depth: int = 0,
 ) -> list[etree._Element]:
     """
     Рекурсивно собирает всех предков элемента.
@@ -283,10 +288,13 @@ def collect_all_parents_recursive(
         parent_name: Имя начального родителя
         name_registry: Реестр всех именованных элементов
         visited: Множество посещённых (защита от циклов)
+        _depth: Текущая глубина рекурсии (внутренний параметр)
 
     Returns:
         Список всех предков от самого старого к родителю
     """
+    if _depth > 50:
+        return []
     if visited is None:
         visited = set()
 
@@ -302,7 +310,7 @@ def collect_all_parents_recursive(
     # Рекурсивно собираем предков
     grandparents_name = parent.get("ParentName")
     if grandparents_name:
-        ancestors = collect_all_parents_recursive(grandparents_name, name_registry, visited)
+        ancestors = collect_all_parents_recursive(grandparents_name, name_registry, visited, _depth=_depth + 1)
         ancestors.append(parent)
         return ancestors
 

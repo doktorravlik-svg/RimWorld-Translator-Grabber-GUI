@@ -1001,11 +1001,14 @@ class ImprovedGUI:
         if is_full:
             checks = []  # Пустой список означает все 20 проверок
 
+        # Debug режим - используем loguru logger
+        worker_logger = logger.bind(name=f"verification.{os.path.basename(mods_folder)}") if self.debug_manager.is_enabled else None
+
         worker = VerificationWorker(
             mods_folder=mods_folder,
             checks=checks or [],
             language=verification_language,
-            logger=self.debug_manager.debug_logger if self.debug_manager.is_enabled else None,
+            logger=worker_logger,
             game_path=self.config.get("game_path", ""),  # Передаём путь к игре
         )
 
@@ -1178,8 +1181,9 @@ class ImprovedGUI:
                 pass
 
         if self.debug_manager.is_enabled:
-            # Debug режим - используем debug_logger
-            worker_logger = self.debug_manager.debug_logger
+            # Debug режим - используем loguru logger (Обёрнутый через _log_method)
+            # DebugLogger не поддерживает все методы loguru, поэтому используем модульный logger
+            worker_logger = logger.bind(name=f"translation.{os.path.basename(mods_folder)}")
         else:
             # Обычный режим - создаём logger который пишет в UI
             logger_name = f"translation.{os.path.basename(mods_folder)}"
@@ -1280,13 +1284,14 @@ class ImprovedGUI:
             f"Слияние дубликатов запущено: {mods_folder} -> {output_folder}", category="duplicates"
         )
 
-        # ✅ Используем DuplicateWorker вместо DuplicateRunner
+        # ✅ ИСПРАВЛЕНО: Используем DuplicateWorker вместо DuplicateRunner
+        worker_logger = logger.bind(name="duplicate") if self.debug_manager.is_enabled else None
         self.duplicate_worker = DuplicateWorker(
             mods_folder=mods_folder,
             output_folder=output_folder,
             auto_merge=options.get("auto_merge", True),
             create_backup=options.get("create_backup", True),
-            logger=self.debug_manager.debug_logger if self.debug_manager.is_enabled else None,
+            logger=worker_logger,
         )
 
         handler = self.duplicate_handler
@@ -1332,11 +1337,14 @@ class ImprovedGUI:
         if language_filter and language_filter != "Все языки":
             self.debug_manager.log_action(f"Фильтр языка: {language_filter}", category="integrity")
 
+        # Debug режим - используем loguru logger
+        worker_logger = logger.bind(name="integrity") if self.debug_manager.is_enabled else None
+
         # ✅ Используем IntegrityWorker вместо IntegrityRunner
         self.integrity_worker = IntegrityWorker(
             mods_folder=mods_folder,
             language_filter=language_filter,
-            logger=self.debug_manager.debug_logger if self.debug_manager.is_enabled else None,
+            logger=worker_logger,
         ).set_tk_root(self.root)  # ✅ Потокобезопасные callbacks через root.after()
 
         handler = self.integrity_handler

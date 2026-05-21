@@ -9,6 +9,7 @@
 """
 
 import os
+import re
 import subprocess
 import sys
 import tkinter as tk
@@ -260,7 +261,6 @@ class IntegrityResultsDialog:
 
     def _extract_path(self, text):
         """Извлечь путь из текста ошибки"""
-        import re
 
         # ✅ ИСПРАВЛЕНО: Более точные паттерны для извлечения путей
         # Паттерн 1: "Ошибка XML: F:/Games/.../file.xml - <error>"

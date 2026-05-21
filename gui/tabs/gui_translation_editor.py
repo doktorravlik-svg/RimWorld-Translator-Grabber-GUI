@@ -794,9 +794,6 @@ class TranslationEditorDialog:
         """Извлекает версию игры из пути файла"""
         if not path:
             return None
-        # Ищем паттерн версии в пути
-        import re
-
         match = re.search(r"[\\/](\d+\.\d+)[\\/]", path)
         if match:
             return match.group(1)

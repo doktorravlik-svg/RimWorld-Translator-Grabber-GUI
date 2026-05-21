@@ -168,6 +168,43 @@ def find_all_defs_folders_with_loadfolders(mod_path: str) -> list[str]:
     if os.path.exists(root_defs) and root_defs not in defs_folders:
         defs_folders.append(root_defs)
 
+    # Шаг 4: Рекурсивный поиск как fallback (если ничего не нашли)
+    if not defs_folders:
+        recursive_defs = _find_all_defs_folders_recursive(mod_path)
+        for defs_path in recursive_defs:
+            if defs_path not in defs_folders:
+                defs_folders.append(defs_path)
+
+    return defs_folders
+
+
+def _find_all_defs_folders_recursive(mod_path: str, max_depth: int = 3) -> list[str]:
+    """
+    Рекурсивный поиск папок Defs с ограничением глубины.
+    Используется как fallback если универсальный поиск ничего не нашёл.
+    """
+    defs_folders = []
+
+    def _scan(current_dir: str, depth: int):
+        if depth > max_depth:
+            return
+        try:
+            for item in os.listdir(current_dir):
+                if item.startswith(".") or item.startswith("$"):
+                    continue
+                item_path = os.path.join(current_dir, item)
+                if not os.path.isdir(item_path):
+                    continue
+                if item == "Defs":
+                    defs_folders.append(item_path)
+                else:
+                    _scan(item_path, depth + 1)
+        except (PermissionError, OSError):
+            pass
+
+    if os.path.exists(mod_path):
+        _scan(mod_path, 0)
+
     return defs_folders
 
 
@@ -186,7 +223,6 @@ def _find_all_languages_folders_universal(mod_path: str) -> list[str]:
     """
     langs_folders = []
 
-    # Сканируем все папки в корне мода
     if not os.path.exists(mod_path):
         return langs_folders
 
@@ -195,14 +231,49 @@ def _find_all_languages_folders_universal(mod_path: str) -> list[str]:
         if not os.path.isdir(item_path):
             continue
 
-        # Пропускаем скрытые папки
         if item.startswith(".") or item.startswith("$"):
             continue
 
-        # Проверяем наличие Languages в этой папке
         langs_path = os.path.join(item_path, "Languages")
         if os.path.exists(langs_path):
             langs_folders.append(langs_path)
+
+    return langs_folders
+
+
+def _find_all_languages_folders_recursive(mod_path: str, max_depth: int = 3) -> list[str]:
+    """
+    Рекурсивный поиск папок Languages с ограничением глубины.
+    Используется как fallback если универсальный поиск ничего не нашёл.
+
+    Args:
+        mod_path: Путь к моду
+        max_depth: Максимальная глубина рекурсии
+
+    Returns:
+        Список путей к папкам Languages
+    """
+    langs_folders = []
+
+    def _scan(current_dir: str, depth: int):
+        if depth > max_depth:
+            return
+        try:
+            for item in os.listdir(current_dir):
+                if item.startswith(".") or item.startswith("$"):
+                    continue
+                item_path = os.path.join(current_dir, item)
+                if not os.path.isdir(item_path):
+                    continue
+                if item == "Languages":
+                    langs_folders.append(item_path)
+                else:
+                    _scan(item_path, depth + 1)
+        except (PermissionError, OSError):
+            pass
+
+    if os.path.exists(mod_path):
+        _scan(mod_path, 0)
 
     return langs_folders
 
@@ -219,25 +290,32 @@ def find_all_languages_folders_with_loadfolders(mod_path: str) -> list[str]:
     """
     langs_folders = []
 
-    # Шаг 1: LoadFolders.xml
+    # Шаг 1: Корневая Languages (высший приоритет)
+    root_langs = os.path.join(mod_path, "Languages")
+    if os.path.exists(root_langs):
+        langs_folders.append(root_langs)
+
+    # Шаг 2: LoadFolders.xml
     loadfolders = parse_loadfolders(mod_path)
     if loadfolders:
         for folder in loadfolders:
             base = mod_path if folder == "" else os.path.join(mod_path, folder)
             langs_path = os.path.join(base, "Languages")
-            if os.path.exists(langs_path):
+            if os.path.exists(langs_path) and langs_path not in langs_folders:
                 langs_folders.append(langs_path)
 
-    # Шаг 2: Универсальное сканирование ВСЕХ папок (как Text-grabber)
+    # Шаг 3: Универсальное сканирование ВСЕХ папок (как Text-grabber)
     universal_langs = _find_all_languages_folders_universal(mod_path)
     for langs_path in universal_langs:
         if langs_path not in langs_folders:
             langs_folders.append(langs_path)
 
-    # Шаг 3: Корневая Languages
-    root_langs = os.path.join(mod_path, "Languages")
-    if os.path.exists(root_langs) and root_langs not in langs_folders:
-        langs_folders.append(root_langs)
+    # Шаг 4: Рекурсивный поиск как fallback (если ничего не нашли)
+    if not langs_folders:
+        recursive_langs = _find_all_languages_folders_recursive(mod_path)
+        for langs_path in recursive_langs:
+            if langs_path not in langs_folders:
+                langs_folders.append(langs_path)
 
     return langs_folders
 

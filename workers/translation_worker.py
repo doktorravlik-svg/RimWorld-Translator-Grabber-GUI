@@ -13,6 +13,10 @@ from typing import Any
 import lxml.etree as etree
 
 from utils.fs_utils import safe_walk
+
+_RE_BRACE = re.compile(r'\{[a-zA-Z0-9_]+\}')
+_RE_DOLLAR = re.compile(r'\$[a-zA-Z0-9_]+')
+_RE_BRACKET = re.compile(r'\[[^\]]+\]')
 from utils.rimworld_xml import TRANSLATABLE_TAGS
 
 
@@ -981,9 +985,9 @@ class TranslationWorker(BaseWorker):
                                 return f"__PLACEHOLDER_{len(placeholders)-1}__"
                             
                             # Сохраняем фигурные скобки {0}, {name}, и т.п.
-                            text_to_translate = re.sub(r'\{[a-zA-Z0-9_]+\}', save_placeholder, original)
-                            # Сохраняем $ переменные
-                            text_to_translate = re.sub(r'\$[a-zA-Z0-9_]+', save_placeholder, text_to_translate)
+                            text_to_translate = _RE_BRACE.sub(save_placeholder, original)
+                            text_to_translate = _RE_DOLLAR.sub(save_placeholder, text_to_translate)
+                            text_to_translate = _RE_BRACKET.sub(save_placeholder, text_to_translate)
                             
                             translated = self._auto_translator.translate(text_to_translate)
                             
@@ -1046,9 +1050,9 @@ class TranslationWorker(BaseWorker):
                                 return f"__PLACEHOLDER_{len(placeholders)-1}__"
                             
                             # Сохраняем фигурные скобки {0}, {name}, и т.п.
-                            text_to_translate = re.sub(r'\{[a-zA-Z0-9_]+\}', save_placeholder, stripped)
-                            # Сохраняем $ переменные
-                            text_to_translate = re.sub(r'\$[a-zA-Z0-9_]+', save_placeholder, text_to_translate)
+                            text_to_translate = _RE_BRACE.sub(save_placeholder, stripped)
+                            text_to_translate = _RE_DOLLAR.sub(save_placeholder, text_to_translate)
+                            text_to_translate = _RE_BRACKET.sub(save_placeholder, text_to_translate)
                             
                             translated = self._auto_translator.translate(text_to_translate, stripped)
                             
@@ -1391,8 +1395,10 @@ class TranslationWorker(BaseWorker):
         return translations_count
 
     def _extract_translatable_strings(
-        self, element, def_type: str, def_name: str, translatable_tags: set, path: str = ""
+        self, element, def_type: str, def_name: str, translatable_tags: set, path: str = "", _depth: int = 0
     ) -> list:
+        if _depth > 20:
+            return []
         entries = []
         list_counters = {}
         for child in element:
@@ -1413,7 +1419,7 @@ class TranslationWorker(BaseWorker):
             if len(list(child)) > 0:
                 entries.extend(
                     self._extract_translatable_strings(
-                        child, def_type, def_name, translatable_tags, current_path
+                        child, def_type, def_name, translatable_tags, current_path, _depth=_depth + 1
                     )
                 )
         return entries

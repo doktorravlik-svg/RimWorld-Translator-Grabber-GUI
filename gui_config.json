@@ -1,8 +1,8 @@
 {
     "source_language": "English",
-    "target_language": "Ukrainian",
-    "mods_folder": "",
-    "output_folder": "",
+    "target_language": "Russian",
+    "mods_folder": "F:/Games/RimWorld v1.6.4633 rev1245/RimWorld/Mods",
+    "output_folder": "F:/Games/RimWorld v1.6.4633 rev1245/RimWorld/Mods/Translated",
     "preset_file": "",
     "theme": "dark",
     "max_history": 100,
@@ -46,7 +46,7 @@
     "text_color": "#0f6c24",
     "debug": {
         "enabled": true,
-        "log_file": "",
+        "log_file": "F:\\Games\\Rimprog\\RimWorld Translator Grabber 6\\RimWorld-Translator-Grabber-GUI-main\\debug.log",
         "log_level": "DEBUG",
         "log_to_file": true,
         "log_to_console": false,
@@ -70,7 +70,7 @@
     "smart_routing": true,
     "split_long_text": true,
     "rate_limit_delay": 0.5,
-    "max_chunk_size": 450,
+    "max_chunk_size": 350,
     "deeplx_url": "http://localhost:1188",
     "source_languages": [
         "English"

@@ -3,6 +3,8 @@
 """
 
 import os
+import re
+
 import lxml.etree as etree
 from verification.xml_parser import safe_parse_xml
 
@@ -92,7 +94,6 @@ def sanitize_folder_name(name: str) -> str:
     Returns:
         Очищенное имя, безопасное для использования в пути
     """
-    import re
     # Заменяем недопустимые символы на _
     sanitized = re.sub(r'[\\/*?:"<>|]', '_', name)
     # Удаляем лишние пробелы и _ в начале и конце

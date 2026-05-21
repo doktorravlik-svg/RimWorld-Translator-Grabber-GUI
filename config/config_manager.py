@@ -90,8 +90,8 @@ class ConfigManager:
         """
         with config_lock:
             self._config[key] = value
-        if save:
-            self.save()
+            if save:
+                self._save_unsafe()
 
     def update(self, data: dict, save: bool = True):
         """
@@ -103,17 +103,21 @@ class ConfigManager:
         """
         with config_lock:
             self._config.update(data)
-        if save:
-            self.save()
+            if save:
+                self._save_unsafe()
 
     def save(self):
         """Сохранить конфигурацию в файл с блокировкой"""
         with config_lock:
-            try:
-                with open(self._file_path, "w", encoding="utf-8") as f:
-                    json.dump(self._config, f, indent=4, ensure_ascii=False)
-            except (OSError, IOError) as e:
-                logger.error(f"Ошибка сохранения конфигурации: {e}")
+            self._save_unsafe()
+
+    def _save_unsafe(self):
+        """Сохранить конфигурацию (вызывать только внутри config_lock)"""
+        try:
+            with open(self._file_path, "w", encoding="utf-8") as f:
+                json.dump(self._config, f, indent=4, ensure_ascii=False)
+        except (OSError, IOError) as e:
+            logger.error(f"Ошибка сохранения конфигурации: {e}")
 
     def reload(self):
         """Перезагрузить конфигурацию из файла"""

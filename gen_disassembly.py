@@ -206,7 +206,7 @@ def full_disassemble_module(module):
                             sys.stdout = io.StringIO()
                             try:
                                 dis.dis(const)
-                            except:
+                            except Exception:
                                 pass
                             nested_out = sys.stdout.getvalue()
                             sys.stdout = old

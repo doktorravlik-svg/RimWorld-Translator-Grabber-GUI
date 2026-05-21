@@ -144,7 +144,15 @@ def generate_or_update_per_def_files_v2(
     # Храним все хеши содержимого для проверки
     existing_content_hashes = existing_duplicate_map
     if existing_content_hashes and logger:
-        duplicate_count = sum(1 for v in existing_content_hashes.values() if len(v) > 1)
+        # Debug: log any non-list values to help diagnose issues
+        for k, v in existing_content_hashes.items():
+            if not isinstance(v, list):
+                logger.warning(f"Non-list value in existing_content_hashes: key={k}, value_type={type(v).__name__}")
+        # Defensive check: ensure all values are lists before calling len()
+        duplicate_count = sum(
+            1 for v in existing_content_hashes.values() 
+            if isinstance(v, list) and len(v) > 1
+        )
         logger.info(
             f"Проверено {len(existing_content_hashes)} уникальных содержимого в DefInjected файлах, найдено {duplicate_count} групп дубликатов"
         )
@@ -184,6 +192,12 @@ def generate_or_update_per_def_files_v2(
     for def_name, fields in defs_index.items():
         defs_processed_count += 1
         defs_processed += 1
+
+        # ✅ Защита от повреждения данных: fields должен быть словарем
+        if not isinstance(fields, dict):
+            if logger:
+                logger.warning(f"Пропускаем поврежденный def '{def_name}': fields не словарь (type={type(fields).__name__})")
+            continue
 
         # fields содержит {'reportString': 'cleaning self', 'label': '...'}
         # def_name теперь в формате "Тип_Имя" (например, "JobDef_CleanSelf")
@@ -358,7 +372,8 @@ def generate_or_update_per_def_files_v2(
                 skipped_already_translated += 1
                 if logger:
                     if skipped_already_translated <= 5 or skipped_already_translated % 10 == 0:
-                        logger.debug(f"  Пропущен (все {len(fields)} полей уже в файле): {def_name}")
+                        fields_count = len(fields) if isinstance(fields, dict) else 0
+                        logger.debug(f"  Пропущен (все {fields_count} полей уже в файле): {def_name}")
                 continue
 
             # Обрабатываем поля
@@ -369,10 +384,21 @@ def generate_or_update_per_def_files_v2(
                     field_path, eng_val = item
                     fuzzy_translation = None
 
-                # Проверяем, это RulePackDef с списком <li>?
+                # Проверяем, это RulePackDef или аналогичный список <li>?
+                # Поддерживаемые паттерны: rulePack.rulesStrings, logRulesInitiator.rulesStrings,
+                # descriptionMaker.rules.rulesStrings, generalRules.rulesStrings и т.п.
                 if field_path.endswith("._list"):
-                    # RulePackDef: field_path = "rulePack.rulesStrings._list"
-                    tagname = f"{orig_def_name}.rulePack.rulesStrings"
+                    # Извлекаем путь к rulesStrings из field_path
+                    # field_path = "descriptionMaker.rules.rulesStrings._list" -> "DefName.descriptionMaker.rules.rulesStrings"
+                    rules_path = field_path[:-6]  # Убираем "._list"
+                    # Ищем .rulesStrings и берём всё до него включительно
+                    rules_strings_pos = rules_path.rfind(".rulesStrings")
+                    if rules_strings_pos != -1:
+                        # Берём путь до .rulesStrings включительно
+                        rules_prefix = rules_path[:rules_strings_pos + len(".rulesStrings")]
+                        tagname = f"{orig_def_name}.{rules_prefix}"
+                    else:
+                        tagname = f"{orig_def_name}.{rules_path}"
 
                     # eng_val содержит список текстов
                     if isinstance(eng_val, list):
@@ -397,10 +423,9 @@ def generate_or_update_per_def_files_v2(
                             # Переводим только output_part
                             if output_part and output_part.strip():
                                 if use_api:
-                                    # ✅ НОВОЕ: Защищаем [variable] переменные в output_part
-                                    # Сохраняем [syllable], [end] и т.д.
-                                    import re
-                                    rVariables = re.findall(r'\[[^\]]+\]', output_part)
+                                    # Защищаем [variable] переменные в output_part
+                                    # Также защищаем {PAWN_nameDef}, {THING_label} и т.п.
+                                    rVariables = re.findall(r'\[[^\]]+\]|\{[^}]+\}', output_part)
                                     var_placeholder_map = {}
                                     temp_output = output_part
                                     for i, var in enumerate(rVariables):
@@ -444,20 +469,8 @@ def generate_or_update_per_def_files_v2(
                                 else:
                                     translated_list.append(text)
 
-                    # Записываем как один тег с <li> детьми
-                    add_rulepack_with_li(root, tagname, translated_list, logger)
-                    modified = True
-                    continue
-
-                    # Проверяем, существует ли уже тег в root
-                    tag_exists_in_root = False
-                    for child in root:
-                        if child.tag == tagname:
-                            tag_exists_in_root = True
-                            break
-
-                    # Записываем как один тег с <li> детьми
-                    add_rulepack_with_li(root, tagname, translated_list, logger)
+# Записываем как один тег с <li> детьми
+                    add_rulepack_with_li(root, tagname, translated_list, originals_list=eng_list, logger=logger)
                     modified = True
                     continue
 
@@ -483,14 +496,14 @@ def generate_or_update_per_def_files_v2(
                     # ✅ RulePackDef: обрабатываем формат "pattern->output"
                     # Для rulesStrings полей тоже нужно сохранять pattern_part
                     if isinstance(eng_val, str) and "->" in eng_val:
-                        import re
                         parts = eng_val.split("->", 1)
                         pattern_part = parts[0]
                         output_part = parts[1] if len(parts) > 1 else ""
 
                         if output_part and output_part.strip():
                             # Защищаем [variable] переменные в output_part
-                            rVariables = re.findall(r'\[[^\]]+\]', output_part)
+                            # Также защищаем {PAWN_nameDef}, {THING_label} и т.п.
+                            rVariables = re.findall(r'\[[^\]]+\]|\{[^}]+\}', output_part)
                             var_placeholder_map = {}
                             temp_output = output_part
                             for i, var in enumerate(rVariables):
@@ -515,7 +528,21 @@ def generate_or_update_per_def_files_v2(
                         else:
                             final_val = eng_val
                     else:
-                        final_val = translator.translate(eng_val, eng_val)
+                        # Защищаем [PAWN_nameDef], {PAWN_nameDef} и другие плейсхолдеры
+                        bracket_vars = re.findall(r'\[[^\]]+\]|\{[^}]+\}', eng_val)
+                        var_map = {}
+                        temp_eng = eng_val
+                        for idx, var in enumerate(bracket_vars):
+                            ph = f"__BVAR_{idx}__"
+                            var_map[ph] = var
+                            temp_eng = temp_eng.replace(var, ph)
+                        translated_val = translator.translate(temp_eng, eng_val)
+                        if translated_val:
+                            for ph, var in var_map.items():
+                                translated_val = re.sub(re.escape(ph), var, translated_val, flags=re.IGNORECASE)
+                            final_val = translated_val
+                        else:
+                            final_val = eng_val
 
                     source_name = "Автоперевод API"
                     if final_val and logger:
@@ -558,12 +585,14 @@ def generate_or_update_per_def_files_v2(
             is_duplicate = False
             if new_content_hash in existing_content_hashes:
                 existing_files = existing_content_hashes[new_content_hash]
-                if per_path not in existing_files:
-                    is_duplicate = True
-                    if logger:
-                        logger.warn(
-                            f"Дубликат: файл {os.path.basename(per_path)} пропущен, т.к. содержимое идентично файлам: {[os.path.basename(f) for f in existing_files]}"
-                        )
+                # Defensive check: ensure existing_files is a list
+                if isinstance(existing_files, list) and existing_files:
+                    if per_path not in existing_files:
+                        is_duplicate = True
+                        if logger:
+                            logger.warn(
+                                f"Дубликат: файл {os.path.basename(per_path)} пропущен, т.к. содержимое идентично файлам: {[os.path.basename(f) for f in existing_files]}"
+                            )
 
             if not is_duplicate:
                 if write_tree_pretty(root, per_path, logger):

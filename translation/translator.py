@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 import time
 from typing import Any
 
@@ -57,6 +58,12 @@ except ImportError:
 
 
 class AutoTranslator:
+    _CYRILLIC_PLACEHOLDERS = re.compile(r'__БВАР_(\d+)__')
+
+    @staticmethod
+    def _fix_cyrillic_placeholders(text: str) -> str:
+        return AutoTranslator._CYRILLIC_PLACEHOLDERS.sub(r'__BVAR_\1__', text)
+
     """
     Расширенный переводчик с поддержкой мульти-движков, fallback-цепочки,
     прокси, глоссария, rate limiting и умного разбиения текста.
@@ -331,6 +338,39 @@ class AutoTranslator:
                         self.logger.debug(f"Перевод совпадает с оригиналом, пропускаем: '{text[:LOG_PREVIEW_LENGTH]}...'")
                     return None
 
+                if self.target_lang in ('ru', 'uk'):
+                    text_clean = re.sub(r'[\n\r]|\{[^}]*\}|\[[^\]]*\]|[\\/]n[\\/]?n\*?|x\{\d{1,2}\}|__\w+__', '', translated, flags=re.IGNORECASE)
+                    text_clean = re.sub(r'\s+', ' ', text_clean).strip()
+                    if text_clean and not re.search(r'[А-Яа-яЁёҐґІіЇїЄє]', text_clean):
+                        if self.logger:
+                            self.logger.debug(f"Перевод не содержит кириллицы, пропускаем: '{text[:LOG_PREVIEW_LENGTH]}...'")
+                        return None
+
+                # ✅ ИСПРАВЛЕНО: Фикс кириллических плейсхолдеров (Google Translate заменяет BVAR на БВАР)
+                translated = AutoTranslator._fix_cyrillic_placeholders(translated)
+
+                # ✅ ИСПРАВЛЕНО: Нормализация регистра после перевода
+                # Google Translate может вернуть текст с заглавными буквами в случайных местах
+                # (особенно с корейского). Нормализуем, если текст выглядит как "псевдо-заглавный".
+                if self.target_lang in ('ru', 'uk'):
+                    text_for_case_check = re.sub(r'\[[^\]]*\]|\{[^}]*\}|__\w+__', '', translated, flags=re.IGNORECASE)
+                    text_for_case_check = re.sub(r'[^\w\s]', '', text_for_case_check).strip()
+                    if text_for_case_check and len(text_for_case_check) > 3:
+                        # Считаем отношение заглавных букв к общему количеству
+                        upper_count = sum(1 for c in text_for_case_check if c.isupper())
+                        total_alpha = sum(1 for c in text_for_case_check if c.isalpha())
+                        if total_alpha > 0 and upper_count / total_alpha > 0.5:
+                            # Больше половины букв заглавные — нормализуем
+                            protected = []
+                            def _save_ph(m):
+                                protected.append(m.group(0))
+                                return f"__CASEPH_{len(protected)-1}__"
+                            normalized = re.sub(r'\[[^\]]*\]|\{[^}]*\}|__\w+__', _save_ph, translated, flags=re.IGNORECASE)
+                            normalized = normalized[0].upper() + normalized[1:] if len(normalized) > 1 else normalized.upper()
+                            for i, ph in enumerate(protected):
+                                normalized = normalized.replace(f"__CASEPH_{i}__", ph)
+                            translated = normalized
+
                 # ✅ ИСПРАВЛЕНО: Применяем глоссарий ПОСЛЕ API-перевода
                 # Это предотвращает частичные переводы
                 if self.glossary_manager:
@@ -505,13 +545,20 @@ class AutoTranslator:
         return ""
 
     def translate_preserve_case(self, text: str) -> str:
-        """Переводит текст с сохранением регистра исходного текста"""
+        """Переводит текст с сохранением регистра исходного текста.
+        Содержимое [bracket] плейсхолдеров всегда сохраняется как есть."""
         if not text:
             return text
 
-        # Сохраняем информацию о регистре каждого слова
+        bracket_placeholders = []
+        def _save_bracket(m):
+            bracket_placeholders.append(m.group(0))
+            return f"__BRACKET_{len(bracket_placeholders)-1}__"
+
+        protected_text = re.sub(r'\[[^\]]+\]', _save_bracket, text)
+
         case_info = []
-        for word in text.split():
+        for word in protected_text.split():
             if word.isupper():
                 case_info.append("upper")
             elif word[0].isupper():
@@ -519,13 +566,11 @@ class AutoTranslator:
             else:
                 case_info.append("lower")
 
-        # Переводим
-        translated = self.translate(text)
+        translated = self.translate(protected_text)
 
         if not translated:
             return text
 
-        # Применяем сохранённый регистр
         words = translated.split()
         result_words = []
         for i, word in enumerate(words):
@@ -541,7 +586,12 @@ class AutoTranslator:
             else:
                 result_words.append(word)
 
-        return " ".join(result_words)
+        result = " ".join(result_words)
+
+        for i, ph in enumerate(bracket_placeholders):
+            result = re.sub(re.escape(f"__BRACKET_{i}__"), ph, result, flags=re.IGNORECASE)
+
+        return result
 
 
 def get_supported_languages():

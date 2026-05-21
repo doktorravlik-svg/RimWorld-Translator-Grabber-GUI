@@ -149,7 +149,15 @@ def write_keyed_files_mirror_with_merge(
     # Храним все хеши содержимого для проверки
     existing_content_hashes = existing_duplicate_map  # хеш -> список файлов
     if existing_content_hashes and logger:
-        duplicate_count = sum(1 for v in existing_content_hashes.values() if len(v) > 1)
+        # Debug: log any non-list values to help diagnose issues
+        for k, v in existing_content_hashes.items():
+            if not isinstance(v, list):
+                logger.warning(f"Non-list value in existing_content_hashes: key={k}, value_type={type(v).__name__}")
+        # Defensive check: ensure all values are lists before calling len()
+        duplicate_count = sum(
+            1 for v in existing_content_hashes.values() 
+            if isinstance(v, list) and len(v) > 1
+        )
         logger.info(
             f"Проверено {len(existing_content_hashes)} уникальных содержимого в Keyed файлах, найдено {duplicate_count} групп дубликатов"
         )
@@ -403,16 +411,16 @@ def write_keyed_files_mirror_with_merge(
             if new_content_hash in existing_content_hashes:
                 # Файл с таким содержимым уже существует
                 existing_files = existing_content_hashes[new_content_hash]
-                # Проверяем, отличается ли имя файла
-                if chosen_path not in existing_files:
-                    is_duplicate = True
-                    if logger:
-                        logger.warn(
-                            f"Дубликат: файл {os.path.basename(chosen_path)} пропущен, т.к. содержимое идентично файлам: {[os.path.basename(f) for f in existing_files]}"
-                        )
-                else:
-                    # Файл уже существует с таким же именем - это обновление, а не дубликат
-                    pass
+                # Defensive check: ensure existing_files is a list
+                if isinstance(existing_files, list) and existing_files:
+                    # Проверяем, отличается ли имя файла
+                    if chosen_path not in existing_files:
+                        is_duplicate = True
+                        if logger:
+                            logger.warn(
+                                f"Дубликат: файл {os.path.basename(chosen_path)} пропущен, т.к. содержимое идентично файлам: {[os.path.basename(f) for f in existing_files]}"
+                            )
+                # else: existing_files is not a list or empty, skip duplicate check
             elif os.path.exists(chosen_path):
                 # Проверяем, изменилось ли содержимое
                 try:
