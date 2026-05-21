@@ -83,6 +83,12 @@ class ImprovedGUI:
         self.root.geometry(DEFAULT_WINDOW_GEOMETRY)
         self.root.minsize(*MIN_WINDOW_SIZE)  # Минимальный размер окна
 
+        # ✅ ИСПРАВЛЕНО: Обработка протокола закрытия окна
+        self.root.protocol("WM_DELETE_WINDOW", self._on_app_closing)
+
+        # Флаг для отслеживания завершения
+        self._is_closing = False
+
         # ✅ Принудительно показываем окно
         self.root.update_idletasks()
         self.root.deiconify()
@@ -739,6 +745,41 @@ class ImprovedGUI:
     def _register_i18n_widget(self, widget, key):
         """Зарегистрировать виджет с i18n ключом для автоматического обновления"""
         widget._i18n_key = key
+
+    def _on_app_closing(self):
+        """Обработка закрытия приложения с проверкой несохранённых данных"""
+        if self._is_closing:
+            return
+        self._is_closing = True
+
+        # Проверяем наличие фоновых задач
+        from workers.base_worker import BaseWorker
+        active_workers = []
+        for attr_name in ['translation_worker', 'duplicate_worker', 'integrity_worker',
+                          'verification_worker']:
+            worker = getattr(self, attr_name, None)
+            if isinstance(worker, BaseWorker) and worker.is_running():
+                active_workers.append(attr_name.replace('_worker', ''))
+
+        if active_workers:
+            from tkinter import messagebox
+            self.status_bar.show_toast(
+                f"Завершение операций: {', '.join(active_workers)}", "warning"
+            )
+            # Даём время на завершение
+            self.root.after(100, self._safe_destroy)
+        else:
+            self._safe_destroy()
+
+    def _safe_destroy(self):
+        """Безопасное закрытие приложения"""
+        try:
+            self.save_config()
+            self.debug_manager.log_app_exit()
+        except Exception:
+            pass
+        finally:
+            self.root.destroy()
 
     def _restart_application(self):
         """Перезапустить приложение"""
@@ -1611,29 +1652,49 @@ class ImprovedGUI:
 
 def main():
     """Точка входа"""
-    # ✅ Инициализация логирования для GUI режима
+    # ✅ Инициализация логирования для GUI режима с обработкой ошибок
     from utils.loguru_setup import setup_logging, logger
     from config.debug_config import get_default_debug_config
 
-    config = get_default_debug_config()
-    debug_mode = config.log_level == "DEBUG"
+    try:
+        config = get_default_debug_config()
+        debug_mode = config.log_level == "DEBUG"
 
-    setup_logging(
-        debug_mode=debug_mode,
-        log_file="debug.log" if config.log_to_file else None,
-        warning_log_file="warnings.log" if config.log_to_file else None,
-    )
+        setup_logging(
+            debug_mode=debug_mode,
+            log_file="debug.log" if config.log_to_file else None,
+            warning_log_file="warnings.log" if config.log_to_file else None,
+        )
 
-    if debug_mode:
-        logger.info("Debug mode enabled from config")
+        if debug_mode:
+            logger.info("Debug mode enabled from config")
+    except Exception as e:
+        # Жёсткий fallback - создаём базовое логгер и показываем GUI
+        import sys
+        print(f"Warning: Failed to initialize logging: {e}", file=sys.stderr)
+        debug_mode = False
 
     import atexit
 
-    app = ImprovedGUI()
+    try:
+        app = ImprovedGUI()
+    except Exception as e:
+        from tkinter import messagebox
+        try:
+            messagebox.showerror(
+                "Ошибка запуска",
+                f"Не удалось запустить приложение:\n{e}\n\nПроверьте консоль для деталей."
+            )
+        except Exception:
+            pass
+        sys.exit(1)
 
     # ✅ Debug: логируем завершение приложения
     def on_exit():
-        app.debug_manager.log_app_exit()
+        try:
+            app.debug_manager.log_app_exit()
+        except Exception:
+            pass
 
     atexit.register(on_exit)
     app.root.mainloop()

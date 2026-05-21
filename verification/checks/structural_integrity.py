@@ -27,6 +27,9 @@ class StructuralIntegrityCheck(VerificationCheck):
         errors = []
         warnings = []
 
+        if not mod_path or not os.path.exists(mod_path):
+            return CheckResult(self.name, passed=False, severity="error", message="Путь к моду не найден")
+
         from verification.xml_parser import XMLParser
         parser = XMLParser()
 
@@ -51,14 +54,17 @@ class StructuralIntegrityCheck(VerificationCheck):
                         text = child.text.strip()
                         open_braces = text.count('{')
                         close_braces = text.count('}')
+
                         if open_braces != close_braces:
                             warnings.append(
                                 f"Несбалансированные фигурные скобки в {filename}/{child.tag}"
                             )
-
-                        # Проверка экранирования
-                        if '{' in text and '}' not in text:
-                            warnings.append(f"Незакрытая переменная {{ в {filename}/{child.tag}")
+                        # Точная проверка порядка следования скобок
+                        elif open_braces > 0:
+                            first_open = text.find('{')
+                            first_close = text.find('}')
+                            if first_close < first_open:
+                                warnings.append(f"Некорректный порядок фигурных скобок }}..{{ в {filename}/{child.tag}")
 
         severity = "error" if errors else "warning" if warnings else "info"
         message = "; ".join(errors + warnings) if (errors or warnings) else "Структура XML корректна"

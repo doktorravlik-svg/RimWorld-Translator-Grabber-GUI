@@ -16,13 +16,18 @@ class YoInspector:
             "легкий", "наемник", "король", "елка", "еж", "береза",
             "все", "ее", "ничего", "чего", "что"
         ]
+        # Предкомпиляция регулярных выражений для каждого слова с границами слова (\b)
+        self._compiled_patterns = {
+            word: re.compile(rf"\b{word}\b", re.IGNORECASE) for word in self.YO_WORDS
+        }
 
     def verify(self, text):
         errors = []
-        for word in self.YO_WORDS:
-            # Ищем слово отдельно, чтобы не цеплять части других слов
-            pattern = rf"\b{word}\b"
-            if re.search(pattern, text, re.IGNORECASE):
+        if not isinstance(text, str):
+            return errors
+
+        for word, pattern in self._compiled_patterns.items():
+            if pattern.search(text):
                 errors.append({
                     "type": "YO_MISSING",
                     "severity": "info",

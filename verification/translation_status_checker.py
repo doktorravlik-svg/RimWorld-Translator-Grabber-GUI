@@ -437,27 +437,13 @@ class TranslationStatusChecker:
 
     def _has_language_folder(self, mod_path: str) -> bool:
         """Проверяет наличие папки Languages"""
-        languages_path = os.path.join(mod_path, 'Languages')
-        if not os.path.exists(languages_path):
-            # Проверяем версионные папки
-            for version in ['1.6', '1.5', '1.4', '1.3', '1.2', '1.1', '1.0']:
-                version_langs = os.path.join(mod_path, version, 'Languages')
-                if os.path.exists(version_langs):
-                    return True
-            return False
-        return True
+        from utils.languages_path_resolver import find_all_languages_folders
+        return bool(find_all_languages_folders(mod_path))
 
     def _has_defs_folder(self, mod_path: str) -> bool:
         """Проверяет наличие папки Defs"""
-        defs_path = os.path.join(mod_path, 'Defs')
-        if not os.path.exists(defs_path):
-            # Проверяем версионные папки
-            for version in ['1.6', '1.5', '1.4', '1.3', '1.2', '1.1', '1.0']:
-                version_defs = os.path.join(mod_path, version, 'Defs')
-                if os.path.exists(version_defs):
-                    return True
-            return False
-        return True
+        from utils.languages_path_resolver import find_all_defs_folders
+        return bool(find_all_defs_folders(mod_path))
 
     def _classify_mod(self, mod_info: Dict) -> Tuple[bool, TranslationType]:
         """

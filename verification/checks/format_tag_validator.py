@@ -220,7 +220,8 @@ class FormatTagValidator:
                                 "outer": tag_name,
                                 "inner": stack[j][0],
                             })
-                        stack = stack[:i]
+                        # Удаляем только найденный тег, сохраняя остальной стек
+                        del stack[i]
                         break
 
                 if not found:
@@ -261,6 +262,7 @@ class FormatTagValidator:
             # Проверка [PAWN_gender]
             if "pawn_gender" in token_lower:
                 # Ожидаемый формат: [PAWN_gender ? мужской_род : женский_род]
+                # Или с третим вариантом: [PAWN_gender ? муж : жен : ср]
                 if "?" not in token or ":" not in token:
                     findings.append({
                         "type": "FORMAT_LOGICAL_MALFORMED",
@@ -271,13 +273,14 @@ class FormatTagValidator:
 
                 parts = token.split("?", 1)
                 if len(parts) == 2:
-                    options_part = parts[1].split(":", 1)
-                    if len(options_part) != 2:
+                    options_part = parts[1].split(":")
+                    # В RimWorld допускается 2 варианта (М/Ж) или 3 варианта (М/Ж/Ср)
+                    if len(options_part) < 2 or len(options_part) > 3:
                         findings.append({
                             "type": "FORMAT_LOGICAL_MALFORMED",
                             "severity": "error",
                             "token": f"[{token}]",
-                            "msg": "[PAWN_gender] должен иметь формат: [PAWN_gender ? мужской : женский]",
+                            "msg": f"[PAWN_gender] имеет неверное количество вариантов выбора (ожидается 2 или 3, получено {len(options_part)})",
                         })
 
             # Проверка [select]
@@ -428,12 +431,14 @@ class FormatTagValidator:
         """Проверяет пустые теги (без содержимого)"""
         findings = []
 
-        empty_tags = re.findall(r'<(b|i|u|color|size|link)\b[^>]*>\s*</\1>', text)
+        # Находим именно вхождения пустых тегов целиком
+        empty_tags = list(re.finditer(r'<(b|i|u|color|size|link)\b[^>]*>\s*</\1>', text, re.IGNORECASE))
         if empty_tags:
             findings.append({
                 "type": "FORMAT_EMPTY_TAG",
                 "severity": "warning",
-                "msg": f"Обнаружено пустых тегов: {len(empty_tags)}. Возможно, лишнее форматирование",
+                "msg": f"Обнаружено пустых тегов: {len(empty_tags)}. Удалите лишнее форматирование",
+                "matches": [m.group(0) for m in empty_tags],
             })
 
         return findings

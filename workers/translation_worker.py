@@ -1425,13 +1425,16 @@ class TranslationWorker(BaseWorker):
         return entries
 
     def _write_def_injected_file(self, output_file: str, entries: list) -> None:
+        """Write DefInjected XML file using ElementTree for proper XML escaping."""
         output_dir = os.path.dirname(output_file)
         if output_dir:
             os.makedirs(output_dir, exist_ok=True)
-        lines = ['<?xml version="1.0" encoding="utf-8"?>', "<LanguageData>"]
+
+        root = etree.Element("LanguageData")
         for def_type, def_name, path, translated_text in entries:
             tag_name = f"{def_name}.{path}".replace(" ", "_")
-            lines.append(f"\t<{tag_name}>{translated_text}</{tag_name}>")
-        lines.append("</LanguageData>")
-        with open(output_file, "w", encoding="utf-8", newline="\r\n") as f:
-            f.write("\n".join(lines))
+            child = etree.SubElement(root, tag_name)
+            child.text = translated_text
+
+        tree = etree.ElementTree(root)
+        tree.write(output_file, encoding="utf-8", xml_declaration=True, standalone=True)

@@ -702,33 +702,36 @@ class TranslationDatabase:
         """Добавить термин в глоссарий"""
         if target_language is None:
             target_language = self.target_language
-        c = self.conn.cursor()
-        c.execute(
-            "INSERT OR REPLACE INTO glossary (term, translation, category, description, target_language, mod_name) VALUES (?, ?, ?, ?, ?, ?)",
-            (term, translation, category, description, target_language, mod_name)
-        )
-        self.conn.commit()
+        with self._lock:
+            c = self.conn.cursor()
+            c.execute(
+                "INSERT OR REPLACE INTO glossary (term, translation, category, description, target_language, mod_name) VALUES (?, ?, ?, ?, ?, ?)",
+                (term, translation, category, description, target_language, mod_name)
+            )
+            self.conn.commit()
         self._sync_glossary_to_json(target_language)
 
     def rename_glossary_term(self, old_term, new_term, translation, category, description, target_language=None):
         """Переименовать термин в глоссарии"""
         if target_language is None:
             target_language = self.target_language
-        c = self.conn.cursor()
-        c.execute(
-            "UPDATE glossary SET term = ?, translation = ?, category = ?, description = ? WHERE term = ? AND target_language = ?",
-            (new_term, translation, category, description, old_term, target_language)
-        )
-        self.conn.commit()
+        with self._lock:
+            c = self.conn.cursor()
+            c.execute(
+                "UPDATE glossary SET term = ?, translation = ?, category = ?, description = ? WHERE term = ? AND target_language = ?",
+                (new_term, translation, category, description, old_term, target_language)
+            )
+            self.conn.commit()
         self._sync_glossary_to_json(target_language)
 
     def remove_glossary_term(self, term, target_language=None):
         """Удалить термин из глоссария"""
         if target_language is None:
             target_language = self.target_language
-        c = self.conn.cursor()
-        c.execute("DELETE FROM glossary WHERE term = ? AND target_language = ?", (term, target_language))
-        self.conn.commit()
+        with self._lock:
+            c = self.conn.cursor()
+            c.execute("DELETE FROM glossary WHERE term = ? AND target_language = ?", (term, target_language))
+            self.conn.commit()
         self._sync_glossary_to_json(target_language)
 
     def _split_glossary_by_categories(self, target_language=None):
@@ -1052,29 +1055,30 @@ class TranslationDatabase:
 
     def save_file_version(self, file_path, entries, version=None):
         """Сохранить версию файла"""
-        c = self.conn.cursor()
+        with self._lock:
+            c = self.conn.cursor()
 
-        if version is None:
+            if version is None:
+                c.execute(
+                    "SELECT COALESCE(MAX(version), 0) + 1 FROM file_history WHERE file_path = ?",
+                    (file_path,),
+                )
+                version = c.fetchone()[0]
+
+            import json
+
+            content = json.dumps(entries, ensure_ascii=False)
+            entries_count = len(entries)
+            translated_count = sum(1 for e in entries if e.get("value", "").strip())
+
             c.execute(
-                "SELECT COALESCE(MAX(version), 0) + 1 FROM file_history WHERE file_path = ?",
-                (file_path,),
+                """
+                INSERT OR REPLACE INTO file_history (file_path, version, content, entries_count, translated_count)
+                VALUES (?, ?, ?, ?, ?)
+            """,
+                (file_path, version, content, entries_count, translated_count),
             )
-            version = c.fetchone()[0]
-
-        import json
-
-        content = json.dumps(entries, ensure_ascii=False)
-        entries_count = len(entries)
-        translated_count = sum(1 for e in entries if e.get("value", "").strip())
-
-        c.execute(
-            """
-            INSERT OR REPLACE INTO file_history (file_path, version, content, entries_count, translated_count)
-            VALUES (?, ?, ?, ?, ?)
-        """,
-            (file_path, version, content, entries_count, translated_count),
-        )
-        self.conn.commit()
+            self.conn.commit()
         return version
 
     def get_file_versions(self, file_path):
@@ -1116,11 +1120,12 @@ class TranslationDatabase:
 
     def delete_file_version(self, file_path, version):
         """Удалить версию файла"""
-        c = self.conn.cursor()
-        c.execute(
-            "DELETE FROM file_history WHERE file_path = ? AND version = ?", (file_path, version)
-        )
-        self.conn.commit()
+        with self._lock:
+            c = self.conn.cursor()
+            c.execute(
+                "DELETE FROM file_history WHERE file_path = ? AND version = ?", (file_path, version)
+            )
+            self.conn.commit()
 
     # ===== АВТОПРЕДЛОЖЕНИЯ =====
 
@@ -1144,36 +1149,38 @@ class TranslationDatabase:
         """Добавить предложение перевода"""
         if target_lang is None:
             target_lang = self.target_language
-        c = self.conn.cursor()
-        c.execute(
-            """
-            INSERT OR REPLACE INTO suggestions (key, suggested_value, confidence, source, target_language)
-            VALUES (?, ?, ?, ?, ?)
-        """,
-            (key, value, confidence, source, target_lang),
-        )
-        self.conn.commit()
+        with self._lock:
+            c = self.conn.cursor()
+            c.execute(
+                """
+                INSERT OR REPLACE INTO suggestions (key, suggested_value, confidence, source, target_language)
+                VALUES (?, ?, ?, ?, ?)
+            """,
+                (key, value, confidence, source, target_lang),
+            )
+            self.conn.commit()
 
     def generate_suggestions(self):
         """Сгенерировать автопредложения на основе существующих переводов"""
-        c = self.conn.cursor()
-        c.execute("""
-            INSERT OR REPLACE INTO suggestions (key, suggested_value, confidence, source, target_language)
-            SELECT
-                key,
-                translated_value as suggested_value,
-                CASE
-                    WHEN MAX(usage_count) OVER (PARTITION BY target_language) > 0
-                    THEN CAST(usage_count AS REAL) / MAX(usage_count) OVER (PARTITION BY target_language)
-                    ELSE 0.0
-                END as confidence,
-                'database' as source,
-                target_language
-            FROM translations
-            WHERE usage_count > 0
-            GROUP BY key, target_language
-        """)
-        self.conn.commit()
+        with self._lock:
+            c = self.conn.cursor()
+            c.execute("""
+                INSERT OR REPLACE INTO suggestions (key, suggested_value, confidence, source, target_language)
+                SELECT
+                    key,
+                    translated_value as suggested_value,
+                    CASE
+                        WHEN MAX(usage_count) OVER (PARTITION BY target_language) > 0
+                        THEN CAST(usage_count AS REAL) / MAX(usage_count) OVER (PARTITION BY target_language)
+                        ELSE 0.0
+                    END as confidence,
+                    'database' as source,
+                    target_language
+                FROM translations
+                WHERE usage_count > 0
+                GROUP BY key, target_language
+            """)
+            self.conn.commit()
 
     def get_suggestions_for_entries(self, entries, target_lang=None):
         """Получить предложения для списка записей"""

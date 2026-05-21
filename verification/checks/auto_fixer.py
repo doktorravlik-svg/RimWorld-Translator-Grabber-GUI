@@ -21,32 +21,70 @@ class AutoFixer:
             "желтый": "жёлтый"
         }
 
+        # Исправлено: предкомпиляция паттернов
+        # Добавлены ё и Ё в диапазоны символов
+        self.SPACE_BEFORE_TAG = re.compile(r"([а-яА-ЯёЁa-zA-Z0-9_])(<|{)")
+        self.SPACE_AFTER_TAG = re.compile(r"(>|})([а-яА-ЯёЁa-zA-Z0-9_])")
+        
+        # Предкомпиляция паттернов для ёфикации
+        self.YO_PATTERNS = {
+            word: (re.compile(rf"\b{word}\b", re.IGNORECASE), replacement)
+            for word, replacement in self.YO_SAFE_REPLACE.items()
+        }
+        
+        # Паттерны для типографики
+        self.DOUBLE_SPACE = re.compile(r"[ ]{2,}")
+        self.TAG_WHITESPACE = re.compile(r"\[\s*(.*?)\s*\]")
+        self.CURLY_WHITESPACE = re.compile(r"\{\s*(\d+)\s*\}")
+        
+        # Теги и токены для защиты от замены кавычек
+        self.TAG_DELIMITER = re.compile(r"(<[^>]+>|\[[^\]]+\])")
+
+    def _preserve_case_yo(self, match, replacement):
+        """Вспомогательный метод для сохранения регистра при ёфикации"""
+        word = match.group(0)
+        if word.isupper():
+            return replacement.upper()
+        if word[0].isupper():
+            return replacement.capitalize()
+        return replacement
+
     def fix(self, text):
+        if not isinstance(text, str):
+            return text, []
+
         changes = []
         original = text
 
-        # 1. Исправление пробелов вокруг XML-тегов и переменных
+        # 1. Исправление пробелов вокруг XML-тегов и переменных (исключая стыки тегов)
         # Убираем слипание: Слово<color -> Слово <color
-        text = re.sub(r"([а-яА-Я])(<|{)", r"\1 \2", text)
+        text = self.SPACE_BEFORE_TAG.sub(r"\1 \2", text)
         # Убираем слипание: </color>Слово -> </color> Слово
-        text = re.sub(r"(>|})([а-яА-Я])", r"\1 \2", text)
+        text = self.SPACE_AFTER_TAG.sub(r"\1 \2", text)
 
-        # 2. Безопасная Ё-фикация
-        for eng_e, rus_yo in self.YO_SAFE_REPLACE.items():
-            pattern = rf"\b{eng_e}\b"
-            if re.search(pattern, text, re.IGNORECASE):
-                text = re.sub(pattern, rus_yo, text, flags=re.IGNORECASE)
-                changes.append(f"ё: {eng_e}->{rus_yo}")
+        # 2. Безопасная Ё-фикация с сохранением регистра (Еще -> Ещё, ЕЩЕ -> ЕЩЁ)
+        for word, (pattern, rus_yo) in self.YO_PATTERNS.items():
+            if pattern.search(text):
+                text = pattern.sub(
+                    lambda m: self._preserve_case_yo(m, rus_yo),
+                    text
+                )
+                changes.append(f"ё: {word}->{rus_yo}")
 
-        # 3. Очистка типографики (важно для 2026 года)
-        # Замена « » и “ ” на стандартные " для XML
-        text = text.replace("«", '"').replace("»", '"').replace("“", '"').replace("”", '"')
+        # 3. Умная очистка типографики (не трогаем кавычки внутри тегов [ ] и < >)
+        # Разбиваем текст на токены, чтобы менять кавычки только в обычном тексте
+        parts = self.TAG_DELIMITER.split(text)
+        for i in range(len(parts)):
+            # Если это обычный текст, а не тег/токен
+            if not (parts[i].startswith('<') or parts[i].startswith('[')):
+                parts[i] = parts[i].replace("«", '"').replace("»", '"').replace("“", '"').replace("”", '"')
+        text = "".join(parts)
 
-        # 4. Удаление двойных пробелов (частая ошибка при редактировании)
-        text = re.sub(r"[ ]{2,}", " ", text)
+        # 4. Удаление двойных пробелов (но сохраняем переносы строк и табы)
+        text = self.DOUBLE_SPACE.sub(" ", text)
 
-        # 5. Исправление пробелов внутри тегов
-        text = re.sub(r"\[\s*(.*?)\s*\]", r"[\1]", text)
-        text = re.sub(r"\{\s*(\d+)\s*\}", r"{\1}", text)
+        # 5. Исправление пробелов внутри тегов (безопасные жадные квантификаторы)
+        text = self.TAG_WHITESPACE.sub(r"[\1]", text)
+        text = self.CURLY_WHITESPACE.sub(r"{\1}", text)
 
         return text, changes

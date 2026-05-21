@@ -664,6 +664,7 @@ class DuplicatesTab(ttk.Frame):
             )
 
             context_menu.post(event.x_root, event.y_root)
+            return "break"  # Предотвращает стандартное меню Windows
         except Exception as e:
             print(f"Ошибка в контекстном меню: {e}")
 

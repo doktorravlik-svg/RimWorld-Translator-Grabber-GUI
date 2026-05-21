@@ -86,7 +86,7 @@ def get_mod_name(mod_path: str) -> str:
 def sanitize_folder_name(name: str) -> str:
     """
     Очищает имя для использования в качестве имени папки.
-    Удаляет недопустимые символы: / \\ : * ? " < > |
+    Удаляет недопустимые символы: / \\ : * ? " < > | и защищается от Windows FS багов.
 
     Args:
         name: Исходное имя
@@ -94,11 +94,18 @@ def sanitize_folder_name(name: str) -> str:
     Returns:
         Очищенное имя, безопасное для использования в пути
     """
+    import re
+
     # Заменяем недопустимые символы на _
-    sanitized = re.sub(r'[\\/*?:"<>|]', '_', name)
+    sanitized = re.sub(r'[\\/:*?"<>|]', '_', name)
     # Удаляем лишние пробелы и _ в начале и конце
     sanitized = sanitized.strip().strip('_')
+    # Защита от Windows: имя не должно заканчиваться на точку или пробел
+    sanitized = sanitized.rstrip('.')
+    sanitized = sanitized.rstrip()
+
     # Если имя пустое после очистки, возвращаем дефолтное
     if not sanitized:
         return "Mod"
+
     return sanitized

@@ -83,7 +83,8 @@ class Glossary:
                 regex_flags |= re.IGNORECASE
 
             try:
-                compiled = re.compile(rf'\b{pattern}\b', regex_flags)
+                # Используем явные границы слов вместо \b для корректной работы с кириллицей и дефисами
+                compiled = re.compile(rf'(?<!\w){pattern}(?!\w)', regex_flags)
                 self._regex_entries.append((compiled, translation))
             except re.error:
                 if self.logger:
@@ -183,8 +184,11 @@ class Glossary:
                 if term.lower() not in self._protected_terms:
                     escaped_terms.append(re.escape(term))
             if escaped_terms:
+                # Используем явные границы слов вместо \b для корректной работы с кириллицей и дефисами
+                # (?<!\w) - не предшествует слову (begin of string or non-word char)
+                # (?!\w) - не следует за словом (end of string or non-word char)
                 self._cached_pattern = re.compile(
-                    r'\b(' + '|'.join(escaped_terms) + r')\b',
+                    r'(?<!\w)(' + '|'.join(escaped_terms) + r')(?!\w)',
                     re.IGNORECASE
                 )
 
@@ -425,8 +429,9 @@ class Glossary:
                 if term.lower() not in self._protected_terms:
                     escaped_terms.append(re.escape(term))
             if escaped_terms:
+                # Используем явные границы слов вместо \b для корректной работы с кириллицей и дефисами
                 self._cached_pattern = re.compile(
-                    r'\b(' + '|'.join(escaped_terms) + r')\b',
+                    r'(?<!\w)(' + '|'.join(escaped_terms) + r')(?!\w)',
                     re.IGNORECASE
                 )
 

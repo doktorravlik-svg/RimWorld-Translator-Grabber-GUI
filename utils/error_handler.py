@@ -65,12 +65,12 @@ class ValidationError(AppError):
 
 
 def safe_execute(
-    fallback: Any = None,
+    fallback: T | None = None,
     logger_instance=None,
     catch_exceptions: tuple[type[Exception], ...] = (Exception,),
 ):
     """
-    Декоратор для безопасного выполнения функций.
+    Универсальный декоратор для безопасного выполнения функций и методов классов.
     При ошибке возвращает fallback и логирует исключение.
 
     Args:
@@ -88,40 +88,19 @@ def safe_execute(
     """
     log = logger_instance or logger
 
-    def decorator(func: Callable[..., T]) -> Callable[..., T | Any]:
+    def decorator(func: Callable[..., T]) -> Callable[..., T | None]:
         @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> T | Any:
+        def wrapper(*args: Any, **kwargs: Any) -> T | None:
             try:
                 return func(*args, **kwargs)
             except catch_exceptions as e:
-                log.error(f"Ошибка в {func.__name__}: {e}")
-                log.opt(exception=True).debug("Traceback:")
-                return fallback
+                # Проверяем, является ли первый аргумент методом класса (self или cls)
+                if args and hasattr(args[0], '__class__') and func.__name__ in dir(args[0].__class__):
+                    class_name = args[0].__class__.__name__
+                    log.error(f"Ошибка в {class_name}.{func.__name__}: {e}")
+                else:
+                    log.error(f"Ошибка в {func.__name__}: {e}")
 
-        return wrapper
-
-    return decorator
-
-
-def safe_execute_method(
-    fallback: Any = None,
-    logger_instance=None,
-    catch_exceptions: tuple[type[Exception], ...] = (Exception,),
-):
-    """
-    Декоратор для безопасного выполнения методов классов.
-    Аналогичен safe_execute, но корректно работает с self/cls.
-    """
-    log = logger_instance or logger
-
-    def decorator(func: Callable[..., T]) -> Callable[..., T | Any]:
-        @functools.wraps(func)
-        def wrapper(self, *args: Any, **kwargs: Any) -> T | Any:
-            try:
-                return func(self, *args, **kwargs)
-            except catch_exceptions as e:
-                class_name = self.__class__.__name__
-                log.error(f"Ошибка в {class_name}.{func.__name__}: {e}")
                 log.opt(exception=True).debug("Traceback:")
                 return fallback
 

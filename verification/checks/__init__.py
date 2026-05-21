@@ -7,6 +7,7 @@ from .core_terminalogy_check import CoreTerminologyConsistencyCheck
 from .cross_mod_conflict import CrossModConflictCheck
 from .dependencies import DependenciesCheck
 from .format_tag_validator import FormatTagValidator
+from .fuzzy_confidence import FuzzyConfidenceCheck
 from .fuzzy_pollution import FuzzyPollutionCheck
 from .grammar_consistency_checker import GrammarConsistencyChecker
 from .lang_detector import LangDetector
@@ -30,6 +31,7 @@ __all__ = [
     "CrossModConflictCheck",
     "DependenciesCheck",
     "FormatTagValidator",
+    "FuzzyConfidenceCheck",
     "FuzzyPollutionCheck",
     "GrammarConsistencyChecker",
     "LangDetector",

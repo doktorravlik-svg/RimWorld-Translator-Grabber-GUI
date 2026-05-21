@@ -78,6 +78,17 @@ AUTO_SAVE_DELAY = 5000  # 5 секунд
 class TranslationEditorDialog:
     """Диалог для редактирования файла перевода"""
 
+    # Предкомпилированные регулярные выражения для подсветки синтаксиса
+    _XML_PATTERNS = [
+        (re.compile(r"<!--.*?-->", re.DOTALL), "xml_comment"),
+        (re.compile(r"<\?xml.*?\?>", re.DOTALL), "xml_decl"),
+        (re.compile(r"</?[a-zA-Z_:][a-zA-Z0-9_:.-]*"), "xml_tag"),
+        (re.compile(r"\s+[a-zA-Z_:][a-zA-Z0-9_:.-]*\s*="), "xml_attr"),
+        (re.compile(r'"[^"]*"|\'[^\']*\''), "xml_string"),
+        (re.compile(r"\[[a-zA-Z][^\]]*\]"), "xml_tag"),
+        (re.compile(r"\{[^}]+\}"), "xml_attr"),
+    ]
+
     def __init__(self, parent, file_path: str = "", title: str = "Редактор перевода"):
         self.parent = parent
         self.file_path = file_path
@@ -539,13 +550,10 @@ class TranslationEditorDialog:
         edit_panel.grid_rowconfigure(5, weight=1)
         edit_panel.grid_columnconfigure(0, weight=1)
 
-        self.tree.bind("<<TreeviewSelect>>", self._on_select)
-        self.tree.bind("<Double-1>", self._on_double_click)
-        self.tree.bind("<Button-3>", self._show_context_menu)
+        self.tree.bind("<Button-3>", self._show_value_context_menu)
         self.key_entry.bind("<KeyRelease>", self._on_edit)
         self.value_text.bind("<KeyRelease>", self._on_edit_and_highlight)
         self.value_text.bind("<ButtonRelease>", self._on_edit_and_highlight)
-        self.value_text.bind("<Button-3>", self._show_value_context_menu)
 
     def _open_file(self):
         fp = filedialog.askopenfilename(
@@ -600,7 +608,7 @@ class TranslationEditorDialog:
                         if el is not None:
                             keyed_block = el
                             break
-                    
+
                     if keyed_block is not None:
                         # Extract from li/key/value structure
                         for li in keyed_block.findall(".//li"):
@@ -610,7 +618,7 @@ class TranslationEditorDialog:
                                 key = ke.text.strip()
                                 value = ve.text.strip() if ve is not None and ve.text else ""
                                 keyed_entries[key] = value
-                    
+
                     # Also extract from direct child tags (fallback/simple format)
                     direct_entries = {}
                     for child in root_elem:
@@ -618,10 +626,10 @@ class TranslationEditorDialog:
                         value = child.text or ""
                         if key not in ("LanguageData", "Keyed", "keyed"):
                             direct_entries[key] = value
-                    
+
                     # Combine entries: prefer Keyed block entries, then direct entries
                     all_entries = {**direct_entries, **keyed_entries}
-                    
+
                     for key, value in all_entries.items():
                         status = "complete" if value.strip() else "empty"
                         self.entries.append(
@@ -676,7 +684,7 @@ class TranslationEditorDialog:
             # RimWorld Keyed XML can have two formats:
             # 1. Direct tags: <LanguageData><Key1>Value1</Key1><Key2>Value2</Key2></LanguageData>
             # 2. Keyed block: <LanguageData><Keyed><li><key>Key1</key><value>Value1</value></li></Keyed></LanguageData>
-            
+
             # First, try to extract from Keyed block (li/key/value structure)
             keyed_entries = {}
             keyed_block = None
@@ -684,7 +692,7 @@ class TranslationEditorDialog:
                 if el is not None:
                     keyed_block = el
                     break
-            
+
             if keyed_block is not None:
                 # Extract from li/key/value structure
                 for li in keyed_block.findall(".//li"):
@@ -694,7 +702,7 @@ class TranslationEditorDialog:
                         key = ke.text.strip()
                         value = ve.text.strip() if ve is not None and ve.text else ""
                         keyed_entries[key] = value
-            
+
             # Also extract from direct child tags (fallback/simple format)
             direct_entries = {}
             for child in root:
@@ -702,10 +710,10 @@ class TranslationEditorDialog:
                 value = child.text or ""
                 if key not in ("LanguageData", "Keyed", "keyed"):
                     direct_entries[key] = value
-            
+
             # Combine entries: prefer Keyed block entries, then direct entries
             all_entries = {**direct_entries, **keyed_entries}
-            
+
             for key, value in all_entries.items():
                 status = "complete" if value.strip() else "empty"
                 self.entries.append(
@@ -846,17 +854,10 @@ class TranslationEditorDialog:
             self.value_text.tag_remove(tag, "1.0", tk.END)
 
         content = self.value_text.get("1.0", tk.END)
-        patterns = [
-            (r"<!--.*?-->", "xml_comment", re.DOTALL),
-            (r"<\?xml.*?\?>", "xml_decl", re.DOTALL),
-            (r"</?[a-zA-Z_:][a-zA-Z0-9_:.-]*", "xml_tag"),
-            (r"\s+[a-zA-Z_:][a-zA-Z0-9_:.-]*\s*=", "xml_attr"),
-            (r'"[^"]*"|\'[^\']*\'', "xml_string"),
-            (r"\[[a-zA-Z][^\]]*\]", "xml_tag"),
-            (r"\{[^}]+\}", "xml_attr"),
-        ]
-        for pat, tag, *flags in patterns:
-            for m in re.finditer(pat, content, *flags):
+
+        # Использование предкомпилированных паттернов работает значительно быстрее
+        for pat, tag in self._XML_PATTERNS:
+            for m in pat.finditer(content):
                 self.value_text.tag_add(tag, f"1.0+{m.start()}c", f"1.0+{m.end()}c")
 
         current_value = content.strip()
@@ -936,10 +937,11 @@ class TranslationEditorDialog:
             self.tree.selection_set(item)
         self._create_context_menu()
         self._context_menu.post(event.x_root, event.y_root)
+        return "break"  # Предотвращает стандартное меню Windows
 
     def _create_context_menu(self):
         self._context_menu = ttk.Menu(self.dialog, tearoff=0)
-        
+
         self._context_menu.add_command(
             label=self.tr("ctx_copy_key", "Копировать ключ"),
             command=self._ctx_copy_key
@@ -997,6 +999,7 @@ class TranslationEditorDialog:
             command=self._value_select_all
         )
         self._value_context_menu.post(event.x_root, event.y_root)
+        return "break"  # Предотвращает стандартное меню Windows
 
     def _value_cut(self):
         self.value_text.event_generate("<<Cut>>")
@@ -1014,15 +1017,15 @@ class TranslationEditorDialog:
         sel = self.tree.selection()
         if sel:
             key = self.tree.item(sel[0])["values"][0]
-            self.clipboard_clear()
-            self.clipboard_append(key)
+            self.dialog.clipboard_clear()
+            self.dialog.clipboard_append(key)
 
     def _ctx_copy_value(self):
         sel = self.tree.selection()
         if sel:
             value = self.tree.item(sel[0])["values"][1]
-            self.clipboard_clear()
-            self.clipboard_append(value)
+            self.dialog.clipboard_clear()
+            self.dialog.clipboard_append(value)
 
     def _ctx_paste_value(self):
         sel = self.tree.selection()
@@ -1044,10 +1047,10 @@ class TranslationEditorDialog:
 
         item = self.tree.item(sel[0])
         key, value = item["values"][0], item["values"][1]
-        
+
         if value.strip():
             return
-            
+
         cfg = get_config_manager()
         translator = AutoTranslator(
             enabled=True,
@@ -1055,7 +1058,7 @@ class TranslationEditorDialog:
             target_lang=cfg.get("target_language", "Russian"),
             engine_names=None,
         )
-        
+
         try:
             translated = translator.translate(key, key)
             if translated:
@@ -1081,7 +1084,7 @@ class TranslationEditorDialog:
                     if e["key"] == k:
                         sel_entries.append(e)
                         break
-        
+
         fp = filedialog.asksaveasfilename(
             title=self.tr("editor_save_csv_title", "Сохранить CSV"),
             defaultextension=".csv",
@@ -1106,7 +1109,7 @@ class TranslationEditorDialog:
             issues.append(self.tr("editor_quality_untranslated", "❌ Не переведено"))
         if value and (value.startswith(" ") or value.endswith(" ") or "  " in value):
             issues.append(self.tr("editor_quality_extra_spaces", "⚠️ Лишние пробелы"))
-        
+
         from tkinter import messagebox
         msg = "\n".join(issues) if issues else self.tr("editor_quality_ok", "✅ OK")
         messagebox.showinfo(self.tr("editor_quality_check_warn", "Проверка качества"), f"{key}:\n{msg}")
@@ -1245,32 +1248,32 @@ class TranslationEditorDialog:
         """Синхронизирует качественные переводы в глоссарий"""
         if not self._glossary_sync_enabled:
             return 0
-        
+
         try:
             from config.config_manager import get_config_manager
             target_lang = get_config_manager().get("target_language", "Russian")
             db = get_translation_db(target_lang)
             if not db:
                 return 0
-            
+
             synced_count = 0
-            
+
             for entry in self.entries:
                 key = entry.get("key", "")
                 value = entry.get("value", "")
-                
+
                 if not key or not value:
                     continue
-                
+
                 if len(value.strip()) < 2:
                     continue
-                
+
                 try:
                     db.add_glossary_term(key, value, category="auto", description="Auto-synced from translation", target_language=target_lang)
                     synced_count += 1
                 except Exception:
                     pass
-            
+
             if synced_count > 0:
                 self.log(f"Синхронизировано {synced_count} терминов в глоссарий")
             return synced_count
@@ -1283,10 +1286,14 @@ class TranslationEditorDialog:
             self._load_file(self.file_path)
 
     def _filter_entries_debounced(self, event=None):
-        """Debounce для фильтрации записей редактора (300мс задержка)"""
-        if self._editor_filter_debounce_timer:
+        """Отложенная фильтрация для снижения нагрузки на процессор при вводе"""
+        if hasattr(self, "_editor_filter_debounce_timer") and self._editor_filter_debounce_timer:
             self.dialog.after_cancel(self._editor_filter_debounce_timer)
-        self._editor_filter_debounce_timer = self.dialog.after(300, self._filter_entries)
+        
+        # Запускаем поиск через 300 мс после окончания ввода
+        self._editor_filter_debounce_timer = self.dialog.after(
+            300, lambda: self._update_tree(self.search_var.get().lower())
+        )
 
     def _filter_entries(self, event=None):
         self._update_tree(self.search_var.get().lower())
@@ -1424,7 +1431,7 @@ class TranslationEditorDialog:
 
         #  НОВОЕ (#17): Горячая клавиша "Add to Glossary" — Ctrl+G
         self.editor_hotkeys.register("Ctrl+G", lambda e: self._add_selection_to_glossary())
-        
+
         # ✅ Escape для закрытия
         self.editor_hotkeys.register("Escape", lambda e: self._close_dialog())
 
@@ -1947,24 +1954,24 @@ class TranslationEditorDialog:
 
     def _show_glossary(self):
         """Показать глоссарий (вынесено в отдельный диалог)"""
-        from gui.dialogs.glossary_viewer_dialog import GlossaryViewerDialog
         from config.config_manager import get_config_manager
+        from gui.dialogs.glossary_viewer_dialog import GlossaryViewerDialog
 
         target_language = get_config_manager().get("target_language", "Russian")
         GlossaryViewerDialog(self.dialog, editor=self, target_language=target_language)
 
     def _show_file_history(self):
         """Показать историю версий (вынесено в отдельный диалог)"""
-        from gui.dialogs.file_history_dialog import FileHistoryDialog
         from config.config_manager import get_config_manager
+        from gui.dialogs.file_history_dialog import FileHistoryDialog
 
         target_language = get_config_manager().get("target_language", "Russian")
         FileHistoryDialog(self.dialog, self.file_path, editor=self, target_language=target_language)
 
     def _show_suggestions(self):
         """Показать подсказки перевода (вынесено в отдельный диалог)"""
-        from gui.dialogs.suggestions_dialog import SuggestionsDialog
         from config.config_manager import get_config_manager
+        from gui.dialogs.suggestions_dialog import SuggestionsDialog
 
         target_language = get_config_manager().get("target_language", "Russian")
         SuggestionsDialog(self.dialog, self.entries, self.file_path, editor=self, target_language=target_language)
@@ -2023,13 +2030,13 @@ class TranslationEditorDialog:
 
             # Добавляем в глоссарий с категорией "user"
             db.add_glossary_term(key, selected_text, category="user", target_language=target_lang)
-            
+
             from tkinter import messagebox
             messagebox.showinfo(
                 tr("editor_success", "Готово"),
                 f"Термин '{key}'\nс переводом '{selected_text}'\nдобавлен в глоссарий (категория: user)"
             )
-            
+
             # Если есть другие открытые окна глоссария, обновляем их
             self._notify_glossary_updated()
 
@@ -2044,5 +2051,5 @@ class TranslationEditorDialog:
         except Exception:
             pass
 
-    from gui.tabs.editor.editor_file_browser import TranslationEditorTab  # noqa: E402, F401
-    from gui.tabs.editor.editor_toolbar import WrappingToolbar  # noqa: E402, F401
+    from gui.tabs.editor.editor_file_browser import TranslationEditorTab
+    from gui.tabs.editor.editor_toolbar import WrappingToolbar

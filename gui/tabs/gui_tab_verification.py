@@ -633,6 +633,7 @@ class VerificationTab(ttk.Frame):
             )
 
         menu.post(event.x_root, event.y_root)
+        return "break"
 
     def _copy_to_clipboard(self, text: str):
         """Копировать текст в буфер обмена"""

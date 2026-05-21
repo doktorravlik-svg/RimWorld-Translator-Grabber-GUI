@@ -4,10 +4,11 @@
 Сохраняет информацию о модах в JSON файл и использует его при повторном запуске.
 """
 
-import json
 import os
 import time
 from typing import Optional
+
+from utils.json_utils import load_json_file, save_json_file
 
 
 class ModsCache:
@@ -56,31 +57,23 @@ class ModsCache:
             return None
 
         cache_path = self._get_cache_path(mods_folder)
-        if not os.path.exists(cache_path):
+        data = load_json_file(cache_path)
+        if not data:
+            return None
+
+        # Проверка TTL
+        if time.time() - data.get("last_scan", 0) > self.CACHE_TTL:
             return None
 
         try:
-            with open(cache_path, "r", encoding="utf-8") as f:
-                self.cache = json.load(f)
-
-            # Проверяем валидность кэша
             current_mtime = os.path.getmtime(mods_folder)
-            cache_age = time.time() - self.cache.get("last_scan", 0)
+        except OSError:
+            current_mtime = 0
 
-            # Кэш валиден если:
-            # 1. Папка не изменялась
-            # 2. Кэш моложе TTL
-            if (
-                self.cache.get("folder") == mods_folder
-                and self.cache.get("folder_mtime") == current_mtime
-                and cache_age < self.CACHE_TTL
-            ):
-                return self.cache.get("mods", [])
+        if data.get("folder_mtime") != current_mtime:
+            return None
 
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"Ошибка загрузки кэша: {e}")
-
-        return None
+        return data.get("mods", [])
 
     def save(self, mods_folder: str, mods_list: list) -> None:
         """
@@ -95,19 +88,14 @@ class ModsCache:
 
         cache_path = self._get_cache_path(mods_folder)
 
-        try:
-            self.cache = {
-                "mods": mods_list,
-                "last_scan": time.time(),
-                "folder_mtime": os.path.getmtime(mods_folder),
-                "folder": mods_folder,
-            }
+        self.cache = {
+            "mods": mods_list,
+            "last_scan": time.time(),
+            "folder_mtime": os.path.getmtime(mods_folder),
+            "folder": mods_folder,
+        }
 
-            with open(cache_path, "w", encoding="utf-8") as f:
-                json.dump(self.cache, f, ensure_ascii=False, indent=2)
-
-        except OSError as e:
-            print(f"Ошибка сохранения кэша: {e}")
+        save_json_file(cache_path, self.cache)
 
     def clear(self, mods_folder: str) -> None:
         """Очищает кэш"""
@@ -171,6 +159,8 @@ def scan_mods_with_cache(mods_folder: str, force_rescan: bool = False) -> list:
 
 def _scan_mods_direct(mods_folder: str) -> list:
     """Прямое сканирование папки модов (без кэша)"""
+    from loguru import logger
+
     mods = []
 
     if not os.path.exists(mods_folder):
@@ -185,6 +175,6 @@ def _scan_mods_direct(mods_folder: str) -> list:
                 if os.path.exists(about_path):
                     mods.append(item_path)
     except OSError as e:
-        print(f"Ошибка сканирования папки: {e}")
+        logger.error(f"Ошибка сканирования папки: {e}")
 
     return mods

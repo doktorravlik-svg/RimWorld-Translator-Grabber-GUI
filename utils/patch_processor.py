@@ -57,18 +57,24 @@ def process_patches(
         logger.info(f"  Найдено {len(patch_files)} патч-файлов")
 
     for patch_file in patch_files:
-        root = safe_parse_xml(patch_file)
-        if root is None:
-            if logger:
-                logger.debug(f"Не удалось распарсить патч: {patch_file}")
-            continue
-
-        for operation in root:
-            try:
-                _apply_operation(operation, defs_index, logger, filters_config)
-            except Exception as e:
+        try:
+            root = safe_parse_xml(patch_file)
+            if root is None:
                 if logger:
-                    logger.debug(f"Ошибка применения патча {patch_file}: {e}")
+                    logger.debug(f"Не удалось распарсить патч: {patch_file}")
+                continue
+
+            for operation in root:
+                try:
+                    _apply_operation(operation, defs_index, logger, filters_config)
+                except Exception as e:
+                    if logger:
+                        logger.debug(f"Ошибка применения патча {patch_file}: {e}")
+        except Exception as patch_err:
+            # Логируем, но НЕ ломаем выполнение для других модов/файлов
+            if logger:
+                logger.warning(f"Пропущен битый файл патча {patch_file}: {patch_err}")
+            continue
 
     return defs_index
 

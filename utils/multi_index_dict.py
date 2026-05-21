@@ -151,7 +151,7 @@ class MultiIndexDict:
         all_keys.update(self._path_index.keys())
 
         for key in all_keys:
-            distance = self._levenshtein_distance(query_lower, key)
+            distance = self._levenshtein_distance(query_lower, key, max_distance)
 
             if distance <= max_distance:
                 package_id = (
@@ -254,33 +254,43 @@ class MultiIndexDict:
         return self.get(key) is not None
 
     @staticmethod
-    def _levenshtein_distance(s1: str, s2: str) -> int:
+    def _levenshtein_distance(s1: str, s2: str, max_dist: int = 3) -> int:
         """
-        Вычисляет расстояние Левенштейна между двумя строками.
+        Оптимизированный по памяти алгоритм Левенштейна (две строки вместо матрицы).
 
         Args:
             s1: Первая строка
             s2: Вторая строка
+            max_dist: Максимальное расстояние (для быстрой отсечки)
 
         Returns:
             Расстояние Левенштейна
         """
+        # БЫСТРАЯ ОТСЕЧКА: если разница длин больше лимита, они точно не совпадут
+        if abs(len(s1) - len(s2)) > max_dist:
+            return max_dist + 1
+
         if len(s1) < len(s2):
-            return MultiIndexDict._levenshtein_distance(s2, s1)
+            s1, s2 = s2, s1
 
         if len(s2) == 0:
             return len(s1)
 
-        previous_row = range(len(s2) + 1)
+        # ИСПОЛЬЗУЕМ ДВЕ СТРОКИ ВМЕСТО МАТРИЦЫ (оптимизация памяти)
+        previous_row = list(range(len(s2) + 1))
         for i, c1 in enumerate(s1):
             current_row = [i + 1]
             for j, c2 in enumerate(s2):
-                # insertions, deletions, substitutions
                 insertions = previous_row[j + 1] + 1
                 deletions = current_row[j] + 1
                 substitutions = previous_row[j] + (c1 != c2)
                 current_row.append(min(insertions, deletions, substitutions))
+
             previous_row = current_row
+
+            # Ранний выход, если даже минимальный элемент в ряду превышает лимит
+            if min(previous_row) > max_dist:
+                return max_dist + 1
 
         return previous_row[-1]
 

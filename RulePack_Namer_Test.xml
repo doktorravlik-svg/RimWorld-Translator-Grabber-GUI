@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <NamerTest.rulePack.rulesStrings>
+    <li>r_name->[namertest]</li>
+  </NamerTest.rulePack.rulesStrings>
+
+  <namertest Class="Rule_StringList">
+    <symbol>namertest</symbol>
+    <options>
+      <li>Меч</li>
+      <li>Щит</li>
+    </options>
+  </namertest>
+</LanguageData>

@@ -203,26 +203,21 @@ class SeparatePathStrategy(PathStrategy):
         original_path = os.path.normpath(original_path)
         mod_path = os.path.normpath(mod_path)
 
-        parts = original_path.replace("\\", "/").split("/")
-        mod_parts = mod_path.replace("\\", "/").split("/")
+        # ✅ ИСПРАВЛЕНО: Используем os.path.relpath для надежного вычисления относительного пути
+        # Это избегает проблем с папками, содержащими "Languages" в названии
+        rel_path = os.path.relpath(original_path, mod_path)
 
-        langs_index = -1
-        for i in range(len(parts)):
-            if parts[i] == "Languages" and i >= len(mod_parts) - 1:
-                langs_index = i
-                break
-
-        if langs_index == -1:
-            return original_path
-
+        # Заменяем исходный язык на целевой в относительном пути
+        parts = rel_path.replace("\\", "/").split("/")
         new_parts = []
-        for i in range(langs_index, len(parts)):
-            if parts[i] == source_lang:
+        for part in parts:
+            if part == source_lang:
                 new_parts.append(target_lang)
             else:
-                new_parts.append(parts[i])
+                new_parts.append(part)
 
-        new_path = os.path.join(output_folder, mod_name, *new_parts)
+        new_rel_path = "/".join(new_parts)
+        new_path = os.path.join(output_folder, mod_name, new_rel_path)
         return new_path
 
     def should_create_backup(self) -> bool:

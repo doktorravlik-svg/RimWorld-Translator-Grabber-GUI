@@ -15,7 +15,6 @@ from .translation_worker import TranslationWorker, TranslationResultDTO
 from .path_strategy import SeparatePathStrategy
 from utils.mod_version import get_mod_name
 from utils.languages_path_resolver import (
-    create_source_language_structure,
     find_all_defs_folders,
     find_all_language_folders,
     prioritize_language_folders,
@@ -201,11 +200,11 @@ class SeparateWorker(TranslationWorker):
         detected_source_lang = source_langs[0] if source_langs else self.source_lang
 
         try:
-            # 0. Проверяем и создаём Languages для source языка
+            # 0. Подготовка (для separate mode не создаём структуру в source mod)
             self._progress(25, 100, f"Подготовка: {mod_name}")
-            create_source_language_structure(mod_path, detected_source_lang)
+            # В separate режиме исходные файлы не изменяются, структура Languages уже существует
             if section:
-                section.add_item("✓ Структура Languages проверена", "success")
+                section.add_item("✓ Подготовка завершена (source mod не изменяется)", "success")
 
             # ✅ ВАЖНО: Сохраняем для использования в методах обработки
             self._current_mod_output = mod_output

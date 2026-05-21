@@ -100,6 +100,7 @@ class TabManager:
             command=self.show_all_tabs,
         )
         context_menu.post(event.x_root, event.y_root)
+        return "break"  # Предотвращает стандартное меню Windows
 
     def hide_tab(self, tab_name: str):
         """

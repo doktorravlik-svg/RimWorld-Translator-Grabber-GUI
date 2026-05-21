@@ -28,25 +28,31 @@ class CaseInspector:
             r"THING_defName"
         ]
 
+        # Исправлено: все комбинации предлогов и токенов компилируются заранее
+        self._compiled_rules = []
+        for prep_regex, suffix in self.RULES.items():
+            for token in self.TARGET_TOKENS:
+                # Исправлено: используем корректный lookahead для проверки отсутствия суффикса
+                pattern = re.compile(
+                    f"{prep_regex}\\s+{{({token})(?![^}}]*{suffix})[^}}]*}}",
+                    re.IGNORECASE
+                )
+                self._compiled_rules.append((pattern, suffix))
+
     def verify_line(self, text):
         """Проверяет строку на наличие пропущенных падежных маркеров."""
         errors = []
+        if not isinstance(text, str):
+            return errors
 
-        for prep_regex, suffix in self.RULES.items():
-            # Ищем конструкцию: Предлог + Пробел + {Токен без нужного суффикса}
-            # Используем негативный просмотр вперед (?!.*_suffix)
-            for token in self.TARGET_TOKENS:
-                pattern = f"{prep_regex}\\s+{{({token})(?!.*?{suffix})[^}}]*}}"
-                matches = re.finditer(pattern, text, re.IGNORECASE)
-
-                for match in matches:
-                    errors.append({
-                        "type": "GRAMMAR_CASE_MISSING",
-                        "severity": "warning",
-                        "prep": match.group(1),
-                        "token": match.group(2),
-                        "expected_suffix": suffix,
-                        "context": text[max(0, match.start()-10):min(len(text), match.end()+10)],
-                        "msg": f"Пропущен падежный суффикс {suffix} после предлога '{match.group(1)}'"
-                    })
+        for pattern, suffix in self._compiled_rules:
+            for match in pattern.finditer(text):
+                errors.append({
+                    "type": "GRAMMAR_CASE_MISSING",
+                    "severity": "warning",
+                    "prep": match.group(1),
+                    "token": match.group(2),
+                    "expected_suffix": suffix,
+                    "context": text[max(0, match.start()-10):min(len(text), match.end()+10)],
+                })
         return errors

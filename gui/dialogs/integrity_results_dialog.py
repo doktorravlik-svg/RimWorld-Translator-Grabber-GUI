@@ -344,6 +344,7 @@ class IntegrityResultsDialog:
         menu.add_command(label="📋 Копировать путь", command=lambda: self._copy_path(file_path))
 
         menu.post(event.x_root, event.y_root)
+        return "break"
 
     def _open_selected_file(self, event=None):
         sel = self.tree.selection()

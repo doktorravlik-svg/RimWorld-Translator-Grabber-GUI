@@ -88,8 +88,8 @@ class SettingsGlossaryManager:
         section = ttk.LabelFrame(parent, text="Цвета категорий")
         section.pack(fill="x", padx=5, pady=5)
 
-        category_colors = self.config.get("glossary_category_colors", self.DEFAULT_SETTINGS["glossary_category_colors"])
-        category_names = self.config.get("glossary_category_names", self.DEFAULT_SETTINGS["glossary_category_names"])
+        category_colors = self.config.get("glossary_category_colors", self.DEFAULT_SETTINGS["glossary_category_colors"].copy())
+        category_names = self.config.get("glossary_category_names", self.DEFAULT_SETTINGS["glossary_category_names"].copy())
 
         for category, default_color in self.DEFAULT_SETTINGS["glossary_category_colors"].items():
             color = category_colors.get(category, default_color)

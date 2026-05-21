@@ -45,10 +45,19 @@ class SettingsPathValidator:
         Args:
             path: Путь для добавления
         """
+        if not path:
+            return
+        # Нормализуем путь
+        path = os.path.normpath(path.strip().strip('"').strip("'"))
+
+        # Удаляем дубликат, если он уже был в истории
         if path in self._history:
             self._history.remove(path)
-        self._history.insert(0, path)
-        self._history = self._history[:10]  # Ограничиваем 10 записями
+
+        self._history.insert(0, path)  # Добавляем свежий путь в начало
+        self._history = self._history[:10]  # Оставляем строго топ-10
+        self.save_path_history()
+        self.update_history_display()
 
     def validate_mods_path(self, path: str) -> tuple[bool, str]:
         """
@@ -60,8 +69,10 @@ class SettingsPathValidator:
         Returns:
             (успех, сообщение)
         """
+        # Нормализуем путь от случайного ввода пользователя
+        path = path.strip().strip('"').strip("'")
         if not path:
-            return False, "Путь не указан"
+            return False, "Путь не может быть пустым"
 
         if not os.path.exists(path):
             return False, f"Папка не существует: {path}"

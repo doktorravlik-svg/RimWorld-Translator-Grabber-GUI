@@ -410,6 +410,7 @@ class LogPanel(ttk.LabelFrame):
     def _show_context_menu(self, event):
         """Показать контекстное меню"""
         self.context_menu.post(event.x_root, event.y_root)
+        return "break"
 
     def copy_selected(self):
         """Копировать выделенный текст"""

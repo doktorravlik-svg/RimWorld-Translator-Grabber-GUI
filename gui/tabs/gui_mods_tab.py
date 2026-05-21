@@ -576,6 +576,7 @@ class ModsManagerTab(ttk.Frame):
         if item:
             self.tree.selection_set(item)
             self.context_menu.post(event.x_root, event.y_root)
+        return "break"
 
     def _copy_mod_id(self):
         selection = self.tree.selection()

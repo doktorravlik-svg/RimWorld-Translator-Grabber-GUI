@@ -342,6 +342,7 @@ class TranslationEditorTab(ttk.Frame):
                 command=self._refresh,
             )
             m.post(event.x_root, event.y_root)
+            return "break"
 
     # ═══════════════════════════════════════════
     # Операции с файлами

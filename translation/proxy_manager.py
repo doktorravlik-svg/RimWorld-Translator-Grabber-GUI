@@ -148,24 +148,30 @@ class ProxyManager:
         Проверяет формат прокси.
 
         Args:
-            proxy: Строка прокси для проверки (формат ip:port)
+            proxy: Строка прокси для проверки (формат ip:port или hostname:port)
 
         Returns:
             True если прокси валидного формата, False иначе
         """
         if not proxy:
             return False
-        # Простая проверка формата ip:port
+        # Проверка формата host:port (поддерживаем IP и доменные имена)
         parts = proxy.strip().split(":")
         if len(parts) == 2:
             try:
-                ip, port = parts
-                # Проверяем, что port - число
-                int(port)
-                # Простая проверка IP
-                ip_parts = ip.split(".")
-                if len(ip_parts) == 4:
-                    return all(p.isdigit() and 0 <= int(p) <= 255 for p in ip_parts)
+                host, port = parts
+                # Порт должен быть в пределах системных границ
+                port_num = int(port)
+                if not (0 < port_num <= 65535):
+                    return False
+                # Хост не должен быть пустым
+                if not host.strip():
+                    return False
+                # Проверяем, что хотя бы один символ в хосте является буквенно-цифровым
+                # (поддерживаем и IP-адреса, и доменные имена)
+                if not any(c.isalnum() for c in host):
+                    return False
+                return True
             except (ValueError, TypeError):
                 pass
         return False

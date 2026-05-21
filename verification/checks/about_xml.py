@@ -23,7 +23,19 @@ class AboutXmlCheck(VerificationCheck):
         return "Проверка корректности About.xml"
 
     def run(self, mod_info: dict, context: dict) -> CheckResult:
+        # Исправлено: проверка типа mod_info
+        if not isinstance(mod_info, dict):
+            return CheckResult(
+                check_name=self.name,
+                passed=False,
+                severity="error",
+                message="Некорректная структура mod_info",
+            )
+
+        # Исправлено: безопасное получение about_data с проверкой типа
         about_data = mod_info.get("about_data", {})
+        if not isinstance(about_data, dict):
+            about_data = {}
 
         errors = []
         if not about_data.get("mod_id"):
@@ -47,6 +59,6 @@ class AboutXmlCheck(VerificationCheck):
     def _is_valid_version(self, version: str) -> bool:
         try:
             parts = version.split(".")
-            return len(parts) >= 2 and all(p.isdigit() for p in parts)
+            return len(parts) >= 2 and all(p.isdigit() for p in parts[:2])
         except (AttributeError, ValueError):
             return False

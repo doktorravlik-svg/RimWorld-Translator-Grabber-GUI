@@ -288,8 +288,12 @@ class TranslationCache:
                 # Проверяем не превышен ли размер
                 if len(self._cache) >= self.maxsize:
                     self._evict_lru()
+                # Устраняем дублирование ключей в _access_order
+                if key in self._cache:
+                    self._update_access_order(key)
+                else:
+                    self._access_order.append(key)
                 self._cache[key] = CacheEntry(translated)
-                self._access_order.append(key)
                 loaded += 1
         if loaded > 0 and self.logger:
             logger.info(f"Предзагружено {loaded} записей в кэш")

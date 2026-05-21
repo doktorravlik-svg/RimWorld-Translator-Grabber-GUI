@@ -329,7 +329,7 @@ class SettingsColorManager:
         """Диалог выбора цвета UI."""
         current = self.config.get(key, self.DEFAULT_UI_COLORS.get(key, "#000000"))
         color = colorchooser.askcolor(color=current, title=f"Выберите {key}")
-        if color[1]:
+        if color and color[1]:  # color может быть None или (None, None) при отмене
             self.config[key] = color[1]
             self._draw_ui_color_preview(widget_key, color[1])
 
@@ -337,7 +337,7 @@ class SettingsColorManager:
         """Диалог выбора цвета логов."""
         current = self.config.get(key, self.DEFAULT_LOG_COLORS.get(key, "#000000"))
         color = colorchooser.askcolor(color=current, title=f"Выберите {key}")
-        if color[1]:
+        if color and color[1]:
             self.config[key] = color[1]
             self._draw_log_color_preview(widget_key, color[1])
 
@@ -345,7 +345,7 @@ class SettingsColorManager:
         """Диалог выбора цвета тега."""
         current = self.config.get(key, self.DEFAULT_TAG_COLORS.get(key, "#000000"))
         color = colorchooser.askcolor(color=current, title=f"Выберите {key}")
-        if color[1]:
+        if color and color[1]:
             self.config[key] = color[1]
             self._draw_log_tag_preview(widget_key, key, color[1])
 

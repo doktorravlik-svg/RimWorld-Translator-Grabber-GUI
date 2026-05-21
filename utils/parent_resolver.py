@@ -34,6 +34,7 @@ def resolve_parent_chains(
 
     # Шаг 1: Собираем все элементы с атрибутом Name
     name_registry: dict[str, dict[str, etree._Element]] = {}  # {file_path: {name: element}}
+    flat_registry: dict[str, etree._Element] = {}  # {name: element} - плоский индекс для O(1) поиска
 
     all_xml_files = []
     for folder_path in defs_folder_paths:
@@ -62,9 +63,14 @@ def resolve_parent_chains(
             name_attr = element.get("Name")
             if name_attr:
                 file_names[name_attr] = element
+                flat_registry[name_attr] = element  # Добавляем в плоский индекс
 
         if file_names:
             name_registry[file_path] = file_names
+
+    # Возвращаем name_registry и flat_registry для использования в рекурсивных функциях
+    # Через глобальные переменные или модульный уровень для доступа из _find_parent_element
+    resolve_parent_chains._flat_registry = flat_registry  # type: ignore
 
     return name_registry
 
@@ -124,6 +130,7 @@ def _find_parent_element(
 ) -> etree._Element | None:
     """
     Ищет элемент с указанным Name во всех файлах.
+    Использует плоский индекс flat_registry для O(1) поиска.
 
     Args:
         name: Имя для поиска
@@ -132,7 +139,12 @@ def _find_parent_element(
     Returns:
         Найденный XML элемент или None
     """
-    # Проходим по всем файлам (обратный порядок - последние приоритетнее)
+    # Проверяем плоский индекс (быстрый путь)
+    flat_registry = getattr(resolve_parent_chains, '_flat_registry', None)
+    if flat_registry and name in flat_registry:
+        return deepcopy(flat_registry[name])
+
+    # Fallback: проходим по всем файлам (обратный порядок - последние приоритетнее)
     for file_path in reversed(list(name_registry.keys())):
         if name in name_registry[file_path]:
             return deepcopy(name_registry[file_path][name])

@@ -205,7 +205,8 @@ class VerificationCoordinator:
 
     def __init__(self, mods_path: str, logger: Any | None = None, language: str = "ru", game_path: str | None = None):
         self.mods_path = mods_path
-        self.logger = logger or _default_logger
+        # 🛡️ Изоляция логирования через bind() для фильтрации логов верификации
+        self.logger = (logger or _default_logger).bind(task="verification")
         self.language = language
         self.game_path = game_path
 

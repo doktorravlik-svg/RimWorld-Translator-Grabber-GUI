@@ -116,6 +116,7 @@ def extract_subfields(
     partial_tag_matches=None,
     enable_space_fallback=True,
     _depth=0,
+    max_depth=50  # Защита от бесконечного проваливания
 ):
     """
     Извлекает переводимые поля из XML элемента с учетом вложенности и списков.
@@ -132,10 +133,11 @@ def extract_subfields(
         partial_tag_matches: Список частичных совпадений тегов
         enable_space_fallback: Включить fallback по пробелу
         _depth: Текущая глубина рекурсии (внутренний параметр)
+        max_depth: Максимальная глубина рекурсии (защита от бесконечного проваливания)
     """
-    if _depth > 20:
+    if _depth > max_depth:
         if logger:
-            logger.warning(f"extract_subfields: превышена максимальная глубина рекурсии для префикса '{prefix}'")
+            logger.warning(f"Достигнута максимальная глубина парсинга XML на префиксе: {prefix}")
         return {}
     # Значения по умолчанию
     if whitelist_tags is None:
@@ -182,6 +184,7 @@ def extract_subfields(
                         min_text_length,
                         max_text_length,
                         _depth=_depth + 1,
+                        max_depth=max_depth,
                     )
                 )
             continue
@@ -234,6 +237,7 @@ def extract_subfields(
                         blacklist_patterns,
                         min_text_length,
                         _depth=_depth + 1,
+                        max_depth=max_depth,
                     )
                 )
             continue
@@ -265,6 +269,7 @@ def extract_subfields(
                     blacklist_patterns,
                     min_text_length,
                     _depth=_depth + 1,
+                    max_depth=max_depth,
                 )
             )
 

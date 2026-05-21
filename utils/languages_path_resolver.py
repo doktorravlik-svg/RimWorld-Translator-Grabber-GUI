@@ -13,7 +13,8 @@
 
 import os
 import shutil
-import sys
+
+from loguru import logger
 
 from utils.loadfolders_parser import (
     find_all_defs_folders_with_loadfolders,
@@ -26,13 +27,21 @@ SUPPORTED_VERSIONS = ["1.6", "1.5", "1.4", "1.3"]
 
 
 def _is_folder_empty(path: str) -> bool:
-    """Вспомогательная функция для проверки наличия файлов в директории."""
+    """Оптимизированная проверка наличия файлов без полного обхода дерева директорий."""
     if not os.path.exists(path):
         return True
-    for _, _, files in os.walk(path):
-        if files:
-            return False
-    return True
+    try:
+        with os.scandir(path) as entries:
+            for entry in entries:
+                if entry.is_file():
+                    return False
+                if entry.is_dir():
+                    # Рекурсивно проверяем подпапку, только если зашли в неё
+                    if not _is_folder_empty(entry.path):
+                        return False
+        return True
+    except OSError:
+        return True
 
 
 def find_all_defs_folders(mod_path: str) -> list[str]:
@@ -458,19 +467,19 @@ def create_source_language_structure(mod_path: str, source_lang: str = "English"
       4. Fallback: Languages рядом с любыми Defs (через LoadFolders)
     Возвращает путь к папке Languages или None.
     """
-    print(f"[DEBUG] create_source_language_structure: mod_path={mod_path}, source_lang={source_lang}", file=sys.stderr)
+    logger.debug(f"create_source_language_structure: mod_path={mod_path}, source_lang={source_lang}")
 
     # Приоритет 0: Есть ли уже Languages где-либо?
     all_langs_folders = find_all_languages_folders_with_loadfolders(mod_path)
-    print(f"[DEBUG]   Найдены Languages папки: {all_langs_folders}", file=sys.stderr)
+    logger.debug(f"  Найдены Languages папки: {all_langs_folders}")
     if all_langs_folders:
         chosen_langs = all_langs_folders[0]
-        print(f"[DEBUG]   => Выбрана папка Languages: {chosen_langs}", file=sys.stderr)
+        logger.debug(f"  => Выбрана папка Languages: {chosen_langs}")
         source_lang_path = os.path.join(chosen_langs, source_lang)
         os.makedirs(os.path.join(source_lang_path, "Keyed"), exist_ok=True)
         os.makedirs(os.path.join(source_lang_path, "DefInjected"), exist_ok=True)
         os.makedirs(os.path.join(source_lang_path, "Strings"), exist_ok=True)
-        print(f"[DEBUG]   => Создана структура для {source_lang} в {chosen_langs}", file=sys.stderr)
+        logger.debug(f"  => Создана структура для {source_lang} в {chosen_langs}")
         return chosen_langs
 
     # Приоритет 1: Корневая Defs/
@@ -478,7 +487,7 @@ def create_source_language_structure(mod_path: str, source_lang: str = "English"
     if os.path.exists(root_defs):
         root_langs = os.path.join(mod_path, "Languages")
         os.makedirs(root_langs, exist_ok=True)
-        print(f"[DEBUG]   => Создана корневая Languages (из Defs): {root_langs}", file=sys.stderr)
+        logger.debug(f"  => Создана корневая Languages (из Defs): {root_langs}")
         source_lang_path = os.path.join(root_langs, source_lang)
         os.makedirs(os.path.join(source_lang_path, "Keyed"), exist_ok=True)
         os.makedirs(os.path.join(source_lang_path, "DefInjected"), exist_ok=True)
@@ -490,7 +499,7 @@ def create_source_language_structure(mod_path: str, source_lang: str = "English"
     if os.path.exists(common_defs):
         common_langs = os.path.join(mod_path, "Common", "Languages")
         os.makedirs(common_langs, exist_ok=True)
-        print(f"[DEBUG]   => Создана Common/Languages (из Common/Defs): {common_langs}", file=sys.stderr)
+        logger.debug(f"  => Создана Common/Languages (из Common/Defs): {common_langs}")
         source_lang_path = os.path.join(common_langs, source_lang)
         os.makedirs(os.path.join(source_lang_path, "Keyed"), exist_ok=True)
         os.makedirs(os.path.join(source_lang_path, "DefInjected"), exist_ok=True)
@@ -503,7 +512,7 @@ def create_source_language_structure(mod_path: str, source_lang: str = "English"
         if os.path.exists(v_defs):
             v_langs = os.path.join(mod_path, version, "Languages")
             os.makedirs(v_langs, exist_ok=True)
-            print(f"[DEBUG]   => Создана {version}/Languages (из {version}/Defs): {v_langs}", file=sys.stderr)
+            logger.debug(f"  => Создана {version}/Languages (из {version}/Defs): {v_langs}")
             source_lang_path = os.path.join(v_langs, source_lang)
             os.makedirs(os.path.join(source_lang_path, "Keyed"), exist_ok=True)
             os.makedirs(os.path.join(source_lang_path, "DefInjected"), exist_ok=True)
@@ -517,14 +526,14 @@ def create_source_language_structure(mod_path: str, source_lang: str = "English"
         parent_dir = os.path.dirname(first_def)
         candidate_langs = os.path.join(parent_dir, "Languages")
         os.makedirs(candidate_langs, exist_ok=True)
-        print(f"[DEBUG]   => Создана Languages рядом с Defs (fallback): {candidate_langs}", file=sys.stderr)
+        logger.debug(f"  => Создана Languages рядом с Defs (fallback): {candidate_langs}")
         source_lang_path = os.path.join(candidate_langs, source_lang)
         os.makedirs(os.path.join(source_lang_path, "Keyed"), exist_ok=True)
         os.makedirs(os.path.join(source_lang_path, "DefInjected"), exist_ok=True)
         os.makedirs(os.path.join(source_lang_path, "Strings"), exist_ok=True)
         return candidate_langs
 
-    print(f"[DEBUG]   => Не найдено папок Defs, Languages не создана", file=sys.stderr)
+    logger.debug("  => Не найдено папок Defs, Languages не создана")
     return None
 
 

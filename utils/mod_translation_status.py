@@ -461,22 +461,40 @@ class ModTranslationChecker:
                 status_icon="⬜",
             )
 
-        # Проверяем полноту перевода
+# Проверяем полноту перевода
         has_keyed = os.path.exists(os.path.join(lang_path, "Keyed"))
         has_def_injected = os.path.exists(os.path.join(lang_path, "DefInjected"))
 
         # Если есть DefInjected или Keyed - считаем что есть перевод
         if has_def_injected or has_keyed:
-            # Считаем XML файлы для определения полноты
+            # Считаем XML файлы для определения полноты (оптимизированный подсчет)
             translation_files = 0
 
             if has_def_injected:
-                for root, dirs, files in os.walk(os.path.join(lang_path, "DefInjected")):
-                    translation_files += len([f for f in files if f.endswith(".xml")])
+                def_injected_path = os.path.join(lang_path, "DefInjected")
+                try:
+                    with os.scandir(def_injected_path) as entries:
+                        for entry in entries:
+                            if entry.is_file() and entry.name.endswith(".xml"):
+                                translation_files += 1
+                            elif entry.is_dir():
+                                for root, _, files in os.walk(entry.path):
+                                    translation_files += sum(1 for f in files if f.endswith(".xml"))
+                except OSError:
+                    pass
 
             if has_keyed:
-                for root, dirs, files in os.walk(os.path.join(lang_path, "Keyed")):
-                    translation_files += len([f for f in files if f.endswith(".xml")])
+                keyed_path = os.path.join(lang_path, "Keyed")
+                try:
+                    with os.scandir(keyed_path) as entries:
+                        for entry in entries:
+                            if entry.is_file() and entry.name.endswith(".xml"):
+                                translation_files += 1
+                            elif entry.is_dir():
+                                for root, _, files in os.walk(entry.path):
+                                    translation_files += sum(1 for f in files if f.endswith(".xml"))
+                except OSError:
+                    pass
 
             # Если есть файлы - полный перевод
             if translation_files > 0:

@@ -10,6 +10,8 @@
 
 import time
 
+from loguru import logger
+
 
 class LogSection:
     """Контекстный менеджер для создания секций в логе"""
@@ -74,7 +76,13 @@ class LogSection:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         elapsed = time.time() - self.start_time
-        status = "✅ Успешно" if exc_type is None else f"❌ Ошибка: {exc_val}"
+        if exc_type is None:
+            status = "✅ Успешно"
+        else:
+            status = f"❌ Ошибка: {exc_val}"
+            # Логируем факт аварийного завершения секции
+            logger.error(f"Секция '{self.title}' завершилась аварийно: {exc_val}")
+
         self._log(f"   ⏱️  Время: {elapsed:.2f}с")
         self._log(f"   📊 Элементов: {self._safe_len()}")
         self._log(f"   Статус: {status}")

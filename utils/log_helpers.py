@@ -3,13 +3,14 @@
 Позволяют отслеживать, какие файлы и функции вызываются в данный момент.
 """
 
-import inspect
+import sys
 from loguru import logger
 
 
 def log_call_stack(message: str = "Call stack:", max_depth: int = 5, level: str = "DEBUG"):
     """
     Логирует текущий стек вызовов с указанием файла, функции и строки.
+    Использует sys._getframe для улучшенной производительности.
 
     Args:
         message: Сообщение перед стеком
@@ -17,27 +18,24 @@ def log_call_stack(message: str = "Call stack:", max_depth: int = 5, level: str 
         level: Уровень логирования (DEBUG, INFO, etc.)
     """
     try:
-        stack = inspect.stack()
-        # Пропускаем текущую функцию (log_call_stack)
-        start_idx = 1
-        end_idx = len(stack) if max_depth == 0 else min(start_idx + max_depth, len(stack))
-
-        # Формируем сообщение о стеке
         from loguru import logger as log
 
-        # Используем opt(depth) чтобы loguru правильно определил вызывающую функцию
         log.opt(depth=1).log(level, message)
 
-        for i in range(start_idx, end_idx):
-            frame_info = stack[i]
-            filename = frame_info.filename
-            lineno = frame_info.lineno
-            func_name = frame_info.function
-            indent = "  " * (i - start_idx)
+        frame = sys._getframe(1)  # Пропускаем текущую функцию
+        depth = 0
+        while frame and (max_depth == 0 or depth < max_depth):
+            filename = frame.f_code.co_filename
+            lineno = frame.f_lineno
+            func_name = frame.f_code.co_name
+            indent = "  " * depth
+
             log.opt(depth=1).log(
                 level,
-                f"{indent}#{i - start_idx} {filename}:{lineno} {func_name}()"
+                f"{indent}#{depth} {filename}:{lineno} {func_name}()"
             )
+            frame = frame.f_back
+            depth += 1
     except Exception as e:
         logger.error(f"Ошибка при логировании стека: {e}")
 
@@ -78,23 +76,20 @@ def log_function_entry(logger_instance=None, level: str = "DEBUG"):
 def get_current_caller_info() -> dict:
     """
     Возвращает информацию о вызывающей функции.
+    Использует sys._getframe для улучшенной производительности.
 
     Returns:
         Словарь с ключами: 'file', 'line', 'function', 'module'
     """
     try:
-        # Пропускаем текущую функцию и get_current_caller_info
-        frame = inspect.currentframe()
+        frame = sys._getframe(1)  # Пропускаем текущую функцию
         if frame:
-            # Идем на два уровня вверх (через f_back)
-            caller_frame = frame.f_back
-            if caller_frame:
-                return {
-                    "file": caller_frame.f_code.co_filename,
-                    "line": caller_frame.f_lineno,
-                    "function": caller_frame.f_code.co_name,
-                    "module": caller_frame.f_globals.get("__name__", "unknown"),
-                }
+            return {
+                "file": frame.f_code.co_filename,
+                "line": frame.f_lineno,
+                "function": frame.f_code.co_name,
+                "module": frame.f_globals.get("__name__", "unknown"),
+            }
     except Exception:
         pass
 

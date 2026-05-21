@@ -114,8 +114,13 @@ class ConfigManager:
     def _save_unsafe(self):
         """Сохранить конфигурацию (вызывать только внутри config_lock)"""
         try:
-            with open(self._file_path, "w", encoding="utf-8") as f:
+            # ✅ Атомарная запись через временный файл
+            import tempfile
+            temp_path = f"{self._file_path}.tmp"
+            with open(temp_path, "w", encoding="utf-8") as f:
                 json.dump(self._config, f, indent=4, ensure_ascii=False)
+            # Атомарная замена файла
+            os.replace(temp_path, self._file_path)
         except (OSError, IOError) as e:
             logger.error(f"Ошибка сохранения конфигурации: {e}")
 

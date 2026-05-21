@@ -162,7 +162,15 @@ class DebouncedProgressUpdater:
 
     def _apply(self) -> None:
         """Применить обновление прогресса."""
+        if not self.widget:
+            return
+
         try:
+            # ПРОВЕРКА: существует ли еще виджет в памяти UI?
+            if hasattr(self.widget, "winfo_exists") and not self.widget.winfo_exists():
+                self._timer_id = None
+                return
+
             # Проверяем что widget не использует debounced updater
             # чтобы избежать бесконечной рекурсии
             if hasattr(self.widget, "update_progress"):
@@ -181,9 +189,9 @@ class DebouncedProgressUpdater:
                     self.widget.progress_label.config(text=self._pending_message)
         except Exception as e:
             logger.error(f"Ошибка при обновлении прогресса: {e}")
-
-        self._timer_id = None
-        self._last_update_time = time.time() * 1000
+        finally:
+            self._timer_id = None
+            self._last_update_time = time.time() * 1000
 
 
 def create_debounced_progress(

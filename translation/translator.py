@@ -27,7 +27,7 @@ from translation.glossary_manager import GlossaryManager
 from translation.proxy_manager import ProxyManager
 from translation.text_splitter import join_translated_chunks, split_text
 from translation.translation_cache import TranslationCache
-from utils.error_handler import safe_execute_method
+from utils.error_handler import safe_execute
 
 # Type aliases (PEP 695, Python 3.12+)
 type TranslationResult = str | None
@@ -246,7 +246,7 @@ class AutoTranslator:
             )
         return loaded
 
-    @safe_execute_method(fallback=None)
+    @safe_execute(fallback=None)
     def translate(self, text: str, original_text: OptionalStr = None) -> TranslationResult:
         """
         Переводит текст с применением кэша, fallback-цепочки, глоссария и rate limiting.

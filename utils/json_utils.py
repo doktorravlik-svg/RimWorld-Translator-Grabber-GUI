@@ -9,6 +9,8 @@ import json
 import os
 from typing import Any, Optional
 
+from loguru import logger
+
 
 def load_json_file(file_path: str, default: Any = None) -> Any:
     """
@@ -19,7 +21,7 @@ def load_json_file(file_path: str, default: Any = None) -> Any:
         default: Значение по умолчанию при ошибке
 
     Returns:
-    Распакованные JSON данные или default при ошибке
+        Распакованные JSON данные или default при ошибке
     """
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -27,16 +29,16 @@ def load_json_file(file_path: str, default: Any = None) -> Any:
     except FileNotFoundError:
         return default
     except json.JSONDecodeError as e:
-        print(f"Ошибка парсинга JSON {file_path}: {e}")
+        logger.error(f"Ошибка парсинга JSON {file_path}: {e}")
         return default
     except Exception as e:
-        print(f"Ошибка чтения JSON {file_path}: {e}")
+        logger.error(f"Ошибка чтения JSON {file_path}: {e}")
         return default
 
 
 def save_json_file(file_path: str, data: Any, indent: int = 2, ensure_ascii: bool = False) -> bool:
     """
-    Сохраняет данные в JSON файл.
+    Сохраняет данные в JSON файл с автосозданием директории.
 
     Args:
         file_path: Путь к JSON файлу
@@ -48,16 +50,16 @@ def save_json_file(file_path: str, data: Any, indent: int = 2, ensure_ascii: boo
         True при успехе, False при ошибке
     """
     try:
-        # Создаём директорию если нужно
-        dir_path = os.path.dirname(file_path)
-        if dir_path:
-            os.makedirs(dir_path, exist_ok=True)
+        # Безопасность: если папки для файла ещё нет, создадим её
+        dir_name = os.path.dirname(file_path)
+        if dir_name and not os.path.exists(dir_name):
+            os.makedirs(dir_name, exist_ok=True)
 
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=indent, ensure_ascii=ensure_ascii)
         return True
     except Exception as e:
-        print(f"Ошибка записи JSON {file_path}: {e}")
+        logger.error(f"Ошибка сохранения JSON {file_path}: {e}")
         return False
 
 

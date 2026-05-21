@@ -133,3 +133,34 @@ class CoreAutoFillCheck(VerificationCheck):
                 message=f"Все {scanned} переводов совпадают с официальными",
                 details={"scanned": scanned},
             )
+
+    def _find_similar_key(self, key: str, reference_db: dict, threshold: int = 85) -> str | None:
+        """Ищет похожий ключ в справочной базе через RapidFuzz.
+        
+        Оптимизирован с защитой от O(N²) зависания при большой reference_db.
+        """
+        if not key or not reference_db:
+            return None
+            
+        # Оптимизация 1: Быстрый выход при полном совпадении
+        if key in reference_db:
+            return key
+
+        best_match = None
+        best_score = 0
+        key_len = len(key)
+
+        for ref_key in reference_db.keys():
+            ref_len = len(ref_key)
+            max_len = max(key_len, ref_len)
+            
+            # Оптимизация 2: Если разность длин исключает достижение threshold, пропускаем
+            if max_len > 0 and (abs(key_len - ref_len) / max_len) > (1 - threshold / 100):
+                continue
+
+            score = fuzz.ratio(key, ref_key)
+            if score >= threshold and score > best_score:
+                best_score = score
+                best_match = ref_key
+                
+        return best_match

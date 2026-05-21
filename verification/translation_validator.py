@@ -44,11 +44,15 @@ PLACEHOLDER_PATTERNS = [
     r"\{0\}",  # {0}
     r"\{1\}",  # {1}
     r"\{\d+\}",  # {n}
+    # RimWorld: именованные аргументы в фигурных скобках (например {PAWN_nameDef}, {thing})
+    r"\{[A-Za-z_][A-Za-z0-9_]*\}",  # {name}, {PAWN_nameDef}
     r"%s",  # %s
     r"%d",  # %d
     r"%[.\d]*[dfgsx]",  # Форматирование %0.2f
     r"\$([A-Za-z_][A-Za-z0-9_]*)",  # $variable
     r"\[[^\]]+\]",  # [tag] - теги RimWorld
+    # RimWorld: XML-теги форматирования (*Name)лик(*Name)
+    r"\(\*[^)]+\)",  # (*Name)
 ]
 
 
@@ -152,6 +156,12 @@ class TranslationValidator:
             ValidationResult с результатами
         """
         issues = []
+
+        # 🛡️ ЗАЩИТА: Проверка на None и пустые строки
+        if original is None:
+            original = ""
+        if translated is None:
+            translated = ""
 
         # 1. Проверка плейсхолдеров
         placeholder_issues = self._validate_placeholders(original, translated)
@@ -326,9 +336,19 @@ class TranslationValidator:
         placeholders = set()
         for pattern in self._placeholder_patterns:
             matches = pattern.findall(text)
-            if pattern.pattern.startswith("\\["):
-                # Для [tag] добавляем с скобками
+            pattern_str = pattern.pattern
+            if pattern_str.startswith("\\["):
+                # Для [tag] добавляем с квадратными скобками
                 matches = [f"[{m}]" for m in matches]
+            elif pattern_str.startswith("\\(\\*"):
+                # Для (*Name) добавляем со скобками
+                matches = [f"(*{m})" for m in matches]
+            elif pattern_str.startswith("\\{"):
+                # Для {name} добавляем с фигурными скобками
+                matches = [f"{{{m}}}" for m in matches]
+            elif pattern_str.startswith("\\$"):
+                # Для $variable добавляем с символом доллара
+                matches = [f"${m}" for m in matches]
             placeholders.update(matches)
         return placeholders
 

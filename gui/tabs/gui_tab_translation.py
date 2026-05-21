@@ -363,6 +363,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             command=lambda: self._open_mod_folder(mod_name),
         )
         context_menu.post(event.x_root, event.y_root)
+        return "break"
 
     def _select_mod(self, item, mod_name):
         self.selected_mods[mod_name] = True

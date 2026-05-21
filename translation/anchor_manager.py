@@ -129,8 +129,8 @@ class AnchorManager:
                                 priority=2,
                                 context=context
                             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Пропущен файл при индексации якорей ({file_path}): {e}")
 
     def add_anchor(self, original, translation, source="manual", priority=None, context=""):
         """
@@ -285,7 +285,8 @@ class AnchorManager:
                                 )
                                 count += 1
 
-                except Exception:
+                except Exception as e:
+                    logger.debug(f"Пропущен файл при разборе якорей ({relative_path}): {e}")
                     continue
 
         self.conn.commit()
