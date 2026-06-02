@@ -41,6 +41,15 @@ def validate_keys(reference, target, file_name):
     if extra:
         issues.append(f"  ℹ️ Лишние {len(extra)} ключей")
 
+    # Проверка на пустые значения и TODO
+    empty_or_todo = []
+    for k, v in target.items():
+        if not v or str(v).strip() == "" or str(v).upper() == "TODO":
+            empty_or_todo.append(k)
+
+    if empty_or_todo:
+        issues.append(f"  ⚠️ Пустых значений или 'TODO': {len(empty_or_todo)}")
+
     if issues:
         print(f"\n{file_name}:")
         for issue in issues:

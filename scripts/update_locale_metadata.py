@@ -71,10 +71,18 @@ def update_metadata():
         # Формируем новый файл
         new_data = {"_meta": meta}
         new_data[actual_lang] = translations
-        
-        with open(lang_file, "w", encoding="utf-8") as f:
-            json.dump(new_data, f, ensure_ascii=False, indent=2)
-            
+
+        # Атомарная запись во временный файл (защита от порчи при падении)
+        temp_file = lang_file.with_suffix(".tmp")
+        try:
+            with open(temp_file, "w", encoding="utf-8") as f:
+                json.dump(new_data, f, ensure_ascii=False, indent=2)
+                f.write("\n")  # Добавляем перенос строки для Git-diff
+            temp_file.replace(lang_file)
+        finally:
+            if temp_file.exists():
+                temp_file.unlink()
+
         print(f"✅ {lang_file.name}: {total_keys} ключей, статус: {meta['review_status']}")
         
     print("\n✨ Готово!")

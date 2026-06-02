@@ -22,27 +22,25 @@ def recategorize_language(target_language: str):
     
     try:
         db = get_translation_db(target_language)
-        
-        # Get all seed entries
+
         c = db.conn.cursor()
         c.execute("SELECT id, term, translation FROM glossary WHERE target_language = ? AND category = 'seed'", (target_language,))
         seed_entries = c.fetchall()
-        
+
         print(f"Найдено seed-терминов: {len(seed_entries)}")
-        
+
         # Categorize and update
         updated_count = 0
         categorized_count = 0
         uncategorized_count = 0
         category_stats = {}
-        
+
         for entry in seed_entries:
-            entry_id = entry[0] if hasattr(entry, '__getitem__') else getattr(entry, 'id', None)
-            term = entry[1] if hasattr(entry, '__getitem__') else getattr(entry, 'term', None)
-            
+            entry_id, term = entry[0], entry[1]
+
             if entry_id is None or term is None:
                 continue
-                
+
             new_category = determine_category(term)
             if new_category:
                 c.execute("UPDATE glossary SET category = ? WHERE id = ?", (new_category, entry_id))
@@ -51,7 +49,8 @@ def recategorize_language(target_language: str):
                 category_stats[new_category] = category_stats.get(new_category, 0) + 1
             else:
                 uncategorized_count += 1
-        
+
+        c.close()
         db.conn.commit()
         print(f"Перекатегоризовано: {updated_count}")
         print(f"Категоризировано: {categorized_count}")
