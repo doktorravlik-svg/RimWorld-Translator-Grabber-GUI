@@ -154,8 +154,35 @@ class DebugLogger:
                 # Логирование еще не настроено, настраиваем
                 setup_logging(debug_mode=debug_mode, log_file=log_file)
             else:
-                # Обновляем только режим (DEBUG/INFO)
+                # Логирование уже настроено - обновляем режим (DEBUG/INFO)
                 set_debug_mode(debug_mode)
+                # Если нужно писать в файл, добавляем file sink
+                if log_file:
+                    from pathlib import Path
+                    log_path = Path(log_file)
+                    log_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    file_format = (
+                        "{time:YYYY-MM-DD HH:mm:ss.SSS} | "
+                        "{level: <8} | "
+                        "<level>{name}:{function}:{line}</level> | "
+                        "{message}"
+                        "{exception}\n"
+                    )
+                    from loguru import logger
+                    sink_id = logger.add(
+                        log_file,
+                        format=file_format,
+                        level="DEBUG",
+                        encoding="utf-8",
+                        backtrace=True,
+                        diagnose=True,
+                        catch=True,
+                    )
+                    # Сохраняем sink_id для возможного удаления
+                    if not hasattr(self, '_file_sink_ids'):
+                        self._file_sink_ids = []
+                    self._file_sink_ids.append(sink_id)
 
 
 # Глобальный экземпляр для удобства
