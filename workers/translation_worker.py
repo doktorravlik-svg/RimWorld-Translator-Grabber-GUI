@@ -12,17 +12,15 @@ import time
 from typing import Any
 import lxml.etree as etree
 
-from utils.fs_utils import safe_walk
-
-_RE_BRACE = re.compile(r'\{[a-zA-Z0-9_]+\}')
-_RE_DOLLAR = re.compile(r'\$[a-zA-Z0-9_]+')
-_RE_BRACKET = re.compile(r'\[[^\]]+\]')
-from utils.rimworld_xml import TRANSLATABLE_TAGS
-
-
-# ✅ НОВОЕ: Используем единый модуль для путей
-from utils.path_utils import ensure_project_root_in_path
-
+_RE_BRACE = re.compile(r"\{[a-zA-Z0-9_]+\}")
+_RE_DOLLAR = re.compile(r"\$[a-zA-Z0-9_]+")
+_RE_BRACKET = re.compile(r"\[[^\]]+\]")
+# Защитный маркер для плейсхолдеров — используем уникальную строку
+# Формат: __PH_N__ (без спецсимволов, совместим с API)
+_PLACEHOLDER_PREFIX = "__PH_"
+_PLACEHOLDER_SUFFIX = "__"
+# ✅ НОВОЕ: Импортируем generate_or_update_per_def_files_v2 ОДИН РАЗ в начале файла
+from translation.per_def_generator import generate_or_update_per_def_files_v2 as gen_def_files
 from translation.translator import AutoTranslator
 
 # ✅ НОВОЕ: Используем единый модуль для путей Languages
@@ -34,14 +32,15 @@ from utils.languages_path_resolver import (
 )
 from utils.mod_version import get_mod_name
 
+# ✅ НОВОЕ: Используем единый модуль для путей
+from utils.path_utils import ensure_project_root_in_path
+from utils.rimworld_xml import TRANSLATABLE_TAGS
+
 # ✅ НОВОЕ: Используем единый модуль для XML-парсинга
 from utils.xml_utils import safe_parse_xml
 
-# ✅ НОВОЕ: Импортируем generate_or_update_per_def_files_v2 ОДИН РАЗ в начале файла
-from translation.per_def_generator import generate_or_update_per_def_files_v2 as gen_def_files
-
 from .base_worker import BaseWorker
-from .path_strategy import InplacePathStrategy, SeparatePathStrategy, PathStrategy
+from .path_strategy import InplacePathStrategy, PathStrategy, SeparatePathStrategy
 
 # Call ensure_project_root_in_path after all imports
 ensure_project_root_in_path()
@@ -61,7 +60,7 @@ def _safe_read_file(filepath: str, encoding: str = "utf-8", max_retries: int = 3
     """
     for attempt in range(max_retries):
         try:
-            with open(filepath, "r", encoding=encoding) as f:
+            with open(filepath, encoding=encoding) as f:
                 return f.read()
         except OSError as e:
             if e.winerror == 32 and attempt < max_retries - 1:
@@ -72,7 +71,9 @@ def _safe_read_file(filepath: str, encoding: str = "utf-8", max_retries: int = 3
     return None
 
 
-def _safe_write_file(filepath: str, content: str, encoding: str = "utf-8", max_retries: int = 3) -> None:
+def _safe_write_file(
+    filepath: str, content: str, encoding: str = "utf-8", max_retries: int = 3
+) -> None:
     """
     Безопасно записывает файл с повторными попытками при WinError 32.
 
@@ -112,16 +113,17 @@ def _safe_copy_file(src: str, dst: str, max_retries: int = 15) -> None:
         max_retries: Максимальное количество попыток
     """
     import time
+
     # Читаем содержимое файла в память
     content = None
     for attempt in range(max_retries):
         try:
-            with open(src, 'rb') as f:
+            with open(src, "rb") as f:
                 content = f.read()
             break
         except OSError as e:
-            if getattr(e, 'winerror', None) == 32 and attempt < max_retries - 1:
-                delay = 0.5 * (2 ** attempt)
+            if getattr(e, "winerror", None) == 32 and attempt < max_retries - 1:
+                delay = 0.5 * (2**attempt)
                 time.sleep(min(delay, 10))
             else:
                 raise
@@ -132,12 +134,12 @@ def _safe_copy_file(src: str, dst: str, max_retries: int = 15) -> None:
     # Записываем в целевой файл
     for attempt in range(max_retries):
         try:
-            with open(dst, 'wb') as f:
+            with open(dst, "wb") as f:
                 f.write(content)
             return
         except OSError as e:
-            if getattr(e, 'winerror', None) == 32 and attempt < max_retries - 1:
-                delay = 0.5 * (2 ** attempt)
+            if getattr(e, "winerror", None) == 32 and attempt < max_retries - 1:
+                delay = 0.5 * (2**attempt)
                 time.sleep(min(delay, 10))
             else:
                 raise
@@ -218,7 +220,9 @@ class TranslationWorker(BaseWorker):
 
         if self.logger:
             self.logger.info(f"[TranslationWorker] source_langs_list: {self.source_langs_list}")
-            self.logger.info(f"[TranslationWorker] Режим: {mode}, стратегия: {self._path_strategy.__class__.__name__}")
+            self.logger.info(
+                f"[TranslationWorker] Режим: {mode}, стратегия: {self._path_strategy.__class__.__name__}"
+            )
 
     def _create_path_strategy(self, mode: str) -> PathStrategy:
         """
@@ -265,6 +269,7 @@ class TranslationWorker(BaseWorker):
         defs_folders = find_all_defs_folders_with_loadfolders(mod_path)
         if defs_folders:
             from scanner.mod_scanner import _scan_defs_for_languages
+
             defs_langs = _scan_defs_for_languages(mod_path, defs_folders, self.logger)
             if defs_langs:
                 available_langs = list(set(available_langs) | defs_langs)
@@ -272,7 +277,9 @@ class TranslationWorker(BaseWorker):
                     self.logger.debug(f"Дополнительные языки из Defs: {defs_langs}")
 
         if not available_langs:
-            self.logger.debug(f"Не найдено языков в моде {mod_path}, используем default: {self.source_langs_list}")
+            self.logger.debug(
+                f"Не найдено языков в моде {mod_path}, используем default: {self.source_langs_list}"
+            )
             return self.source_langs_list
 
         result_langs = []
@@ -286,7 +293,7 @@ class TranslationWorker(BaseWorker):
             return result_langs
 
         if "English" in available_langs:
-            self.logger.info(f"English найден в моде, используем как исходный")
+            self.logger.info("English найден в моде, используем как исходный")
             return ["English"]
 
         fallback = available_langs[0]
@@ -309,16 +316,18 @@ class TranslationWorker(BaseWorker):
             original_path=original_path,
             mod_path=mod_path,
             output_folder=self.output_folder,
-            mod_name=mod_name
+            mod_name=mod_name,
         )
 
-    def _get_mod_output_path(self, mod_path: str, defs_folders_list: list[str] | None = None) -> str:
+    def _get_mod_output_path(
+        self, mod_path: str, defs_folders_list: list[str] | None = None
+    ) -> str:
         """Определяет путь вывода в зависимости от режима."""
         return self._path_strategy.get_mod_output_path(
             mod_path=mod_path,
             target_lang=self.target_lang,
             output_folder=self.output_folder,
-            defs_folders_list=defs_folders_list
+            defs_folders_list=defs_folders_list,
         )
 
     def _should_create_backup(self) -> bool:
@@ -484,8 +493,14 @@ class TranslationWorker(BaseWorker):
                                     root = safe_parse_xml(test_about)
                                     if root is not None:
                                         name_elem = root.find("name")
-                                        if name_elem is not None and name_elem.text and name_elem.text.strip() == mod_name:
-                                            self.logger.info(f"✅ Найден правильный путь: {possible_mod_path}")
+                                        if (
+                                            name_elem is not None
+                                            and name_elem.text
+                                            and name_elem.text.strip() == mod_name
+                                        ):
+                                            self.logger.info(
+                                                f"✅ Найден правильный путь: {possible_mod_path}"
+                                            )
                                             mod_path = possible_mod_path
                                             break
                                 except Exception as e:
@@ -495,8 +510,10 @@ class TranslationWorker(BaseWorker):
 
         if not os.path.exists(mod_path):
             self.logger.error(f"❌ mod_path НЕ НАЙДЕН: {mod_path}")
-            self.logger.error(f"   Убедитесь что mod_path указывает на правильную папку мода")
-            self.logger.error(f"   Для Steam Workshop модов используйте числовой ID (например, 1084452457)")
+            self.logger.error("   Убедитесь что mod_path указывает на правильную папку мода")
+            self.logger.error(
+                "   Для Steam Workshop модов используйте числовой ID (например, 1084452457)"
+            )
             self._errors.append(f"Мод не найден: {mod_path}")
             if section:
                 section.add_item(f"❌ Мод не найден: {mod_path}", "error")
@@ -641,7 +658,7 @@ class TranslationWorker(BaseWorker):
                 output_folder=self.output_folder,
                 mod_name=mod_name,
                 target_lang=self.target_lang,
-                source_lang=self.source_lang
+                source_lang=self.source_lang,
             )
 
             # Запоминаем целевую папку (для backup и Morphy)
@@ -665,6 +682,7 @@ class TranslationWorker(BaseWorker):
                 self._create_backup(target_lang_folder)
                 # ✅ Задержка для освобождения файловых дескрипторов Windows
                 import time
+
                 time.sleep(5)
 
         return count
@@ -681,12 +699,12 @@ class TranslationWorker(BaseWorker):
             output_folder=self.output_folder,
             mod_name=mod_name,
             target_lang=self.target_lang,
-            source_lang=self.source_lang
+            source_lang=self.source_lang,
         )
 
     def _process_defs(self, defs_folders: list[str], mod_path: str, mod_output: str) -> int:
         """Обрабатывает папки Defs."""
-        count =0
+        count = 0
         all_defs_index = {}  # COMBINED index from ALL folders
         all_defs_rel = {}
         all_defs_meta = {}
@@ -708,7 +726,7 @@ class TranslationWorker(BaseWorker):
             all_defs_meta.update(defs_meta)
 
         if not all_defs_index:
-            self.logger.info(f"  Defs не найдены ни в одной папке")
+            self.logger.info("  Defs не найдены ни в одной папке")
             return 0
 
         self.logger.info(f"  Всего собрано {len(all_defs_index)} Defs из {len(defs_folders)} папок")
@@ -774,7 +792,7 @@ class TranslationWorker(BaseWorker):
                                 continue
                             en_comments = {}
                             for match in re.finditer(r"<!--\s*EN:\s*(.*?)\s*-->", content):
-                                after_comment = content[match.end():]
+                                after_comment = content[match.end() :]
                                 tag_match = re.match(r"\s*<([^>/]+)>", after_comment)
                                 if tag_match:
                                     en_comments[tag_match.group(1)] = match.group(1).strip()
@@ -783,7 +801,7 @@ class TranslationWorker(BaseWorker):
                                     tag = child.tag
                                     clean_tag = tag
                                     if tag.startswith("_OBSOLETE_"):
-                                        clean_tag = tag[len("_OBSOLETE_"):]
+                                        clean_tag = tag[len("_OBSOLETE_") :]
                                     existing_map[clean_tag] = child.text.strip()
                                     existing_index[clean_tag] = path
                                     if clean_tag in en_comments:
@@ -813,7 +831,9 @@ class TranslationWorker(BaseWorker):
             cleanup_orphans=True,
             fuzzy=self.fuzzy,
             engine_names=self._engine_names,  # ✅ НОВОЕ: передаём список движков
-            glossary_manager=self._auto_translator.glossary_manager if self._auto_translator else None,  # ✅ НОВОЕ: кэшированный glossary_manager
+            glossary_manager=self._auto_translator.glossary_manager
+            if self._auto_translator
+            else None,  # ✅ НОВОЕ: кэшированный glossary_manager
         )
 
         count = len(created_files)
@@ -826,7 +846,7 @@ class TranslationWorker(BaseWorker):
         self, mod_path: str, mod_root: str, mod_output: str, translations_count: int, mod_name: str
     ) -> None:
         """Финальные действия после перевода мода."""
-        if translations_count >0 and self.mode == "separate":
+        if translations_count > 0 and self.mode == "separate":
             os.makedirs(mod_root, exist_ok=True)
             self._create_translation_mod_about(mod_root, mod_name, mod_path)
 
@@ -857,7 +877,9 @@ class TranslationWorker(BaseWorker):
                     # ✅ ИСПРАВЛЕНО: Извлекаем ВСЕ поддерживаемые версии
                     supported_versions_elem = root.find("supportedVersions")
                     if supported_versions_elem is not None:
-                        versions = [v.text.strip() for v in supported_versions_elem.findall("li") if v.text]
+                        versions = [
+                            v.text.strip() for v in supported_versions_elem.findall("li") if v.text
+                        ]
                         if versions:
                             supported_versions = versions
                     else:
@@ -921,13 +943,13 @@ class TranslationWorker(BaseWorker):
             pass
 
         # ✅ Минимальная структура для translation mod (RimWorld 2026)
-        loadfolders_content = f'''<?xml version="1.0" encoding="utf-8"?>
+        loadfolders_content = f"""<?xml version="1.0" encoding="utf-8"?>
 <loadFolders>
   <v{version.replace(".", "")}>
     <li>Common</li>
     <li>{version}</li>
   </v{version.replace(".", "")}>
-</loadFolders>'''
+</loadFolders>"""
 
         try:
             with open(loadfolders_path, "w", encoding="utf-8") as f:
@@ -955,7 +977,7 @@ class TranslationWorker(BaseWorker):
 
     def _translate_xml_file(self, source_file: str, output_file: str, source_lang: str) -> int:
         """Переводит один XML файл (DefInjected/Keyed).
-        
+
         Поддерживает плейсхолдеры RimWorld: {0}, {1}, {name}, $ и т.д.
         Перевод текста выполняется с сохранением плейсхолдеров.
         """
@@ -974,28 +996,30 @@ class TranslationWorker(BaseWorker):
             for elem in root.iter():
                 if elem.text and elem.text.strip():
                     original = elem.text.strip()
-                    
+
                     if self._auto_translator and self._auto_translator.enabled:
                         try:
                             # Сохраняем плейсхолдеры перед переводом
                             placeholders = []
-                            
+
                             def save_placeholder(match):
                                 placeholders.append(match.group(0))
-                                return f"__PLACEHOLDER_{len(placeholders)-1}__"
-                            
+                                return f"{_PLACEHOLDER_PREFIX}{len(placeholders) - 1}{_PLACEHOLDER_SUFFIX}"
+
                             # Сохраняем фигурные скобки {0}, {name}, и т.п.
                             text_to_translate = _RE_BRACE.sub(save_placeholder, original)
                             text_to_translate = _RE_DOLLAR.sub(save_placeholder, text_to_translate)
                             text_to_translate = _RE_BRACKET.sub(save_placeholder, text_to_translate)
-                            
+
                             translated = self._auto_translator.translate(text_to_translate)
-                            
+
                             if translated:
                                 # Восстанавливаем плейсхолдеры
                                 for i, placeholder in enumerate(placeholders):
-                                    translated = translated.replace(f"__PLACEHOLDER_{i}__", placeholder)
-                                
+                                    translated = translated.replace(
+                                        f"{_PLACEHOLDER_PREFIX}{i}{_PLACEHOLDER_SUFFIX}", placeholder
+                                    )
+
                                 elem.text = translated
                                 translations_count += 1
                         except Exception as e:
@@ -1018,7 +1042,7 @@ class TranslationWorker(BaseWorker):
 
     def _translate_txt_file(self, source_file: str, output_file: str, source_lang: str) -> int:
         """Переводит текстовый файл (Strings/*.txt) построчно.
-        
+
         Поддерживает плейсхолдеры RimWorld: {0}, {1}, {name}, $ и т.д.
         Перевод текста выполняется с сохранением плейсхолдеров.
         """
@@ -1044,23 +1068,27 @@ class TranslationWorker(BaseWorker):
                         try:
                             # Сохраняем плейсхолдеры перед переводом
                             placeholders = []
-                            
+
                             def save_placeholder(match):
                                 placeholders.append(match.group(0))
-                                return f"__PLACEHOLDER_{len(placeholders)-1}__"
-                            
+                                return f"{_PLACEHOLDER_PREFIX}{len(placeholders) - 1}{_PLACEHOLDER_SUFFIX}"
+
                             # Сохраняем фигурные скобки {0}, {name}, и т.п.
                             text_to_translate = _RE_BRACE.sub(save_placeholder, stripped)
                             text_to_translate = _RE_DOLLAR.sub(save_placeholder, text_to_translate)
                             text_to_translate = _RE_BRACKET.sub(save_placeholder, text_to_translate)
-                            
-                            translated = self._auto_translator.translate(text_to_translate, stripped)
-                            
+
+                            translated = self._auto_translator.translate(
+                                text_to_translate, stripped
+                            )
+
                             if translated:
                                 # Восстанавливаем плейсхолдеры
                                 for i, placeholder in enumerate(placeholders):
-                                    translated = translated.replace(f"__PLACEHOLDER_{i}__", placeholder)
-                                
+                                    translated = translated.replace(
+                                        f"{_PLACEHOLDER_PREFIX}{i}{_PLACEHOLDER_SUFFIX}", placeholder
+                                    )
+
                                 translated_lines.append(translated + "\n")
                                 translations_count += 1
                                 continue
@@ -1077,11 +1105,13 @@ class TranslationWorker(BaseWorker):
             # записываем временный файл, затем переименовываем (атомарно)
             if os.path.normpath(source_file) == os.path.normpath(output_file):
                 import tempfile
+
                 with tempfile.NamedTemporaryFile(
-                    mode='w', encoding="utf-8",
+                    mode="w",
+                    encoding="utf-8",
                     dir=os.path.dirname(output_file),
-                    suffix='.tmp',
-                    delete=False
+                    suffix=".tmp",
+                    delete=False,
                 ) as f:
                     f.write("".join(translated_lines))
                     temp_path = f.name
@@ -1090,7 +1120,9 @@ class TranslationWorker(BaseWorker):
                 # ✅ ИСПРАВЛЕНО: Используем безопасную запись файла
                 _safe_write_file(output_file, "".join(translated_lines), encoding="utf-8")
 
-            self.logger.debug(f"Переведён txt файл: {os.path.relpath(output_file, self.mods_folder)} ({translations_count} строк)")
+            self.logger.debug(
+                f"Переведён txt файл: {os.path.relpath(output_file, self.mods_folder)} ({translations_count} строк)"
+            )
 
         except Exception as e:
             self._warnings.append(f"Ошибка обработки txt {source_file}: {e}")
@@ -1150,7 +1182,6 @@ class TranslationWorker(BaseWorker):
         except Exception as e:
             self._warnings.append(f"Ошибка парсинга XML {source_file}: {e}")
             try:
-
                 shutil.copy2(source_file, output_file)
             except Exception:
                 pass
@@ -1219,7 +1250,7 @@ class TranslationWorker(BaseWorker):
                     if os.path.exists(target_file) and not self.force_update:
                         # Проверяем, есть ли в файле перевод (не просто копия English)
                         try:
-                            with open(target_file, "r", encoding="utf-8") as f:
+                            with open(target_file, encoding="utf-8") as f:
                                 content = f.read()
                             # Если файл не пустой и содержит кириллицу - пропускаем
                             if content.strip() and any(ord(c) > 127 for c in content):
@@ -1252,67 +1283,81 @@ class TranslationWorker(BaseWorker):
                 except Exception as e:
                     self.logger.warning(f"[Strings] Ошибка копирования {filename}: {e}")
 
-
-        self.logger.info(f"[Strings] Обработана: {os.path.relpath(source_strings, self.mods_folder)}")
-
+        self.logger.info(
+            f"[Strings] Обработана: {os.path.relpath(source_strings, self.mods_folder)}"
+        )
 
         # ✅ НОВОЕ: Запускаем Morphy.py для генерации правильных грамматических форм
         # ✅ ИСПРАВЛЕНО: Вызываем Morphy.py в конце перевода
-        if self.target_lang.lower() in ['russian', 'ru']:
+        self.logger.info(f"[Morphy] Check: target_lang={self.target_lang!r}, lower={self.target_lang.lower()!r}")
+        if self.target_lang.lower() in ["russian", "ru"]:
             target_strings = os.path.join(self._current_mod_output, "Strings")
+            self.logger.info(f"[Morphy] Starting: target_strings={target_strings}")
             self._run_morphy_for_strings(target_strings, self._current_mod_output)
+        else:
+            self.logger.info(f"[Morphy] Skipped: target_lang={self.target_lang!r} not in [russian, ru]")
+
     def _run_morphy_for_strings(self, target_strings: str, mod_output: str) -> None:
         """Запускает Morphy.py для генерации правильных грамматических форм."""
+        self.logger.info(f"[Morphy] Called: target_strings={target_strings}, mod_output={mod_output}")
         if not os.path.isdir(target_strings):
+            self.logger.info(f"[Morphy] Directory does not exist: {target_strings}")
             return
 
         try:
             from utils.Morphy import RimWorldUniversalParser
 
-            self.logger.info(f"[Morphy] Обработка {target_strings}")
+            actual_lang = self.target_lang.lower()
+            self.logger.info(f"[Morphy] Creating parser for lang={actual_lang}")
 
-            parser = RimWorldUniversalParser(lang=self.target_lang.lower())
+            parser = RimWorldUniversalParser(lang=actual_lang)
+            self.logger.info(f"[Morphy] Parser mode={parser.mode}, lang={parser.lang}, morph={parser.morph is not None}")
 
             # Собираем все .txt файлы (кроме Grammar/)
             txt_files = []
             for root, dirs, files in os.walk(target_strings):
-                if 'Grammar' in root:
+                if "Grammar" in root:
+                    self.logger.debug(f"[Morphy] Skipping Grammar dir: {root}")
                     continue
                 for filename in files:
-                    if filename.endswith('.txt') and not filename.startswith('.'):
+                    if filename.endswith(".txt") and not filename.startswith("."):
                         txt_files.append(os.path.join(root, filename))
 
             if not txt_files:
-                self.logger.debug("[Morphy] Нет .txt файлов")
+                self.logger.info(f"[Morphy] No .txt files found in {target_strings}")
                 return
 
-            self.logger.info(f"[Morphy] Найдено {len(txt_files)} .txt файлов")
+            self.logger.info(f"[Morphy] Found {len(txt_files)} .txt files")
 
             # Определяем папку для выходных XML
             def_injected_path = os.path.join(mod_output, "DefInjected", "RulePackDef")
             os.makedirs(def_injected_path, exist_ok=True)
+            self.logger.info(f"[Morphy] Output dir: {def_injected_path}")
 
             # Обрабатываем каждый файл
+            generated_count = 0
             for txt_file in txt_files:
                 rel_path = os.path.relpath(txt_file, target_strings)
-                base_name = os.path.splitext(rel_path)[0].replace(os.sep, '_')
-                # ✅ ИСПРАВЛЕНО: Правильный регистр (RulePack_ единственное число)
+                base_name = os.path.splitext(rel_path)[0].replace(os.sep, "_")
                 def_name = base_name
                 output_path = os.path.join(def_injected_path, f"RulePack_{base_name}.xml")
 
                 try:
                     result = parser.generate_balanced_xml(txt_file, def_name, output_path)
                     if result and os.path.exists(result):
+                        generated_count += 1
                         self.logger.debug(f"[Morphy] {rel_path} -> {os.path.basename(result)}")
+                    else:
+                        self.logger.debug(f"[Morphy] {rel_path} -> NO RESULT")
                 except Exception as e:
-                    self.logger.debug(f"[Morphy] Ошибка {rel_path}: {e}")
+                    self.logger.debug(f"[Morphy] Error {rel_path}: {e}")
 
-            self.logger.info(f"[Morphy] ✓ Обработка завершена")
+            self.logger.info(f"[Morphy] Done. Generated {generated_count} XML files")
 
-        except ImportError:
-            self.logger.debug("[Morphy] Morphy.py недоступен (pymorphy3 не установлен?)")
+        except ImportError as e:
+            self.logger.warning(f"[Morphy] Import error: {e} (pymorphy3 not installed?)")
         except Exception as e:
-            self.logger.warning(f"[Morphy] Ошибка: {e}")
+            self.logger.error(f"[Morphy] Error: {e}", exc_info=True)
 
     def _check_existing_translation(self, target_lang_folder: str) -> dict:
         result = {"exists": False, "files_count": 0, "entries_count": 0}
@@ -1352,7 +1397,6 @@ class TranslationWorker(BaseWorker):
                 f"Пропускаем уже существующий DefInjected: {os.path.relpath(output_file, self.mods_folder)}"
             )
             return 0
-
 
         try:
             root = safe_parse_xml(source_file)
@@ -1395,7 +1439,13 @@ class TranslationWorker(BaseWorker):
         return translations_count
 
     def _extract_translatable_strings(
-        self, element, def_type: str, def_name: str, translatable_tags: set, path: str = "", _depth: int = 0
+        self,
+        element,
+        def_type: str,
+        def_name: str,
+        translatable_tags: set,
+        path: str = "",
+        _depth: int = 0,
     ) -> list:
         if _depth > 20:
             return []
@@ -1419,7 +1469,12 @@ class TranslationWorker(BaseWorker):
             if len(list(child)) > 0:
                 entries.extend(
                     self._extract_translatable_strings(
-                        child, def_type, def_name, translatable_tags, current_path, _depth=_depth + 1
+                        child,
+                        def_type,
+                        def_name,
+                        translatable_tags,
+                        current_path,
+                        _depth=_depth + 1,
                     )
                 )
         return entries

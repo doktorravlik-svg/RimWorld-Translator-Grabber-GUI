@@ -139,26 +139,27 @@ class VerificationWorker(BaseWorker):
         self._coordinator.checks.clear()
 
         # Регистрируем только выбранные
+        # check_mapping: user-facing name -> internal check name
         check_mapping = {
             "about": "about_xml",
-            "dependencies": "dependencies",
+            "dependencies": "dependencies_check",
             "translations": "translation_structure",
-            "structure": "translation_structure",
+            "structure": "structure check",
         }
-
-        for check_name in self.checks:
-            # Проверяем, есть ли встроенные проверки с таким именем
-            # В реальной реализации здесь может быть динамическая загрузка
-            pass
-
-        # Перерегистрируем встроенные проверки
+        # Build reverse mapping: internal name -> user name
+        reverse_mapping = {v: k for k, v in check_mapping.items()}
+        
+        # Re-register default checks
         self._coordinator._register_default_checks()
-
-        # Фильтруем по именам
+        
+        # Filter by names
         if self.checks:
             filtered = []
             for check in self._coordinator.checks:
-                if check.name in self.checks or check_mapping.get(check.name) in self.checks:
+                # Match by internal name directly, or by user-facing name via mapping
+                if check.name in self.checks:
+                    filtered.append(check)
+                elif check.name in reverse_mapping and reverse_mapping[check.name] in self.checks:
                     filtered.append(check)
             self._coordinator.checks = filtered
 
