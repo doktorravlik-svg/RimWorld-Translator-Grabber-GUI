@@ -1,6 +1,5 @@
 from .about_xml import AboutXmlCheck
 from .anchor_consistency import AnchorConsistencyCheck
-from .auto_fixer import AutoFixer
 from .case_inspector import CaseInspector
 from .core_auto_fill import CoreAutoFillCheck
 from .core_terminalogy_check import CoreTerminologyConsistencyCheck
@@ -24,7 +23,6 @@ from .yo_inspector import YoInspector
 __all__ = [
     "AboutXmlCheck",
     "AnchorConsistencyCheck",
-    "AutoFixer",
     "CaseInspector",
     "CoreAutoFillCheck",
     "CoreTerminologyConsistencyCheck",
