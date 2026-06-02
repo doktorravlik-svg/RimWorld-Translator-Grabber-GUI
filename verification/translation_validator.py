@@ -39,20 +39,28 @@ class QualityLevel(Enum):
     VERY_POOR = "very_poor"
 
 
-# Паттерны плейсхолдеров RimWorld и通用的
+# Паттерны плейсхолдеров RimWorld и универсальные.
+# Порядок важен: более специфичные паттерны должны идти первыми.
+# Каждый паттерн должен захватывать плейсхолдер целиком, включая скобки.
 PLACEHOLDER_PATTERNS = [
-    r"\{0\}",  # {0}
-    r"\{1\}",  # {1}
-    r"\{\d+\}",  # {n}
-    # RimWorld: именованные аргументы в фигурных скобках (например {PAWN_nameDef}, {thing})
-    r"\{[A-Za-z_][A-Za-z0-9_]*\}",  # {name}, {PAWN_nameDef}
-    r"%s",  # %s
-    r"%d",  # %d
-    r"%[.\d]*[dfgsx]",  # Форматирование %0.2f
-    r"\$([A-Za-z_][A-Za-z0-9_]*)",  # $variable
-    r"\[[^\]]+\]",  # [tag] - теги RimWorld
-    # RimWorld: XML-теги форматирования (*Name)лик(*Name)
-    r"\(\*[^)]+\)",  # (*Name)
+    # RimWorld: гендерные тернарные операторы {PAWN_gender ? masc : fem : neut}
+    r"\{[a-zA-Z0-9_]+\s*\?\s*[^}]+\}",
+    # RimWorld: lookup-синтаксис {lookup: [animal]; Case; 1}
+    r"\{lookup:\s*\[[^\]]+\];\s*[^;]+;\s*\d+\}",
+    # RimWorld: хоткеи {Key:Accept}, {Key:TimeSpeed_Normal}
+    r"\{Key:[A-Za-z_][A-Za-z0-9_]*\}",
+    # Фигурные скобки: {0}, {1}, {42}, {PAWN_nameDef}, {0_label}, {thing}
+    # Захватывает и числовые, и именованные, и смешанные
+    r"\{[A-Za-z0-9_][A-Za-z0-9_]*\}",
+    r"\{\d+\}",
+    # Процент-форматирование: %s, %d, %0.2f
+    r"%[.\d]*[dfgsx]",
+    # Переменные с долларом: $variable
+    r"\$[A-Za-z_][A-Za-z0-9_]*",
+    # Квадратные скобки: [NamerShip], [BodyPart], [adj_fem]
+    r"\[[^\]]+\]",
+    # RimWorld: методы (*Health), (*Food), (*Name)
+    r"\(\*[^)]+\)",
 ]
 
 
@@ -332,23 +340,10 @@ class TranslationValidator:
         return issues
 
     def _extract_placeholders(self, text: str) -> set[str]:
-        """Извлекает все плейсхолдеры из текста"""
+        """Извлекает все плейсхолдеры из текста."""
         placeholders = set()
         for pattern in self._placeholder_patterns:
             matches = pattern.findall(text)
-            pattern_str = pattern.pattern
-            if pattern_str.startswith("\\["):
-                # Для [tag] добавляем с квадратными скобками
-                matches = [f"[{m}]" for m in matches]
-            elif pattern_str.startswith("\\(\\*"):
-                # Для (*Name) добавляем со скобками
-                matches = [f"(*{m})" for m in matches]
-            elif pattern_str.startswith("\\{"):
-                # Для {name} добавляем с фигурными скобками
-                matches = [f"{{{m}}}" for m in matches]
-            elif pattern_str.startswith("\\$"):
-                # Для $variable добавляем с символом доллара
-                matches = [f"${m}" for m in matches]
             placeholders.update(matches)
         return placeholders
 
