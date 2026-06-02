@@ -23,7 +23,9 @@ class TranslationEntry:
         if not self.timestamp:
             self.timestamp = datetime.now().isoformat()
         if not self.hash:
-            self.hash = hashlib.md5(self.value.encode("utf-8")).hexdigest()[:12]
+            # Подстраховка на случай, если value пришёл как None
+            safe_value = self.value if self.value is not None else ""
+            self.hash = hashlib.md5(safe_value.encode("utf-8")).hexdigest()[:12]
 
 
 @dataclass(slots=True)
