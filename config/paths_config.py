@@ -158,6 +158,11 @@ class PathsConfig:
         Returns:
             Путь к папке модов
         """
+        # Защитная валидация: если модуль не из допустимых, используем default
+        valid_modules = ["grabber", "translator", "editor", "verifier", "default"]
+        if module not in valid_modules:
+            module = "default"
+
         # 1. Проверяем индивидуальное переопределение
         if module in self.module_overrides:
             override_path = self.module_overrides[module]

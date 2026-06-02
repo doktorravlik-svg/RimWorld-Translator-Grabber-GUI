@@ -115,12 +115,19 @@ class ConfigManager:
         """Сохранить конфигурацию (вызывать только внутри config_lock)"""
         try:
             # ✅ Атомарная запись через временный файл
-            import tempfile
             temp_path = f"{self._file_path}.tmp"
             with open(temp_path, "w", encoding="utf-8") as f:
                 json.dump(self._config, f, indent=4, ensure_ascii=False)
             # Атомарная замена файла
-            os.replace(temp_path, self._file_path)
+            try:
+                os.replace(temp_path, self._file_path)
+            except PermissionError as e:
+                logger.warning(f"Файл временно заблокирован другим процессом: {e}")
+                # Пытаемся удалить временный файл
+                try:
+                    os.remove(temp_path)
+                except OSError:
+                    pass
         except (OSError, IOError) as e:
             logger.error(f"Ошибка сохранения конфигурации: {e}")
 
