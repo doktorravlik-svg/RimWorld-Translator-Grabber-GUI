@@ -3,6 +3,8 @@
 Управление цветами для RimWorld Translator Grabber.
 """
 
+from gui.utils import safe_configure
+
 
 def apply_colors(config: dict, style, widgets: dict, log_callback=None):
     """
@@ -20,29 +22,28 @@ def apply_colors(config: dict, style, widgets: dict, log_callback=None):
     accent_color = config.get("accent_color")
 
     if text_color:
-        style.configure("TLabel", foreground=text_color)
-        style.configure("TLabelframe", foreground=text_color)
-        style.configure("TLabelframe.Label", foreground=text_color)
-        style.configure("TCheckbutton", foreground=text_color)
-        style.configure("TRadiobutton", foreground=text_color)
+        safe_configure(style, "TLabel", foreground=text_color)
+        safe_configure(style, "TLabelframe", foreground=text_color)
+        safe_configure(style, "TLabelframe.Label", foreground=text_color)
+        safe_configure(style, "TCheckbutton", foreground=text_color)
+        safe_configure(style, "TRadiobutton", foreground=text_color)
 
     if bg_color:
-        style.configure("TFrame", background=bg_color)
-        style.configure("TLabel", background=bg_color)
-        style.configure("TLabelFrame", background=bg_color)
-        style.configure("TLabelframe", background=bg_color)
-        style.configure("TCheckbutton", background=bg_color)
-        style.configure("TRadiobutton", background=bg_color)
+        safe_configure(style, "TFrame", background=bg_color)
+        safe_configure(style, "TLabel", background=bg_color)
+        safe_configure(style, "TLabelframe", background=bg_color)
+        safe_configure(style, "TCheckbutton", background=bg_color)
+        safe_configure(style, "TRadiobutton", background=bg_color)
 
     if accent_color:
-        style.configure("TButton", background=accent_color)
-        style.configure("Accent.TButton", background=accent_color)
-        style.configure("TNotebook.Tab", background=accent_color)
+        safe_configure(style, "TButton", background=accent_color)
+        safe_configure(style, "Accent.TButton", background=accent_color)
+        safe_configure(style, "TNotebook.Tab", background=accent_color)
         style.map("TNotebook.Tab", background=[("selected", accent_color)])
 
     if text_color and bg_color:
-        style.configure("TEntry", fieldbackground=bg_color, foreground=text_color)
-        style.configure("TCombobox", fieldbackground=bg_color, foreground=text_color)
+        safe_configure(style, "TEntry", fieldbackground=bg_color, foreground=text_color)
+        safe_configure(style, "TCombobox", fieldbackground=bg_color, foreground=text_color)
 
     # Цвета логов
     log_bg_color = config.get("log_bg_color")

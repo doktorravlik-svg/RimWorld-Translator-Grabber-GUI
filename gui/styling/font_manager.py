@@ -3,6 +3,8 @@
 Управление шрифтами для RimWorld Translator Grabber.
 """
 
+from gui.utils import safe_configure
+
 
 def get_font_tuple(config: dict, key: str, default_family: str, default_size: int) -> tuple:
     """
@@ -39,19 +41,19 @@ def apply_fonts(config: dict, style, widgets: dict, log_callback=None):
     tree_font = get_font_tuple(config, "tree_font", "Segoe UI", 9)
 
     # Применяем основной шрифт через стили
-    style.configure("TLabel", font=main_font)
-    style.configure("TButton", font=main_font)
-    style.configure("TEntry", font=main_font)
-    style.configure("TCombobox", font=main_font)
-    style.configure("TCheckbutton", font=main_font)
-    style.configure("TRadiobutton", font=main_font)
-    style.configure("TNotebook.Tab", font=main_font)
-    style.configure("TLabelframe", font=main_font)
-    style.configure("TLabelframe.Label", font=(*main_font, "bold"))
+    safe_configure(style, "TLabel", font=main_font)
+    safe_configure(style, "TButton", font=main_font)
+    safe_configure(style, "TEntry", font=main_font)
+    safe_configure(style, "TCombobox", font=main_font)
+    safe_configure(style, "TCheckbutton", font=main_font)
+    safe_configure(style, "TRadiobutton", font=main_font)
+    safe_configure(style, "TNotebook.Tab", font=main_font)
+    safe_configure(style, "TLabelframe", font=main_font)
+    safe_configure(style, "TLabelframe.Label", font=(*main_font, "bold"))
 
     # Применяем шрифт дерева
-    style.configure("Treeview", font=tree_font)
-    style.configure("Treeview.Heading", font=(*tree_font, "bold"))
+    safe_configure(style, "Treeview", font=tree_font)
+    safe_configure(style, "Treeview.Heading", font=(*tree_font, "bold"))
 
     # Применяем шрифт логов
     if "log_text" in widgets:
