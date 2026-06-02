@@ -155,25 +155,28 @@ class Glossary:
 
         # Сохраняем RimWorld-специфичные конструкции перед обработкой
         placeholders = []
+        # Защитный маркер — без спецсимволов, совместим с API
+        _PH_PREFIX = "__GLPH_"
+        _PH_SUFFIX = "__"
 
-        # Сохраняем переменные в фигурных скобках {0}, {letter}, и т.п.
+        # Сохраняем переменные в фигурных скобках: {0}, {1}, {letter}, {PAWN_nameDef}, и т.п.
         def save_brace_variable(match):
             placeholders.append(match.group(0))
-            return f"__PLACEHOLDER_{len(placeholders)-1}__"
+            return f"{_PH_PREFIX}{len(placeholders)-1}{_PH_SUFFIX}"
 
         result = re.sub(r'\{[a-zA-Z0-9_]+\}', save_brace_variable, result)
 
         # Сохраняем RimWorld-методы (*Health), (*Food), и т.п.
         def save_rimworld_method(match):
             placeholders.append(match.group(0))
-            return f"__PLACEHOLDER_{len(placeholders)-1}__"
+            return f"{_PH_PREFIX}{len(placeholders)-1}{_PH_SUFFIX}"
 
         result = re.sub(r'\(\*[a-zA-Z][a-zA-Z0-9]*\)', save_rimworld_method, result)
 
         # Сохраняем квадратные скобки [text]
         def save_bracketed(match):
             placeholders.append(match.group(0))
-            return f"__PLACEHOLDER_{len(placeholders)-1}__"
+            return f"{_PH_PREFIX}{len(placeholders)-1}{_PH_SUFFIX}"
 
         result = re.sub(r'\[[^\]]+\]', save_bracketed, result)
 
@@ -232,7 +235,7 @@ class Glossary:
 
         # Восстанавливаем сохранённые конструкции
         for i, placeholder in enumerate(placeholders):
-            result = result.replace(f"__PLACEHOLDER_{i}__", placeholder)
+            result = result.replace(f"{_PH_PREFIX}{i}{_PH_SUFFIX}", placeholder)
 
         return result
 
