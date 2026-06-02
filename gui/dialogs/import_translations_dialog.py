@@ -194,32 +194,37 @@ class ImportTranslationsDialog:
             importer = get_importer()
 
             def progress_callback(current, total, message):
-                if total > 0:
-                    percentage = (current / total) * 100
-                    self.progress_var.set(percentage)
+                # ✅ ИСПРАВЛЕНО: Обновляем UI через main thread
+                def update_ui():
+                    if total > 0:
+                        percentage = (current / total) * 100
+                        self.progress_var.set(percentage)
                     self.status_label.config(text=f"{message} ({current}/{total})")
+
+                self.dialog.after(0, update_ui)
 
             stats = importer.import_from_mods_folder(
                 mods_folder, target_lang, progress_callback=progress_callback
             )
 
-            # Обновляем статистику
-            self._update_stats_text(
-                f"✅ Импорт завершён!\n\n"
-                f"📦 Модов просканировано: {stats.get('mods_scanned', 0)}\n"
-                f"📄 Файлов обработано: {stats.get('files_processed', 0)}\n"
-                f"🌐 Переводов импортировано: {stats.get('translations_imported', 0)}\n"
-                f"❌ Ошибок: {stats.get('errors', 0)}\n\n"
-                f"База данных статистика:\n"
-            )
+            # Обновляем статистику (через after для потокобезопасности)
+            def show_stats():
+                self._update_stats_text(
+                    f"✅ Импорт завершён!\n\n"
+                    f"📦 Модов просканировано: {stats.get('mods_scanned', 0)}\n"
+                    f"📄 Файлов обработано: {stats.get('files_processed', 0)}\n"
+                    f"🌐 Переводов импортировано: {stats.get('translations_imported', 0)}\n"
+                    f"❌ Ошибок: {stats.get('errors', 0)}\n\n"
+                    f"База данных статистика:\n"
+                )
+                db_stats = importer.get_database_stats()
+                self._update_stats_text(
+                    f"  📝 Записей переводов: {db_stats.get('translation_entries', 0)}\n"
+                    f"  📖 Терминов глоссария: {db_stats.get('glossary_terms', 0)}\n",
+                    append=True,
+                )
 
-            # Добавляем статистику БД
-            db_stats = importer.get_database_stats()
-            self._update_stats_text(
-                f"  📝 Записей переводов: {db_stats.get('translation_entries', 0)}\n"
-                f"  📖 Терминов глоссария: {db_stats.get('glossary_terms', 0)}\n",
-                append=True,
-            )
+            self.dialog.after(0, show_stats)
 
             self.dialog.after(
                 0,

@@ -10,6 +10,7 @@ import tkinter as tk
 import ttkbootstrap as ttk
 from gui.gui_i18n import tr
 from gui.styling.icon_manager import HAS_ICONS, get_dialog_header_icons
+from gui.utils import center_window
 from ttkbootstrap.constants import *
 
 
@@ -28,10 +29,7 @@ def show_about(parent):
     dialog.resizable(False, False)
 
     # Центрируем
-    dialog.update_idletasks()
-    x = parent.winfo_rootx() + (parent.winfo_width() // 2) - 300
-    y = parent.winfo_rooty() + (parent.winfo_height() // 2) - 260
-    dialog.geometry(f"600x520+{x}+{y}")
+    center_window(dialog, parent, 600, 520)
 
     # Фрейм с отступами
     main_frame = ttk.Frame(dialog, padding=20)
@@ -48,7 +46,7 @@ def show_about(parent):
             title_label = ttk.Label(
                 header_frame,
                 text=tr("app_title", "🌐 RimWorld Translator Grabber"),
-                image=icon.image,
+                image=icon,
                 compound="left",
                 font=("Segoe UI", 18, "bold"),
             )
@@ -68,7 +66,7 @@ def show_about(parent):
 
     version_label = ttk.Label(
         header_frame,
-        text=tr("about_version", "v2.2"),
+        text=tr("about_version", "v2.2.0"),
         font=("Segoe UI", 10),
         foreground="gray",
     )
@@ -97,7 +95,7 @@ def show_about(parent):
     notebook.add(about_frame, text=tr("about_tab_info", "О приложении"))
 
     info_items = [
-        (tr("about_version", "Версия:"), "2.2"),
+        (tr("about_version", "Версия:"), "2.2.0"),
         (tr("about_python", "Python:"), "3.14.3"),
         (tr("about_gui_framework", "GUI фреймворк:"), "ttkbootstrap 1.20.2"),
         (tr("about_translation_engine", "Движок перевода:"), "deep-translator (Google Translate)"),

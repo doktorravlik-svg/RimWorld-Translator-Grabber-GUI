@@ -5,9 +5,11 @@
 
 import os
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import ttk
 
+from gui.dialogs.messagebox_helpers import show_ok, show_warning
 from gui.gui_i18n import tr
+from gui.components.scrollable_tree import ScrollableTree
 from translation_db import get_translation_db
 
 
@@ -31,10 +33,7 @@ class SuggestionsDialog:
         self.db = get_translation_db(target_language)
 
         if self.db is None:
-            messagebox.showwarning(
-                tr("editor_warning", "Предупреждение"),
-                tr("editor_db_not_connected", "База переводов не подключена"),
-            )
+            show_warning(parent, tr("editor_db_not_connected", "База переводов не подключена"))
             return
 
         self._create_dialog()
@@ -56,21 +55,26 @@ class SuggestionsDialog:
             font=("Segoe UI", 14, "bold"),
         ).pack(pady=10)
 
-        # Таблица предложений
+        # Таблица предложений (используем ScrollableTree)
         cols = ("key", "suggestion", "confidence", "source", "current")
-        self.st = ttk.Treeview(self.dialog, columns=cols, show="headings", height=15)
-        for c, h in zip(
-            cols,
-            [
-                tr("editor_suggestions_key_col", "Ключ"),
-                tr("editor_suggestions_suggestion_col", "Предложение"),
-                tr("editor_suggestions_confidence_col", "Уверенность"),
-                tr("editor_suggestions_source_col", "Источник"),
-                tr("editor_suggestions_current_col", "Текущее"),
-            ],
-        ):
-            self.st.heading(c, text=h)
-            self.st.column(c, width=180)
+        headings = {
+            "key": tr("editor_suggestions_key_col", "Ключ"),
+            "suggestion": tr("editor_suggestions_suggestion_col", "Предложение"),
+            "confidence": tr("editor_suggestions_confidence_col", "Уверенность"),
+            "source": tr("editor_suggestions_source_col", "Источник"),
+            "current": tr("editor_suggestions_current_col", "Текущее"),
+        }
+        column_widths = {"key": 150, "suggestion": 200, "confidence": 80, "source": 100, "current": 150}
+
+        self.st_wrapper = ScrollableTree(
+            self.dialog,
+            columns=cols,
+            headings=headings,
+            column_widths=column_widths,
+            height=15,
+            selectmode="extended",
+        )
+        self.st = self.st_wrapper.tree
         self.st.pack(fill="both", expand=True, padx=10, pady=5)
 
         # Кнопки
@@ -110,7 +114,7 @@ class SuggestionsDialog:
                 )
 
     def _apply(self):
-        """Применяет выбранные предложения"""
+        """Применяет выбранные предложения (оптимизировано с использованием словаря)"""
         if not self.editor:
             return
 
@@ -118,27 +122,28 @@ class SuggestionsDialog:
         if not sel:
             return
 
+        # Создаём быстрый индекс для O(1) поиска
+        entries_map = {e["key"]: e for e in self.editor.entries}
+
         for iid in sel:
-            k, sv = self.st.item(iid)["values"][0], self.st.item(iid)["values"][1]
-            for e in self.editor.entries:
-                if e["key"] == k:
-                    e["value"] = sv
-                    e["status"] = "complete" if sv.strip() else "empty"
-                    self.editor.modified = True
-                    self.db.add_translation(
-                        k,
-                        e.get("original_value", ""),
-                        sv,
-                        os.path.basename(self.file_path) if self.file_path else "",
-                    )
-                    break
+            k = self.st.item(iid)["values"][0]
+            sv = self.st.item(iid)["values"][1]
+
+            if k in entries_map:
+                e = entries_map[k]
+                e["value"] = sv
+                e["status"] = "complete" if sv.strip() else "empty"
+                self.editor.modified = True
+                self.db.add_translation(
+                    k,
+                    e.get("original_value", ""),
+                    sv,
+                    os.path.basename(self.file_path) if self.file_path else "",
+                )
 
         self.editor._update_tree()
         self.editor.history_manager.push_state(self.editor.entries.copy())
-        messagebox.showinfo(
-            tr("editor_success", "Успех"),
-            tr("editor_suggestion_applied", "Предложение применено"),
-        )
+        show_ok(self.dialog, tr("editor_suggestion_applied", "Предложение применено"))
         self.dialog.destroy()
 
     def _refresh_suggestions(self):

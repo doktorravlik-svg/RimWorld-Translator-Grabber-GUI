@@ -10,6 +10,7 @@ from tkinter import ttk
 
 import ttkbootstrap as ttk
 from gui.styling.icon_manager import HAS_ICONS, get_dialog_header_icons
+from gui.utils import center_window
 from ttkbootstrap.constants import *
 from gui.gui_i18n import tr
 
@@ -79,10 +80,7 @@ def show_shortcuts(parent):
     dialog.grab_set()
 
     # Центрируем
-    dialog.update_idletasks()
-    x = parent.winfo_rootx() + (parent.winfo_width() // 2) - 325
-    y = parent.winfo_rooty() + (parent.winfo_height() // 2) - 275
-    dialog.geometry(f"650x550+{x}+{y}")
+    center_window(dialog, parent, 650, 550)
 
     main_frame = ttk.Frame(dialog, padding=15)
     main_frame.pack(fill="both", expand=True)
@@ -95,7 +93,7 @@ def show_shortcuts(parent):
             title_label = ttk.Label(
                 main_frame,
                 text=tr("shortcuts_title", "Горячие клавиши"),
-                image=icon.image,
+                image=icon,
                 compound="left",
                 font=("Segoe UI", 16, "bold"),
             )

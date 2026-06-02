@@ -10,6 +10,7 @@ import tkinter as tk
 import ttkbootstrap as ttk
 from gui.gui_i18n import tr
 from gui.styling.icon_manager import HAS_ICONS, get_dialog_header_icons
+from gui.utils import center_window
 from ttkbootstrap.constants import *
 
 
@@ -27,10 +28,7 @@ def show_documentation(parent):
     dialog.grab_set()
 
     # Центрируем
-    dialog.update_idletasks()
-    x = parent.winfo_rootx() + (parent.winfo_width() // 2) - 400
-    y = parent.winfo_rooty() + (parent.winfo_height() // 2) - 300
-    dialog.geometry(f"800x600+{x}+{y}")
+    center_window(dialog, parent, 800, 600)
 
     main_frame = ttk.Frame(dialog, padding=10)
     main_frame.pack(fill="both", expand=True)
@@ -43,7 +41,7 @@ def show_documentation(parent):
             title_label = ttk.Label(
                 main_frame,
                 text=tr("doc_title", "Документация RimWorld Translator Grabber"),
-                image=icon.image,
+                image=icon,
                 compound="left",
                 font=("Segoe UI", 14, "bold"),
             )

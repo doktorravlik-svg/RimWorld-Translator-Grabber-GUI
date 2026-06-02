@@ -669,31 +669,32 @@ class ModGlossaryImportDialog:
             self.dialog.after(0, lambda: self.progress_var.set(80))
             self.dialog.after(0, lambda: self.status_var.set(tr("glossary_importing", "Добавление терминов в глоссарий...")))
 
-            # Шаг 5: Добавляем термины в глоссарий
+            # Шаг 5: Добавляем термины в глоссарий (пакетная вставка)
             logger.info(f"Final glossary entries: {len(glossary_entries)}")
-            total_glossary = len(glossary_entries)
-            processed_glossary = 0
-            for term, translation in glossary_entries.items():
-                if import_db:
-                    try:
-                        import_db.add_glossary_term(
-                            term,
-                            translation,
-                            "imported",
-                            "",
-                            db_language
-                        )
-                        count += 1
-                    except Exception as e:
-                        logger.warning(f"Не удалось добавить термин '{term}': {e}")
-                
-                processed_glossary += 1
-                if total_glossary > 0:
-                    progress = 80 + int((processed_glossary / total_glossary) * 20)
-                    self.dialog.after(0, lambda p=progress: self.progress_var.set(p))
-                    self.dialog.after(0, lambda pc=processed_glossary, tc=total_glossary:
-                        self.status_var.set(tr("glossary_processing", f"Добавление: {pc}/{tc}"))
-                    )
+            if import_db and glossary_entries:
+                batch_data = [
+                    (term, translation, "imported", "", db_language)
+                    for term, translation in glossary_entries.items()
+                ]
+                try:
+                    count = import_db.add_glossary_terms_batch(batch_data)
+                except Exception as e:
+                    logger.warning(f"Batch insert failed, falling back to individual: {e}")
+                    count = 0
+                    for term, translation in glossary_entries.items():
+                        try:
+                            import_db.add_glossary_term(
+                                term,
+                                translation,
+                                "imported",
+                                "",
+                                db_language
+                            )
+                            count += 1
+                        except Exception as e:
+                            logger.warning(f"Не удалось добавить термин '{term}': {e}")
+            else:
+                count = 0
 
             def on_complete():
                 if self.callback:
@@ -972,19 +973,29 @@ class ModGlossaryImportDialog:
             logger.info(f"DB changed: old_id={old_db_id}, new_id={id(self.db)}, lang={self.target_language}")
 
         if isinstance(entries, dict):
+            # Prepare batch data for efficient insertion
+            batch_data = []
             for term, translation in entries.items():
-                if self.db:
-                    try:
-                        self.db.add_glossary_term(
-                            term,
-                            translation,
-                            "imported",
-                            "",
-                            self.target_language
-                        )
-                        count += 1
-                    except Exception as e:
-                        logger.warning(f"Не удалось добавить термин '{term}': {e}")
+                batch_data.append((term, translation, "imported", "", self.target_language))
+            
+            if batch_data and self.db:
+                try:
+                    count = self.db.add_glossary_terms_batch(batch_data)
+                except Exception as e:
+                    logger.warning(f"Не удалось добавить термины в глоссарий: {e}")
+                    # Fallback to individual inserts
+                    for term, translation in entries.items():
+                        try:
+                            self.db.add_glossary_term(
+                                term,
+                                translation,
+                                "imported",
+                                "",
+                                self.target_language
+                            )
+                            count += 1
+                        except Exception as e:
+                            logger.warning(f"Не удалось добавить термин '{term}': {e}")
 
         return count
 
