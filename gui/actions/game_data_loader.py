@@ -10,6 +10,15 @@ from tkinter import filedialog, messagebox
 from gui.gui_i18n import tr
 
 
+def _show_messagebox_safe(parent, title, message, messagebox_func=messagebox.showinfo):
+    """Показывает messagebox в главном потоке (-thread-safe)."""
+    import tkinter as tk
+    if parent and isinstance(parent, tk.Tk | tk.Toplevel):
+        parent.after(0, lambda: messagebox_func(title, message))
+    else:
+        messagebox_func(title, message)
+
+
 class GameDataLoader:
     """
     Загрузчик официальных данных игры.
@@ -85,7 +94,7 @@ class GameDataLoader:
             else:
                 return
 
-        thread = threading.Thread(target=self._perform_load, args=(game_path, lang))
+        thread = threading.Thread(target=self._perform_load, args=(game_path, lang, parent))
         thread.daemon = True
         thread.start()
 
@@ -155,7 +164,7 @@ class GameDataLoader:
 
         messagebox.showwarning(tr("editor_warning", "Предупреждение"), message)
 
-    def _perform_load(self, game_path: str, lang: str = "Russian"):
+    def _perform_load(self, game_path: str, lang: str = "Russian", parent=None):
         """Выполнение загрузки данных игры"""
         try:
             data_path = self._find_game_data_path(game_path)
@@ -224,12 +233,13 @@ class GameDataLoader:
 
                 if self.status_callback:
                     self.status_callback(
-                        f"Данные загруены: {db_size} строк, {symbols_count} символов"
+                        f"Данные загружены: {db_size} строк, {symbols_count} символов"
                     )
 
-                messagebox.showinfo(
+                _show_messagebox_safe(
+                    parent,
                     "Успех",
-                    f"Официальные данные загруены:\n"
+                    f"Официальные данные загружены:\n"
                     f"- Строк: {db_size}\n"
                     f"- Спецсимволов: {symbols_count}",
                 )
@@ -238,11 +248,13 @@ class GameDataLoader:
                     self.log_callback(f"❌ Не удалось загрузить данные из: {data_path}")
                 if self.status_callback:
                     self.status_callback("Ошибка: данные не найдены")
-                messagebox.showwarning(
+                _show_messagebox_safe(
+                    parent,
                     "Предупреждение",
                     "Не удалось найти файлы данных.\n"
                     "Убедитесь, что игра установлена корректно.\n\n"
                     f"Проверен путь:\n{data_path}",
+                    messagebox.showwarning,
                 )
 
         except Exception as e:
@@ -250,11 +262,13 @@ class GameDataLoader:
                 self.log_callback(f"Ошибка загрузки данных: {e}")
             if self.status_callback:
                 self.status_callback(f"Ошибка: {e}")
-            messagebox.showerror(
+            _show_messagebox_safe(
+                parent,
                 tr("editor_error", "Ошибка"),
                 tr("game_loader_load_error", "Не удалось загрузить данные игры:\n{error}").format(
                     error=e
                 ),
+                messagebox.showerror,
             )
         finally:
             if self.progress_callbacks:
