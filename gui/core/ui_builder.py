@@ -272,10 +272,10 @@ class UIBuilder:
 
         for i, tab_name in enumerate(tab_name_map):
             icon = tab_icons.get(tab_name)
-            if icon and hasattr(icon, "image"):
+            if icon:
                 try:
                     # Get current text
                     current_text = notebook.tab(i, "text")
-                    notebook.tab(i, image=icon.image, text=current_text, compound="left")
+                    notebook.tab(i, image=icon, text=current_text, compound="left")
                 except Exception:
                     pass

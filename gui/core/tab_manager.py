@@ -153,10 +153,11 @@ class TabManager:
         """Обновить меню управления вкладками"""
         if self.tabs_menu is None:
             return
-        items = self.tabs_menu.index("end")
-        if items and items > 1:
-            for i in range(items, 1, -1):
-                self.tabs_menu.delete(i)
+        try:
+            # Удаляет всё, начиная с 2-го элемента (индекс 2) до самого конца меню
+            self.tabs_menu.delete(2, "end")
+        except Exception:
+            pass
         self.tabs_menu.add_separator()
         for tab_name in self.all_tabs.keys():
             is_hidden = tab_name in self.hidden_tabs

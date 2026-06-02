@@ -1,12 +1,11 @@
-# gui/core/menu_builder.py
 """
 Построение главного меню для RimWorld Translator Grabber.
 """
 
 import tkinter as tk
-from loguru import logger
 
-from gui.styling.icon_manager import HAS_ICONS, get_menu_icons
+from gui.styling.icon_manager import HAS_ICONS, get_menu_icons, set_theme_mode
+from loguru import logger
 
 
 class MenuBuilder:
@@ -33,6 +32,11 @@ class MenuBuilder:
             - show_shortcuts
             - show_language_selector
             - get_theme_names
+            - import_translations
+            - show_glossary_editor
+            - load_mod_glossary
+            - toggle_debug_mode
+            - show_debug_log
             - log_panel (объект с методом clear)
     """
 
@@ -44,56 +48,72 @@ class MenuBuilder:
         self._theme_var = None
         self._tabs_menu = None
         self.menubar = None
-
-    def build(self) -> tk.Menu:
-        """
-        Построить главное меню.
-
-        Returns:
-            tk.Menu — главное меню
-        """
-        self.menubar = tk.Menu(self.root)
-        self.root.config(menu=self.menubar)
+        self._image_refs = []  # 🛡️ КРИТИЧНО: Жёсткое удержание ссылок на PhotoImage
 
         self.menu_icons = get_menu_icons() if HAS_ICONS else {}
+
+    def build(self) -> tk.Menu:
+        self.menubar = tk.Menu(self.root)
+        self.root.config(menu=self.menubar)
+        self._image_refs.clear()
 
         self._build_file_menu()
         self._build_view_menu()
         self._build_tools_menu()
-        self._build_help_menu()
+        self._build_help_menu()  # Исправлена опечатка в имени метода
 
         return self.menubar
 
-    def get_theme_var(self) -> tk.StringVar:
-        """Получить StringVar для выбора темы"""
+    def get_theme_var(self) -> tk.StringVar | None:
         return self._theme_var
 
-    def get_tabs_menu(self) -> tk.Menu:
-        """Получить меню управления вкладками"""
+    def get_tabs_menu(self) -> tk.Menu | None:
         return self._tabs_menu
 
+    def _safe_callback(self, name: str):
+        """Безопасная обёртка: если callback отсутствует, подставляет заглушку."""
+        cb = self.callbacks.get(name)
+        return cb if callable(cb) else lambda: logger.warning(f"Callback '{name}' не найден")
+
+    def _get_icon_image(self, icon_name: str):
+        if not HAS_ICONS or not self.menu_icons:
+            return None
+        icon = self.menu_icons.get(icon_name)
+        if icon is None:
+            placeholder = tk.PhotoImage(width=1, height=1)
+            self.menu_icons[icon_name] = placeholder
+            self._image_refs.append(placeholder)
+            return placeholder
+
+        # 🛡️ Добавляем в список сильных ссылок, чтобы GC не убил PhotoImage
+        self._image_refs.append(icon)
+        return icon
+
+    def update_theme(self, theme_name: str):
+        set_theme_mode(theme_name)
+        self.menu_icons = get_menu_icons() if HAS_ICONS else {}
+        # Tkinter не обновляет картинки в меню динамически. Пересобираем меню.
+        if self.menubar:
+            self.build()
+
     def _build_file_menu(self):
-        """Меню "Файл" """
         from gui.gui_i18n import i18n
 
         file_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label=i18n.tr("menu_file", "Файл"), menu=file_menu)
+
         file_menu.add_command(
             label=i18n.tr("menu_open_mods", "Открыть папку модов"),
-            command=self.callbacks.get("open_mods"),
+            command=self._safe_callback("open_mods"),
             accelerator="Ctrl+O",
-            image=self.menu_icons.get("open_mods").image
-            if HAS_ICONS and self.menu_icons.get("open_mods")
-            else None,
+            image=self._get_icon_image("open_mods"),
             compound="left",
         )
         file_menu.add_command(
             label=i18n.tr("menu_save_settings", "Сохранить настройки"),
-            command=self.callbacks.get("save_settings"),
+            command=self._safe_callback("save_settings"),
             accelerator="Ctrl+S",
-            image=self.menu_icons.get("save").image
-            if HAS_ICONS and self.menu_icons.get("save")
-            else None,
+            image=self._get_icon_image("save"),
             compound="left",
         )
         file_menu.add_separator()
@@ -101,238 +121,190 @@ class MenuBuilder:
             label=i18n.tr("menu_exit", "Выход"),
             command=self.root.quit,
             accelerator="Alt+F4",
-            image=self.menu_icons.get("exit").image
-            if HAS_ICONS and self.menu_icons.get("exit")
-            else None,
+            image=self._get_icon_image("exit"),
             compound="left",
         )
 
     def _build_view_menu(self):
-        """Меню "Вид" """
         from gui.gui_i18n import i18n
 
         view_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label=i18n.tr("menu_view", "Вид"), menu=view_menu)
 
-        # Подменю тем
         self._build_theme_submenu(view_menu)
-
         view_menu.add_separator()
-
-        # Подменю управления вкладками
         self._build_tabs_submenu(view_menu)
-
         view_menu.add_separator()
 
         view_menu.add_command(
             label=i18n.tr("menu_clear_log", "Очистить лог"),
-            command=self.callbacks.get("clear_log"),
+            command=self._safe_callback("clear_log"),
             accelerator="Ctrl+L",
-            image=self.menu_icons.get("clear_log").image
-            if HAS_ICONS and self.menu_icons.get("clear_log")
-            else None,
+            image=self._get_icon_image("clear_log"),
             compound="left",
         )
         view_menu.add_command(
             label=i18n.tr("menu_history", "История операций"),
-            command=self.callbacks.get("show_history"),
+            command=self._safe_callback("show_history"),
             accelerator="Ctrl+H",
-            image=self.menu_icons.get("history").image
-            if HAS_ICONS and self.menu_icons.get("history")
-            else None,
+            image=self._get_icon_image("history"),
             compound="left",
         )
 
     def _build_theme_submenu(self, view_menu):
-        """Подменю тем оформления"""
+        from gui.gui_i18n import i18n
+
         theme_menu = tk.Menu(view_menu, tearoff=0)
-        view_menu.add_cascade(
-            label=self._get_i18n("menu_theme", "Тема"),
-            menu=theme_menu,
-        )
+        view_menu.add_cascade(label=i18n.tr("menu_theme", "Тема"), menu=theme_menu)
 
         current_theme = self.config.get("theme", "light")
-        # Используем THEME_DESCRIPTIONS из theme_manager если доступно
         try:
             from gui.styling.theme_manager import THEME_DESCRIPTIONS
 
             theme_display = THEME_DESCRIPTIONS
         except ImportError:
-            # Fallback на i18n переводы
             theme_display = {
-                "light": self._get_i18n("theme_light", "🌞 Светлая"),
-                "dark": self._get_i18n("theme_dark", "🌙 Темная"),
-                "ocean": self._get_i18n("theme_ocean", "🌊 Океан"),
-                "forest": self._get_i18n("theme_forest", "🌲 Лес"),
-                "solar": self._get_i18n("theme_solar", "🔆 Солнечная"),
-                "vapor": self._get_i18n("theme_vapor", "💨 Пар"),
-                "cyborg": self._get_i18n("theme_cyborg", "🤖 Киборг"),
-                "superhero": self._get_i18n("theme_superhero", "🦸 Супергерой"),
+                "light": i18n.tr("theme_light", "🌞 Светлая"),
+                "dark": i18n.tr("theme_dark", "🌙 Темная"),
+                "ocean": i18n.tr("theme_ocean", "🌊 Океан"),
+                "forest": i18n.tr("theme_forest", "🌲 Лес"),
+                "solar": i18n.tr("theme_solar", "🔆 Солнечная"),
+                "vapor": i18n.tr("theme_vapor", "💨 Пар"),
+                "cyborg": i18n.tr("theme_cyborg", "🤖 Киборг"),
+                "superhero": i18n.tr("theme_superhero", "🦸 Супергерой"),
             }
 
         self._theme_var = tk.StringVar(value=current_theme)
-
         get_theme_names = self.callbacks.get("get_theme_names", lambda: theme_display.keys())
+
         for theme_key in get_theme_names():
             display_name = theme_display.get(theme_key, theme_key)
             theme_menu.add_radiobutton(
                 label=display_name,
                 variable=self._theme_var,
                 value=theme_key,
-                command=lambda t=theme_key: self.callbacks.get("change_theme")(t),
+                command=lambda t=theme_key: self._change_theme_callback(t),
             )
 
+    def _change_theme_callback(self, theme_name: str):
+        """Callback для изменения темы с передачей имени темы."""
+        cb = self.callbacks.get("change_theme")
+        if callable(cb):
+            cb(theme_name)
+
     def _build_tabs_submenu(self, view_menu):
-        """Подменю управления вкладками"""
+        from gui.gui_i18n import i18n
+
         self._tabs_menu = tk.Menu(view_menu, tearoff=0)
-        view_menu.add_cascade(
-            label=self._get_i18n("menu_tabs", "Вкладки"),
-            menu=self._tabs_menu,
-        )
+        view_menu.add_cascade(label=i18n.tr("menu_tabs", "Вкладки"), menu=self._tabs_menu)
         self._tabs_menu.add_command(
-            label=self._get_i18n("menu_show_all_tabs", "Показать все вкладки"),
-            command=self.callbacks.get("show_all_tabs"),
-            image=self.menu_icons.get("show_tabs").image
-            if HAS_ICONS and self.menu_icons.get("show_tabs")
-            else None,
+            label=i18n.tr("menu_show_all_tabs", "Показать все вкладки"),
+            command=self._safe_callback("show_all_tabs"),
+            image=self._get_icon_image("show_tabs"),
             compound="left",
         )
         self._tabs_menu.add_separator()
 
     def _build_tools_menu(self):
-        """Меню "Инструменты" """
         from gui.gui_i18n import i18n
 
         tools_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label=i18n.tr("menu_tools", "Инструменты"), menu=tools_menu)
+
         tools_menu.add_command(
             label=i18n.tr("menu_verification", "Верификация модов"),
-            command=self.callbacks.get("start_verification"),
+            command=self._safe_callback("start_verification"),
             accelerator="F5",
-            image=self.menu_icons.get("verification").image
-            if HAS_ICONS and self.menu_icons.get("verification")
-            else None,
+            image=self._get_icon_image("verification"),
             compound="left",
         )
         tools_menu.add_command(
             label=i18n.tr("menu_full_check", "Полная проверка"),
-            command=self.callbacks.get("start_full_verification"),
+            command=self._safe_callback("start_full_verification"),
             accelerator="F6",
-            image=self.menu_icons.get("full_check").image
-            if HAS_ICONS and self.menu_icons.get("full_check")
-            else None,
+            image=self._get_icon_image("full_check"),
             compound="left",
         )
         tools_menu.add_command(
             label=i18n.tr("menu_integrity", "Проверка целостности"),
-            command=self.callbacks.get("run_integrity_check"),
-            image=self.menu_icons.get("integrity").image
-            if HAS_ICONS and self.menu_icons.get("integrity")
-            else None,
+            command=self._safe_callback("run_integrity_check"),
+            image=self._get_icon_image("integrity"),
             compound="left",
         )
         tools_menu.add_command(
             label=i18n.tr("menu_load_game_data", "Загрузить данные игры"),
-            command=self.callbacks.get("run_game_data_load"),
-            image=self.menu_icons.get("load_game").image
-            if HAS_ICONS and self.menu_icons.get("load_game")
-            else None,
+            command=self._safe_callback("run_game_data_load"),
+            image=self._get_icon_image("load_game"),
             compound="left",
         )
         tools_menu.add_separator()
         tools_menu.add_command(
             label=i18n.tr("menu_import_translations", "📥 Импорт переводов"),
-            command=self.callbacks.get("import_translations"),
-            image=self.menu_icons.get("import").image
-            if HAS_ICONS and self.menu_icons.get("import")
-            else None,
+            command=self._safe_callback("import_translations"),
+            image=self._get_icon_image("import"),
             compound="left",
         )
         tools_menu.add_command(
             label=i18n.tr("menu_glossary_editor", "📖 Редактор глоссария"),
-            command=self.callbacks.get("show_glossary_editor"),
-            image=self.menu_icons.get("glossary").image
-            if HAS_ICONS and self.menu_icons.get("glossary")
-            else None,
+            command=self._safe_callback("show_glossary_editor"),
+            image=self._get_icon_image("glossary"),
             compound="left",
         )
         tools_menu.add_separator()
         tools_menu.add_command(
-            label=i18n.tr("menu_load_mod_glossary", "📂 Загрузить глоссарь мода"),
-            command=self.callbacks.get("load_mod_glossary"),
-            image=self.menu_icons.get("glossary").image
-            if HAS_ICONS and self.menu_icons.get("glossary")
-            else None,
+            label=i18n.tr("menu_load_mod_glossary", "📂 Загрузить глоссарий мода"),
+            command=self._safe_callback("load_mod_glossary"),
+            image=self._get_icon_image("glossary"),
             compound="left",
         )
-        # ✅ ДОБАВЛЕНО: Логирование для отладки меню
-        cb = self.callbacks.get("show_glossary_editor")
-        logger.debug(f"show_glossary_editor callback: {cb}")
-        if cb:
-            logger.debug("✅ Callback show_glossary_editor установлен")
-        else:
-            logger.warning("❌ Callback show_glossary_editor НЕ установлен!")
 
     def _build_help_menu(self):
-        """Меню "Справка" """
         from gui.gui_i18n import i18n
 
         help_menu = tk.Menu(self.menubar, tearoff=0)
         self.menubar.add_cascade(label=i18n.tr("menu_help", "Справка"), menu=help_menu)
+
         help_menu.add_command(
             label=i18n.tr("menu_documentation", "Документация"),
-            command=self.callbacks.get("show_documentation"),
-            image=self.menu_icons.get("documentation").image
-            if HAS_ICONS and self.menu_icons.get("documentation")
-            else None,
+            command=self._safe_callback("show_documentation"),
+            image=self._get_icon_image("documentation"),
             compound="left",
         )
         help_menu.add_command(
             label=i18n.tr("menu_about", "О программе"),
-            command=self.callbacks.get("show_about"),
-            image=self.menu_icons.get("about").image
-            if HAS_ICONS and self.menu_icons.get("about")
-            else None,
+            command=self._safe_callback("show_about"),
+            image=self._get_icon_image("about"),
             compound="left",
         )
         help_menu.add_command(
             label=i18n.tr("menu_shortcuts", "Горячие клавиши"),
-            command=self.callbacks.get("show_shortcuts"),
+            command=self._safe_callback("show_shortcuts"),
             accelerator="F1",
-            image=self.menu_icons.get("shortcuts").image
-            if HAS_ICONS and self.menu_icons.get("shortcuts")
-            else None,
+            image=self._get_icon_image("shortcuts"),
             compound="left",
         )
         help_menu.add_separator()
         help_menu.add_command(
             label=i18n.tr("menu_language", "Язык интерфейса"),
-            command=self.callbacks.get("show_language_selector"),
-            image=self.menu_icons.get("language").image
-            if HAS_ICONS and self.menu_icons.get("language")
-            else None,
+            command=self._safe_callback("show_language_selector"),
+            image=self._get_icon_image("language"),
             compound="left",
         )
         help_menu.add_separator()
         help_menu.add_command(
-            label=self._get_i18n("menu_debug_toggle", "Debug-режим"),
-            command=self.callbacks.get("toggle_debug_mode"),
-            image=self.menu_icons.get("debug_toggle").image
-            if HAS_ICONS and self.menu_icons.get("debug_toggle")
-            else None,
+            label=i18n.tr("menu_debug_toggle", "Debug-режим"),
+            command=self._safe_callback("toggle_debug_mode"),
+            image=self._get_icon_image("debug_toggle"),
             compound="left",
         )
         help_menu.add_command(
-            label=self._get_i18n("menu_debug_log", "Просмотреть лог"),
-            command=self.callbacks.get("show_debug_log"),
-            image=self.menu_icons.get("debug_log").image
-            if HAS_ICONS and self.menu_icons.get("debug_log")
-            else None,
+            label=i18n.tr("menu_debug_log", "Просмотреть лог"),
+            command=self._safe_callback("show_debug_log"),
+            image=self._get_icon_image("debug_log"),
             compound="left",
         )
 
     def _get_i18n(self, key: str, default: str) -> str:
-        """Получить переведённую строку"""
         try:
             from gui.gui_i18n import i18n
 

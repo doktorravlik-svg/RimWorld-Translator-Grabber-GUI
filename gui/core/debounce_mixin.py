@@ -27,6 +27,9 @@ class DebounceMixin:
         """
         if not hasattr(self, '_debounce_timers'):
             self._debounce_timers = {}
+            # Если класс является виджетом Tkinter, привязываем автоматическую очистку
+            if hasattr(self, 'bind'):
+                self.bind('<Destroy>', lambda e: self.cancel_all_debounce(), add='+')
         self._debounce_timers[name] = None
 
     def debounce(self, name: str, delay_ms: int, callback) -> None:

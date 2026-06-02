@@ -254,16 +254,24 @@ class I18nManager:
         """
         Обновить текст всех зарегистрированных виджетов.
         Это намного быстрее, чем сканирование всего дерева.
+        Автоматически очищает список от уничтоженных виджетов.
         """
         count = 0
+        alive_widgets = []  # Сохраняем только живые виджеты
+
         for widget, key, default in self._registered_widgets:
             try:
-                new_text = i18n.tr(key, default)
-                if widget.cget("text") != new_text:
-                    widget.config(text=new_text)
-                    count += 1
+                # Проверяем, существует ли виджет в Tcl/Tk
+                if widget.winfo_exists():
+                    alive_widgets.append((widget, key, default))
+                    new_text = i18n.tr(key, default)
+                    if widget.cget("text") != new_text:
+                        widget.config(text=new_text)
+                        count += 1
             except Exception:
-                pass
+                pass  # Виджет поврежден или удален
+
+        self._registered_widgets = alive_widgets  # Очищаем мусор
         return count
 
     def update_widget_text(self, widget: Any) -> bool:
