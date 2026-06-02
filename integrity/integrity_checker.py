@@ -77,10 +77,11 @@ def check_integrity(mods_folder: str, language_filter=None, log_callback=None) -
                     files_with_errors += 1
                     continue
 
-                # Проверка 5: Проверка на пустые теги
+                # Проверка 5: Проверка на пустые теги (учитываем и None, и пробелы)
                 empty_tags = 0
                 for elem in root_elem.iter():
-                    if elem.text and not elem.text.strip() and not list(elem):
+                    # Если нет дочерних элементов (not list), но текст либо None, либо пустой/пробельный
+                    if (elem.text is None or not elem.text.strip()) and not list(elem):
                         empty_tags += 1
 
                 if empty_tags > 10:
