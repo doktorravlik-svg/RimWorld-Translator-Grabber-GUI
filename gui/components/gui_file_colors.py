@@ -35,7 +35,7 @@ class FileColorMarker:
     """Класс для определения цвета файла на основе его содержимого"""
 
     def __init__(self):
-        self._color_cache: dict[str, str] = {}
+        self._color_cache: dict[str, tuple[str, float]] = {}  # {file_path: (color, mtime)}
 
     def get_file_color(self, file_path: str, source_file_path: str | None = None) -> str:
         """
@@ -48,11 +48,19 @@ class FileColorMarker:
         Returns:
             HEX цвет для файла
         """
+        # Проверяем кэш с учётом времени модификации
+        try:
+            mtime = os.path.getmtime(file_path)
+        except OSError:
+            mtime = 0
+        
         if file_path in self._color_cache:
-            return self._color_cache[file_path]
+            cached_color, cached_mtime = self._color_cache[file_path]
+            if cached_mtime == mtime:
+                return cached_color
 
         color = self._determine_color(file_path, source_file_path)
-        self._color_cache[file_path] = color
+        self._color_cache[file_path] = (color, mtime)
         return color
 
     def _determine_color(self, file_path: str, source_file_path: str | None = None) -> str:
@@ -139,6 +147,18 @@ class FileColorMarker:
     def clear_cache(self):
         """Очистить кэш цветов"""
         self._color_cache.clear()
+    
+    def invalidate_cache(self, file_path: str | None = None):
+        """
+        Инвалидировать кэш для конкретного файла или всех файлов.
+        
+        Args:
+            file_path: Путь к файлу (если None, очищает весь кэш)
+        """
+        if file_path:
+            self._color_cache.pop(file_path, None)
+        else:
+            self._color_cache.clear()
 
 
 def apply_colors_to_tree(tree, file_paths: list[str], source_folder: str | None = None):

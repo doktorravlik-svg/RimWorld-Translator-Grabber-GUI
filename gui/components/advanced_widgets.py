@@ -102,7 +102,8 @@ class AutocompleteCombobox(ttk.Combobox):
             return self._values
         
         if self._case_sensitive:
-            return [v for v in self._values if value.lower() in v.lower()]
+            # Честное сравнение с учётом регистра
+            return [v for v in self._values if value in v]
         else:
             value_lower = value.lower()
             return [v for v in self._values if value_lower in v.lower()]
@@ -194,7 +195,8 @@ class AutocompleteEntry(ttk.Entry):
     def _find_matches(self, value: str) -> list:
         """Найти совпадения."""
         if self._case_sensitive:
-            return [v for v in self._values if value.lower() in v.lower()]
+            # Честное сравнение с учётом регистра
+            return [v for v in self._values if value in v]
         else:
             value_lower = value.lower()
             return [v for v in self._values if value_lower in v.lower()]

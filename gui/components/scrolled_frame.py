@@ -78,6 +78,24 @@ class ScrolledFrame(ttk.Frame):
         # Привязка колёсика мыши — локальная, без bind_all
         self.canvas.bind("<MouseWheel>", self._on_mousewheel)
         self.content_frame.bind("<MouseWheel>", self._on_mousewheel)
+        
+        # Рекурсивная привязка колёсика к дочерним элементам для "прозрачной" прокрутки
+        self.content_frame.bind(
+            "<Configure>", 
+            lambda e: (
+                self.canvas.configure(scrollregion=self.canvas.bbox("all")),
+                self._bind_mousewheel_recursive(self.content_frame)
+            )
+        )
+
+    def _bind_mousewheel_recursive(self, widget):
+        """Рекурсивно привязывает колесико мыши ко всем дочерним элементам."""
+        try:
+            widget.bind("<MouseWheel>", self._on_mousewheel, add="+")
+        except tk.TclError:
+            pass  # Виджет уже уничтожен
+        for child in widget.winfo_children():
+            self._bind_mousewheel_recursive(child)
 
     def _on_mousewheel(self, event):
         """Обработка колёсика мыши"""

@@ -49,56 +49,76 @@ class ReportExporter:
         self.columns = columns
         self.date = date or datetime.now()
 
-    def export_txt(self, file_path: str) -> None:
+    def export_txt(self, file_path: str) -> bool:
         """
         Экспорт в TXT.
 
         Args:
             file_path: Путь к файлу
-        """
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(f"{self.title}\n")
-            f.write(f"Дата: {self.date.strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write("=" * 80 + "\n\n")
-            for row in self.data:
-                values = [str(row.get(col.lower().replace(" ", "_"), "")) for col in self.columns]
-                f.write(" | ".join(values) + "\n")
 
-    def export_json(self, file_path: str) -> None:
+        Returns:
+            True если экспорт успешен, False в случае ошибки
+        """
+        try:
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(f"{self.title}\n")
+                f.write(f"Дата: {self.date.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write("=" * 80 + "\n\n")
+                for row in self.data:
+                    values = [str(row.get(col.lower().replace(" ", "_"), "")) for col in self.columns]
+                    f.write(" | ".join(values) + "\n")
+            return True
+        except (OSError, PermissionError) as e:
+            print(f"Ошибка экспорта в TXT: {e}")
+            return False
+
+    def export_json(self, file_path: str) -> bool:
         """
         Экспорт в JSON.
 
         Args:
             file_path: Путь к файлу
-        """
-        data = {
-            "title": self.title,
-            "timestamp": self.date.isoformat(),
-            "columns": self.columns,
-            "rows": self.data,
-            "statistics": {
-                "total": len(self.data),
-            },
-        }
-        with open(file_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
 
-    def export_html(self, file_path: str, style_classes: dict[str, str] | None = None) -> None:
+        Returns:
+            True если экспорт успешен, False в случае ошибки
+        """
+        try:
+            data = {
+                "title": self.title,
+                "timestamp": self.date.isoformat(),
+                "columns": self.columns,
+                "rows": self.data,
+                "statistics": {
+                    "total": len(self.data),
+                },
+            }
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            return True
+        except (OSError, PermissionError) as e:
+            print(f"Ошибка экспорта в JSON: {e}")
+            return False
+
+    def export_html(self, file_path: str, style_classes: dict[str, str] | None = None) -> bool:
         """
         Экспорт в HTML.
 
         Args:
             file_path: Путь к файлу
             style_classes: Словарь {class_name: css_style} для стилизации строк
+
+        Returns:
+            True если экспорт успешен, False в случае ошибки
         """
-        style_classes = style_classes or {
-            "error": "background-color: #ffcccc;",
-            "warning": "background-color: #fff3cd;",
-            "success": "background-color: #d4edda;",
-            "info": "background-color: #d1ecf1;",
-        }
-        
-        html = f"""<!DOCTYPE html>
+        try:
+            style_classes = style_classes or {
+                "error": "background-color: #ffcccc;",
+                "warning": "background-color: #fff3cd;",
+                "success": "background-color: #d4edda;",
+                "info": "background-color: #d1ecf1;",
+            }
+            
+            html = f"""<!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
@@ -125,22 +145,26 @@ class ReportExporter:
     <table>
         <tr>
 """
-        for col in self.columns:
-            html += f"            <th>{col}</th>\n"
-        
-        html += "        </tr>\n"
-        
-        for row in self.data:
-            row_class = row.get("class", row.get("type", ""))
-            html += f'        <tr class="{row_class}">\n'
             for col in self.columns:
-                val = row.get(col.lower().replace(" ", "_"), "")
-                html += f"            <td>{val}</td>\n"
+                html += f"            <th>{col}</th>\n"
+            
             html += "        </tr>\n"
-        
-        html += """    </table>
+            
+            for row in self.data:
+                row_class = row.get("class", row.get("type", ""))
+                html += f'        <tr class="{row_class}">\n'
+                for col in self.columns:
+                    val = row.get(col.lower().replace(" ", "_"), "")
+                    html += f"            <td>{val}</td>\n"
+                html += "        </tr>\n"
+            
+            html += """    </table>
 </body>
 </html>"""
-        
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(html)
+            
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(html)
+            return True
+        except (OSError, PermissionError) as e:
+            print(f"Ошибка экспорта в HTML: {e}")
+            return False

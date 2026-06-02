@@ -4,12 +4,24 @@
 Переработанная версия без дублирования элементов.
 """
 
+import threading
 import time
 import tkinter as tk
 
 import ttkbootstrap as ttk
 from gui.gui_i18n import tr
 from gui.styling.icon_manager import HAS_ICONS, get_status_bar_icons
+
+# Локальные импорты с fallback
+try:
+    from ttkbootstrap.widgets import ToastNotification
+except ImportError:
+    ToastNotification = None
+
+try:
+    from ttkbootstrap.widgets import ToolTip
+except ImportError:
+    ToolTip = None
 
 
 class StatusBar(ttk.Frame):
@@ -112,7 +124,14 @@ class StatusBar(ttk.Frame):
 
     # ── Статус ──────────────────────────────────────────────
     def set_status(self, message: str):
-        self.status_label.config(text=message)
+        """Устанавливает текст статусной строки (безопасно для потоков)."""
+        try:
+            # Проверяем, что виджет существует и не был уничтожен
+            if self.winfo_toplevel() and self.status_label.winfo_exists():
+                # .after(0, ...) гарантирует выполнение в главном UI-потоке
+                self.after(0, lambda: self.status_label.config(text=message))
+        except Exception:
+            pass  # Виджет мог быть уничтожен
 
     # ── Статистика с throttle ───────────────────────────────
     def update_stats(self, **kwargs):
@@ -204,10 +223,22 @@ class StatusBar(ttk.Frame):
     def show_toast(
         self, message: str, toast_type: str = "info", duration: int = 3000, group_by: str = None
     ):
-        """Показать всплывающее уведомление через ttkbootstrap ToastNotification"""
+        """Показать всплывающее уведомление через ttkbootstrap ToastNotification.
+        
+        Безопасно вызывается из любого потока — автоматически перенаправляется
+        в главный UI-поток через .after().
+        """
+        # Если вызов из фонового потока — перенаправляем в главный
+        if threading.current_thread() != threading.main_thread():
+            self.after(0, self.show_toast, message, toast_type, duration, group_by)
+            return
+        
+        if ToastNotification is None:
+            # Fallback: логируем если ToastNotification недоступен
+            self._log_message(f"[TOAST {toast_type.upper()}] {message}")
+            return
+            
         try:
-            from ttkbootstrap.widgets import ToastNotification
-
             # Маппинг типов на bootstyle
             style_map = {
                 "info": "info",
@@ -232,18 +263,24 @@ class StatusBar(ttk.Frame):
                 position=(20, 20, "ne"),  # (x, y, corner) — правый верхний угол
             )
             toast.show_toast()
-        except ImportError:
-            # Fallback: если ttkbootstrap.toast недоступен, логируем
-            if hasattr(self, "_log_callback"):
-                self._log_callback(f"[TOAST {toast_type.upper()}] {message}")
+        except Exception as e:
+            self._log_message(f"[TOAST ERROR] {e}: {message}")
+    
+    def _log_message(self, message: str):
+        """Вспомогательный метод для логирования."""
+        if hasattr(self, "_log_callback") and self._log_callback:
+            self._log_callback(message)
+        else:
+            print(message)  # Fallback на случай, если коллбек не задан
 
     # ── Тултипы ──────────────────────────────────
     def set_tooltip(self, widget, text: str):
         """Установить тултип для виджета через ttkbootstrap.ToolTip"""
+        if ToolTip is None:
+            return  # Тултипы недоступны — тихое игнорирование
+        
         try:
-            from ttkbootstrap.widgets import ToolTip
-
             tooltip = ToolTip(widget, text=text)
             self._tooltips.append((widget, tooltip))
-        except ImportError:
+        except Exception:
             pass  # Тултипы недоступны — тихое игнорирование
