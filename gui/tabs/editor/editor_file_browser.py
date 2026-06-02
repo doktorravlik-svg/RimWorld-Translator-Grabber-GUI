@@ -80,6 +80,10 @@ class TranslationEditorTab(ttk.Frame):
         else:
             print(f"[Editor] {msg}")
 
+    def tr(self, key, default=""):
+        """Перевод строк через функцию tr из gui_i18n"""
+        return tr(key, default)
+
     def _load_config(self):
         """Загрузить конфигурацию"""
         try:
@@ -122,32 +126,32 @@ class TranslationEditorTab(ttk.Frame):
         self.file_var = tk.StringVar()
         self.file_entry = ttk.Entry(sf, textvariable=self.file_var, width=50)
         self.file_entry.pack(side="left", fill="x", expand=True, padx=PAD_X)
-        ToolTip(self.file_entry, "Путь к файлу перевода")
+        ToolTip(self.file_entry, tr("editor_file_tooltip", "Путь к файлу перевода"))
 
         # ✅ НОВОЕ: Группа кнопок выбора в одном меню
-        browse_btn = ttk.Menubutton(sf, text="📂 Выбрать ▾", width=14)
+        browse_btn = ttk.Menubutton(sf, text=tr("editor_browse_btn", "📂 Выбрать ▾"), width=14)
         browse_menu = tk.Menu(browse_btn, tearoff=0)
-        browse_menu.add_command(label="📂 Обзор файла...", command=self._browse_file)
-        browse_menu.add_command(label="📁 Открыть папку...", command=self._browse_folder)
-        browse_menu.add_command(label="📁 Выбрать из модов...", command=self._browse_from_mods)
+        browse_menu.add_command(label=tr("editor_browse_file", "📂 Обзор файла..."), command=self._browse_file)
+        browse_menu.add_command(label=tr("editor_open_folder_menu", "📁 Открыть папку..."), command=self._browse_folder)
+        browse_menu.add_command(label=tr("editor_browse_mods", "📁 Выбрать из модов..."), command=self._browse_from_mods)
         browse_btn.configure(menu=browse_menu)
         browse_btn.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(browse_btn, "Выбрать файл или папку переводов")
+        ToolTip(browse_btn, tr("editor_browse_tooltip", "Выбрать файл или папку переводов"))
 
         # ── Версия игры ──
         version_frame = ttk.Frame(sf)
         version_frame.pack(fill="x", padx=PAD_X, pady=PAD_Y)
 
-        ttk.Label(version_frame, text="Версия:").pack(side="left", padx=PAD_LABEL_X)
-        self.game_version_var = tk.StringVar(value="Все версии")
+        ttk.Label(version_frame, text=tr("editor_version_label", "Версия:")).pack(side="left", padx=PAD_LABEL_X)
+        self.game_version_var = tk.StringVar(value=tr("editor_all_versions", "Все версии"))
         # ✅ ИСПРАВЛЕНО: Добавлен "Common" — файлы без папки версии
         # По wiki RimWorld: Languages должны быть в корне мода или Common, НЕ в папках версий
         self.game_version_combo = ttk.Combobox(
             version_frame,
             textvariable=self.game_version_var,
             values=[
-                "Все версии",
-                "Common (без версии)",
+                tr("editor_all_versions", "Все версии"),
+                tr("editor_common_version", "Common (без версии)"),
                 "1.6",
                 "1.5",
                 "1.4",
@@ -160,32 +164,32 @@ class TranslationEditorTab(ttk.Frame):
             state="readonly",
         )
         self.game_version_combo.pack(side="left", padx=PAD_X)
-        ToolTip(self.game_version_combo, "Фильтр по версии RimWorld")
+        ToolTip(self.game_version_combo, tr("editor_version_filter_tooltip", "Фильтр по версии RimWorld"))
         self.game_version_combo.bind("<<ComboboxSelected>>", self._on_version_change)
 
         self.show_versions_var = tk.BooleanVar(value=True)
         chk_versions = ttk.Checkbutton(
             version_frame,
-            text="Показывать версии",
+            text=tr("editor_show_versions", "Показывать версии"),
             variable=self.show_versions_var,
             command=self._on_show_versions_change,
         )
         chk_versions.pack(side="left", padx=PAD_X)
-        ToolTip(chk_versions, "Включить/отключить фильтрацию по версии")
+        ToolTip(chk_versions, tr("editor_show_versions_tooltip", "Включить/отключить фильтрацию по версии"))
 
         # ── Последние файлы ──
         lf = self._get_last_files()
         if lf:
-            ttk.Label(sf, text="🕐 Последние:").pack(side="left", padx=(10, 2))
+            ttk.Label(sf, text="🕐 " + tr("editor_last_files", "Последние:")).pack(side="left", padx=(10, 2))
             self.last_files_var = tk.StringVar()
             self.last_files_combo = ttk.Combobox(
                 sf, textvariable=self.last_files_var, values=lf, width=40, state="readonly"
             )
             self.last_files_combo.pack(side="left", fill="x", expand=True, padx=PAD_X)
             self.last_files_combo.bind("<<ComboboxSelected>>", self._on_last_file_selected)
-            btn_open_last = ttk.Button(sf, text="🕐 Открыть", command=self._open_last_file)
+            btn_open_last = ttk.Button(sf, text=tr("editor_open_btn", "Открыть"), command=self._open_last_file)
             btn_open_last.pack(side="left", padx=PAD_BTN_X)
-            ToolTip(btn_open_last, "Открыть последний файл")
+            ToolTip(btn_open_last, tr("editor_open_last_tooltip", "Открыть последний файл"))
 
         # ── Прогресс сканирования ──
         progress_frame = ttk.Frame(self)
@@ -213,7 +217,7 @@ class TranslationEditorTab(ttk.Frame):
             bootstyle="success",
         )
         btn_editor.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_editor, "Открыть редактор переводов")
+        ToolTip(btn_editor, tr("editor_btn_editor_tooltip", "Открыть редактор переводов"))
 
         btn_refresh = ttk.Button(
             bf,
@@ -222,19 +226,19 @@ class TranslationEditorTab(ttk.Frame):
             bootstyle="info",
         )
         btn_refresh.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_refresh, "Обновить список файлов переводов")
+        ToolTip(btn_refresh, tr("editor_btn_refresh_tooltip", "Обновить список файлов переводов"))
 
         # ── Поиск ──
         search_frame = ttk.Frame(self)
         search_frame.pack(fill="x", padx=PAD_FRAME_X, pady=PAD_Y)
-        ttk.Label(search_frame, text="🔍 Поиск:").pack(side="left", padx=PAD_LABEL_X)
+        ttk.Label(search_frame, text="🔍 " + tr("editor_search_label", "Поиск:")).pack(side="left", padx=PAD_LABEL_X)
         self.editor_search_var = tk.StringVar()
         self.editor_search_entry = ttk.Entry(
             search_frame, textvariable=self.editor_search_var, bootstyle="info"
         )
         self.editor_search_entry.pack(side="left", fill="x", expand=True, padx=PAD_ENTRY_X)
         self.editor_search_entry.bind("<KeyRelease>", self._filter_editor_files)
-        ToolTip(self.editor_search_entry, "Введите текст для фильтрации файлов")
+        ToolTip(self.editor_search_entry, tr("editor_search_tooltip", "Введите текст для фильтрации файлов"))
         btn_clear_search = ttk.Button(
             search_frame,
             text="✕",
@@ -243,7 +247,7 @@ class TranslationEditorTab(ttk.Frame):
             bootstyle="secondary",
         )
         btn_clear_search.pack(side="left")
-        ToolTip(btn_clear_search, "Очистить поиск")
+        ToolTip(btn_clear_search, tr("editor_clear_search_tooltip", "Очистить поиск"))
 
         # ── Легенда цветов ──
         legend = ttk.LabelFrame(self, text=tr("editor_color_legend", "🎨 Легенда цветов"))
