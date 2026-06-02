@@ -26,18 +26,22 @@ gui/help/
 │
 ├── filters_help_ru.json           # Справка фильтров на русском
 ├── filters_help_en.json           # Справка фильтров на английском
+│
+├── translation_help_ru.json       # Справка перевода на русском
+├── translation_help_en.json       # Справка перевода на английском
+├── translation_help_ua.json       # Справка перевода на украинском
+│
 ├── verification_help_ru.json      # Справка верификации на русском
 ├── verification_help_en.json      # Справка верификации на английском
 ├── verification_help_ua.json      # Справка верификации на украинском
 ├── verification_help_ja.json      # Справка верификации на японском
-├── translation_help_ru.json       # Справка перевода на русском
-├── translation_help_en.json       # Справка перевода на английском
-├── translation_help_ua.json       # Справка перевода на украинском
+│
 ├── dependencies_help_ru.json      # Справка зависимостей на русском
 ├── dependencies_help_en.json      # Справка зависимостей на английском
 │
-├── glossary_import_help_ru.json     # Справка импорта глоссаря на русском
-├── glossary_import_help_en.json     # Справка импорта глоссаря на английском
+├── glossary_import_help_ru.json   # Справка импорта глоссаря на русском
+├── glossary_import_help_en.json   # Справка импорта глоссаря на английском
+│
 └── README.md                      # Документация модуля
 ```
 
