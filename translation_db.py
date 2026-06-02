@@ -711,6 +711,37 @@ class TranslationDatabase:
             self.conn.commit()
         self._sync_glossary_to_json(target_language)
 
+    def add_glossary_terms_batch(self, terms_list, target_language=None):
+        """
+        Пакетная вставка терминов в глоссарий.
+
+        Эффективнее одиночного add_glossary_term при большом количестве терминов,
+        так как использует одну транзакцию для всех операций.
+
+        Args:
+            terms_list: Список кортежей (term, translation, category, description, mod_name)
+            target_language: Язык глоссария (если None, используется target_language экземпляра)
+
+        Returns:
+            Количество успешно добавленных терминов
+        """
+        if target_language is None:
+            target_language = self.target_language
+
+        if not terms_list:
+            return 0
+
+        with self._lock:
+            c = self.conn.cursor()
+            c.executemany(
+                "INSERT OR REPLACE INTO glossary (term, translation, category, description, target_language, mod_name) VALUES (?, ?, ?, ?, ?, ?)",
+                terms_list
+            )
+            self.conn.commit()
+
+        self._sync_glossary_to_json(target_language)
+        return len(terms_list)
+
     def rename_glossary_term(self, old_term, new_term, translation, category, description, target_language=None):
         """Переименовать термин в глоссарии"""
         if target_language is None:

@@ -26,7 +26,7 @@ except ImportError as e:
             return default
 
     messagebox.showerror(
-        tr("gui_import_error", "Ошибка импорта"), f"Не удалось импортировать модули: {e}"
+        tr("gui_import_error", "Ошибка импорта"), tr("gui_import_error_detail", "Не удалось импортировать модули: {error}").format(error=e)
     )
     sys.exit(1)
 
@@ -51,7 +51,7 @@ from gui.handlers.gui_handlers import (
     TranslationHandler,
     VerificationHandler,
 )
-from gui.keyboard import HotkeyManager, setup_default_hotkeys
+from gui.keyboard import HotkeyManager, HOTKEYS_CONFIG, register_hotkeys
 from gui.styling import (
     apply_colors,
     apply_fonts,
@@ -79,7 +79,7 @@ class ImprovedGUI:
         else:
             self.root = root
 
-        self.root.title(i18n.tr("gui_root_title", "RimWorld Translator Grabber V2+"))
+        self.root.title(i18n.tr("gui_root_title", "RimWorld Translator Grabber V3+"))
         self.root.geometry(DEFAULT_WINDOW_GEOMETRY)
         self.root.minsize(*MIN_WINDOW_SIZE)  # Минимальный размер окна
 
@@ -290,8 +290,9 @@ class ImprovedGUI:
         except Exception as e:
             print(f"Ошибка загрузки конфигурации: {e}")
 
-    def save_config(self):
-        """Сохранение конфигурации в файл с повторными попытками"""
+    def save_config(self) -> bool:
+        """Сохранение конфигурации в файл с повторными попытками.
+        Returns True если сохранение успешно, False при ошибке."""
         import time
 
         config_mgr = get_config_manager()
@@ -299,26 +300,36 @@ class ImprovedGUI:
             try:
                 config_mgr.update(self.config)
                 self.debug_manager.log_config_change("save_config", None, "Конфигурация сохранена")
-                return
+                return True
             except PermissionError:
                 if attempt < MAX_SAVE_RETRIES - 1:
                     time.sleep(SAVE_RETRY_DELAY)
                 else:
                     self.log("Ошибка сохранения конфигурации: файл заблокирован")
                     self.debug_manager.log_error("Файл конфигурации заблокирован")
+                    return False
             except Exception as e:
                 self.log(f"Ошибка сохранения конфигурации: {e}")
                 self.debug_manager.log_error(f"Ошибка сохранения: {e}", e)
-                return
+                return False
+        return False
 
     def _on_save_settings(self, options: dict):
-        """Обработчик сохранения настроек из вкладки Settings.
-        Принимает options из SettingsTab и сохраняет конфигурацию.
-        """
+        """Обработчик сохранения настроек из вкладки Settings."""
         if options:
             self.config.update(options)
-            self.debug_manager.log_action("Конфигурация обновлена из настроек", category="gui")
-        self.save_config()
+            self.debug_manager.log_action("Сохранение настроек через вкладку настроек", category="gui")
+        if self.save_config():
+            self.add_to_history(i18n.tr("gui_history_settings_saved", "Настройки сохранены"))
+            messagebox.showinfo(
+                i18n.tr("gui_success", "Успех"),
+                i18n.tr("gui_settings_saved", "Настройки сохранены"),
+            )
+        else:
+            messagebox.showerror(
+                i18n.tr("gui_error", "Ошибка"),
+                "Не удалось сохранить настройки. Проверьте доступ к файлу конфигурации.",
+            )
 
     def add_to_history(self, operation: str, details: str = ""):
         """Добавить операцию в историю"""
@@ -434,43 +445,39 @@ class ImprovedGUI:
 
     def setup_keyboard_shortcuts(self):
         """Настройка горячих клавиш с поддержкой всех раскладок"""
-        # ✅ Инициализируем HotkeyManager для мультираскладочной поддержки
         self.hotkey_manager = HotkeyManager(self.root)
+        
+        callbacks = {
+            "open_mods": self._menu_open_mods,
+            "save_settings": self._menu_save_settings,
+            "clear_log": self.log_panel.clear,
+            "show_history": self.show_history,
+            "show_shortcuts": self._show_shortcuts,
+            "start_translation": self._menu_start_translation,
+            "start_verification": self._menu_verify,
+            "full_check": self.start_full_verification,
+        }
+        
+        register_hotkeys(self.hotkey_manager, callbacks, i18n.tr)
 
-        # Файл
-        self.hotkey_manager.register(
-            "Ctrl+O",
-            lambda e: self._menu_open_mods(),
-            tooltip_text="Открыть папку модов (Ctrl+O / Ctrl+Щ)",
-        )
-        self.hotkey_manager.register(
-            "Ctrl+S",
-            lambda e: self._menu_save_settings(),
-            tooltip_text="Сохранить настройки (Ctrl+S / Ctrl+Ы)",
-        )
+    def _menu_start_translation(self):
+        """Начать перевод (F5) — делегирует на вкладку перевода"""
+        self.debug_manager.log_action("Запуск перевода через меню", category="gui")
+        if hasattr(self, "tab_translation") and self.tab_translation:
+            self.notebook.select(self.tab_translation)
+            self.tab_translation._on_translate()
 
-        # Лог
-        self.hotkey_manager.register(
-            "Ctrl+L",
-            lambda e: self.log_panel.clear(),
-            tooltip_text="Очистить лог (Ctrl+L / Ctrl+Д)",
-        )
-        self.hotkey_manager.register(
-            "Ctrl+H",
-            lambda e: self.show_history(),
-            tooltip_text="История операций (Ctrl+H / Ctrl+Р)",
-        )
+    def _menu_verify(self):
+        """Запустить верификацию (F6) — делегирует на вкладку верификации"""
+        self.debug_manager.log_action("Запуск верификации через меню", category="gui")
+        if hasattr(self, "tab_verification") and self.tab_verification:
+            self.notebook.select(self.tab_verification)
+            self.tab_verification._on_verify()
 
-        # Справка и действия
-        self.hotkey_manager.register(
-            "F1", lambda e: self._show_shortcuts(), tooltip_text="Горячие клавиши (F1)"
-        )
-        self.hotkey_manager.register(
-            "F5", lambda e: self.start_verification(), tooltip_text="Быстрая проверка (F5)"
-        )
-        self.hotkey_manager.register(
-            "F6", lambda e: self.start_full_verification(), tooltip_text="Полная проверка (F6)"
-        )
+    def _menu_help(self):
+        """Показать справку (F1)"""
+        self.debug_manager.log_action("Открыта справка через меню", category="gui")
+        self._show_shortcuts()
 
     def _apply_ttkbootstrap_theme(self, theme_name):
         """Применить тему ttkbootstrap"""
@@ -647,7 +654,7 @@ class ImprovedGUI:
         self.callbacks.update({
             "open_mods": self._menu_open_mods,
             "save_settings": self._menu_save_settings,
-            "clear_log": self.log_panel.clear,
+            "clear_log": self._menu_clear_log,
             "show_history": self.show_history,
             "show_all_tabs": self._show_all_tabs,
             "change_theme": self._change_theme,
@@ -729,13 +736,13 @@ class ImprovedGUI:
                 self._apply_ui_language()
 
                 self.log(f"✅ Язык изменён на: {i18n.get_language_name(lang)}")
-                self.status_bar.show_toast(f"Язык: {i18n.get_language_name(lang)}", "success")
+                self.status_bar.show_toast(i18n.tr("gui_toast_language_changed", "Язык: {}").format(i18n.get_language_name(lang)), "success")
             else:
                 from tkinter import messagebox
 
                 messagebox.showerror(
-                    "Ошибка",
-                    f"Язык '{lang}' не найден. Доступные языки: {', '.join(i18n.get_available_languages())}",
+                    i18n.tr("error", "Ошибка"),
+                    i18n.tr("gui_toast_language_not_found", "Язык '{}' не найден. Доступные языки: {}").format(lang, ', '.join(i18n.get_available_languages())),
                 )
 
         ttk.Button(
@@ -774,6 +781,7 @@ class ImprovedGUI:
     def _safe_destroy(self):
         """Безопасное закрытие приложения"""
         try:
+            self._save_current_language()
             self.save_config()
             self.debug_manager.log_app_exit()
         except Exception:
@@ -870,10 +878,6 @@ class ImprovedGUI:
         self.duplicate_worker = None
         self.integrity_worker = None
 
-        # ✅ Менеджер горячих клавиш (работает на всех раскладках)
-        self.hotkey_manager = HotkeyManager(self.root)
-        setup_default_hotkeys(self.hotkey_manager, self)
-
         self.game_data_loader = GameDataLoader(
             config=self.config,
             log_callback=self.log,
@@ -881,22 +885,6 @@ class ImprovedGUI:
             progress_callbacks=None,
             save_callback=self.save_config,
             game_data_processor=game_data_processor,
-        )
-
-    def _on_save_settings(self, options):
-        """Сохранение настроек"""
-        self.debug_manager.log_action("Сохранение настроек через вкладку настроек", category="gui")
-        # ✅ ИСПРАВЛЕНО: Используем update для сохранения всех настроек (кроме фильтров)
-        self.config.update(options)
-        self.save_config()
-
-        self.add_to_history(i18n.tr("gui_history_settings_saved", "Настройки сохранены"))
-
-        messagebox.showinfo(
-            i18n.tr("gui_success", "Успех"),
-            i18n.tr(
-                "gui_settings_saved", i18n.tr("gui_history_settings_saved", "Настройки сохранены")
-            ),
         )
 
     def _on_save_filters_config(self, filters_config):
@@ -974,9 +962,17 @@ class ImprovedGUI:
         )
 
         # Debug: логируем запуск верификации
-        self.debug_manager.log_action(
-            f"Верификация запущена: {mods_folder}, проверки: {', '.join(checks)}, язык: {verification_language}",
-            category="verification",
+        self.debug_manager.log_verification_start(
+            mods_count=-1,
+            checks=checks,
+        )
+
+        self.status_bar.show_toast(
+            i18n.tr("gui_toast_verification_started", "Верификация запущена..."), "info"
+        )
+        # Передаём язык верификации
+        self.run_verification_async(
+            mods_folder, checks, verification_language=verification_language
         )
 
         self.status_bar.show_toast(
@@ -1033,14 +1029,19 @@ class ImprovedGUI:
         self, mods_folder, checks=None, is_full=False, verification_language=None
     ):
         """Запуск асинхронной верификации (потокобезопасно)"""
-        # ✅ ИСПРАВЛЕНО: Используем переданный язык или fallback на config
         verification_language = verification_language or self.config.get(
             "verification_language", "Russian"
         )
 
         # Для полной проверки - все проверки (пустой список = все проверки)
         if is_full:
-            checks = []  # Пустой список означает все 20 проверок
+            checks = []
+
+        # Debug: логируем запуск верификации
+        self.debug_manager.log_verification_start(
+            mods_count=-1,
+            checks=checks or ["all"],
+        )
 
         # Debug режим - используем loguru logger
         worker_logger = logger.bind(name=f"verification.{os.path.basename(mods_folder)}") if self.debug_manager.is_enabled else None
@@ -1050,7 +1051,14 @@ class ImprovedGUI:
             checks=checks or [],
             language=verification_language,
             logger=worker_logger,
-            game_path=self.config.get("game_path", ""),  # Передаём путь к игре
+            game_path=self.config.get("game_path", ""),
+        )
+
+        # Логируем запуск воркера
+        self.debug_manager.log_worker_start(
+            f"verification_{id(worker)}",
+            "full" if is_full else "partial",
+            language=verification_language,
         )
 
         # Потокобезопасные callbacks через root.after()
@@ -1061,16 +1069,31 @@ class ImprovedGUI:
                 self.root.after(0, handler.on_progress, p, t, m)
 
             def on_complete_cb(r):
-                self.root.after(0, handler.on_complete, r)
+                self.root.after(0, lambda: (
+                    handler.on_complete(r),
+                    self.debug_manager.log_verification_complete(
+                        success=True,
+                        errors=getattr(r, "errors_count", 0) if hasattr(r, "errors_count") else 0,
+                        warnings=getattr(r, "warnings_count", 0) if hasattr(r, "warnings_count") else 0,
+                        total_checked=getattr(r, "total_checked", 0) if hasattr(r, "total_checked") else 0,
+                    ),
+                    self.debug_manager.log_worker_stop(f"verification_{id(worker)}", success=True),
+                ))
 
             def on_error_cb(e):
-                self.root.after(0, handler.on_error, e)
+                self.root.after(0, lambda: (
+                    handler.on_error(e),
+                    self.debug_manager.log_verification_complete(
+                        success=False, errors=0, warnings=0, total_checked=0,
+                    ),
+                    self.debug_manager.log_worker_stop(f"verification_{id(worker)}", success=False),
+                ))
 
             worker.on_progress(on_progress_cb)
             worker.on_complete(on_complete_cb)
             worker.on_error(on_error_cb)
 
-        self.start_progress()  # ✅ Запуск прогресс-бара
+        self.start_progress()
         worker.start()
         return worker
 
@@ -1116,27 +1139,18 @@ class ImprovedGUI:
         fuzzy = options.get("fuzzy", True)
         auto_detect_source_lang = options.get("auto_detect_source_lang", True)
 
-        # ✅ ПРЯМО ЧИТАЕМ движки из UI (tab_settings) - ВСЕГДА актуально!
+        # Читаем движки из UI (tab_settings)
         engine_names = []
         if hasattr(self, "tab_settings") and self.tab_settings:
             try:
                 for key in ["google", "mymemory", "deepl", "bing", "deeplx", "translators", "libre", "argos"]:
                     if key in self.tab_settings.engine_vars:
                         var = self.tab_settings.engine_vars[key]
-                        is_checked = var.get()  # ✅ Читаем значение BooleanVar
-                        if is_checked:
+                        if var.get():
                             engine_names.append(key)
-                        # ✅ ОТЛАДКА: Показываем состояние каждого движка
-                        self.debug_manager.log_action(f"DEBUG start_translation: движок {key} = {is_checked}", category="translation")
-
-                # ✅ ОТЛАДКА: Показываем что прочитано из UI
-                self.debug_manager.log_action(f"DEBUG start_translation: engine_names из UI = {engine_names}", category="translation")
             except Exception as e:
                 self.debug_manager.log_error(f"Ошибка чтения движков из UI: {e}", e)
-                engine_names = []  # Пустой = ни одного движка
-
-        # ✅ ОТЛАДКА: Показываем что передаём в run_translation_async
-        self.debug_manager.log_action(f"DEBUG start_translation: ПЕРЕДАЁМ engine_names={engine_names}", category="translation")
+                engine_names = []
 
         if not mods_folder:
             self.status_bar.show_toast(
@@ -1154,18 +1168,26 @@ class ImprovedGUI:
             i18n.tr("gui_history_translation", "Перевод"),
             f"{source_lang} -> {target_lang}: {mods_folder}",
         )
-        self.status_bar.show_toast(f"Перевод запущен: {source_lang} → {target_lang}", "info")
+        self.status_bar.show_toast(i18n.tr("gui_toast_translation_started", "Перевод запущен: {source} → {target}").format(source=source_lang, target=target_lang), "info")
 
-        # ✅ НОВОЕ: Передаём конфиг в handler для Morphy.py
+        # Debug: логируем запуск перевода
+        self.debug_manager.log_translation_start(
+            source_lang, target_lang,
+            self.config.get("translation_mode", "separate"),
+            len(selected_mods) if selected_mods else 0,
+        )
+        self.debug_manager.log_mods_selection(
+            selected_mods or [],
+            len(selected_mods) if selected_mods else 0,
+        )
+
+        # Передаём конфиг в handler для Morphy.py
         if self.translation_handler:
             self.translation_handler.set_config(options)
 
         self.run_translation_async(
             mods_folder, output_folder, source_lang, source_langs, target_lang, selected_mods, force_update, fuzzy, engine_names, auto_detect_source_lang,
         )
-
-        # ✅ ОТЛАДКА: Показываем какие движки переданы
-        self.debug_manager.log_action(f"Переданы движки в run_translation_async: {engine_names}", category="translation")
 
     def run_translation_async(
         self,
@@ -1181,29 +1203,10 @@ class ImprovedGUI:
         auto_detect_source_lang=True,
     ):
         """Запуск асинхронного перевода"""
-        # ✅ ОТЛАДКА: Показываем полученные языки
-        self.debug_manager.log_action(f"DEBUG run_translation_async: source_lang={source_lang}, source_langs={source_langs}", category="translation")
-
-        # ✅ ОТЛАДКА: Показываем какие движки получены
-        self.debug_manager.log_action(f"DEBUG run_translation_async: ПОЛУЧИЛИ engine_names={engine_names}", category="translation")
-
-        # ✅ ОТЛАДКА: Показываем какие движки передаём в Worker
-        if engine_names:
-            self.debug_manager.log_action(f"DEBUG run_translation_async: ПЕРЕДАЁМ в Worker engine_names={engine_names}", category="translation")
-        else:
-            self.debug_manager.log_action("DEBUG run_translation_async: engine_names ПУСТОЙ или None", category="translation")
-
         # Получаем режим перевода из конфига (separate или inplace)
         translation_mode = self.config.get("translation_mode", "separate")
-        print(f"DEBUG GUI: Read translation_mode = '{translation_mode}'")
-        self.debug_manager.log_action(
-            f"DEBUG: translation_mode from config = '{translation_mode}'", category="translation"
-        )
 
-        # Debug: логируем запуск перевода
-        self.debug_manager.log_action(
-            f"Запуск перевода: {source_lang} -> {target_lang}, режим: {translation_mode}, force_update: {force_update}, fuzzy: {fuzzy}"
-        )
+        # Логируем запуск перевода
         self.debug_manager.log_file_operation(
             "translation_start",
             mods_folder,
@@ -1261,29 +1264,54 @@ class ImprovedGUI:
             auto_detect_source_lang=auto_detect_source_lang,
         )
 
-        # ✅ ОТЛАДКА: Показуємо які движки передані у worker
-        self.debug_manager.log_action(f"DEBUG: worker створено з engine_names={engine_names}", category="translation")
-
-        # ✅ Устанавливаем root для потокобезопасных callbacks
+        # Устанавливаем root для потокобезопасных callbacks
         self.translation_worker.set_tk_root(self.root)
-
-        handler = self.translation_handler
         worker = self.translation_worker
+
+        # Логируем запуск воркера
+        worker_type = translation_mode  # "separate" или "inplace"
+        self.debug_manager.log_worker_start(
+            f"translation_{id(worker)}",
+            worker_type,
+            source=source_lang,
+            target=target_lang,
+            mods=len(selected_mods) if selected_mods else 0,
+        )
+
+        # Потокобезопасные callbacks через root.after()
+        handler = self.translation_handler
         if handler:
-            # ✅ Потокобезопасные callbacks через root.after()
-            worker.on_progress(
-                lambda p, t, m, h=handler: self.root.after(0, h.on_progress, p, t, m)
-            )
-            worker.on_complete(
-                lambda r, h=handler: self.root.after(
-                    0, lambda: (h.on_complete(r), self.tab_translation.finish_translation(True))
-                )
-            )
-            worker.on_error(
-                lambda e, h=handler: self.root.after(
-                    0, lambda: (h.on_error(e), self.tab_translation.finish_translation(False))
-                )
-            )
+
+            def on_progress_cb(p, t, m):
+                self.root.after(0, handler.on_progress, p, t, m)
+
+            def on_complete_cb(r):
+                self.root.after(0, lambda: (
+                    handler.on_complete(r),
+                    self.tab_translation.finish_translation(True),
+                    self.debug_manager.log_translation_complete(
+                        success=True,
+                        duration=self.debug_manager.timer_stop("translation") or 0,
+                        translated_count=getattr(r, "translated_count", 0) if hasattr(r, "translated_count") else 0,
+                    ),
+                    self.debug_manager.log_worker_stop(f"translation_{id(worker)}", success=True),
+                ))
+
+            def on_error_cb(e):
+                self.root.after(0, lambda: (
+                    handler.on_error(e),
+                    self.tab_translation.finish_translation(False),
+                    self.debug_manager.log_translation_complete(
+                        success=False,
+                        duration=self.debug_manager.timer_stop("translation") or 0,
+                        translated_count=0,
+                    ),
+                    self.debug_manager.log_worker_stop(f"translation_{id(worker)}", success=False),
+                ))
+
+            worker.on_progress(on_progress_cb)
+            worker.on_complete(on_complete_cb)
+            worker.on_error(on_error_cb)
 
         self.start_progress()  # ✅ Запуск прогресс-бара
         worker.start()
@@ -1325,7 +1353,6 @@ class ImprovedGUI:
             f"Слияние дубликатов запущено: {mods_folder} -> {output_folder}", category="duplicates"
         )
 
-        # ✅ ИСПРАВЛЕНО: Используем DuplicateWorker вместо DuplicateRunner
         worker_logger = logger.bind(name="duplicate") if self.debug_manager.is_enabled else None
         self.duplicate_worker = DuplicateWorker(
             mods_folder=mods_folder,
@@ -1335,18 +1362,34 @@ class ImprovedGUI:
             logger=worker_logger,
         )
 
+        # Логируем запуск воркера
+        self.debug_manager.log_worker_start(
+            f"duplicate_{id(self.duplicate_worker)}",
+            "merge",
+            auto_merge=options.get("auto_merge", True),
+        )
+
         handler = self.duplicate_handler
         worker = self.duplicate_worker
 
         if handler:
-            # ✅ Потокобезопасные callbacks через root.after()
             worker.on_progress(
                 lambda p, t, m, h=handler: self.root.after(0, h.on_progress, p, t, m)
             )
-            worker.on_complete(lambda r, h=handler: self.root.after(0, h.on_complete, r))
-            worker.on_error(lambda e, h=handler: self.root.after(0, h.on_error, e))
+            worker.on_complete(lambda r, h=handler: self.root.after(
+                0, lambda: (
+                    h.on_complete(r),
+                    self.debug_manager.log_worker_stop(f"duplicate_{id(worker)}", success=True),
+                )
+            ))
+            worker.on_error(lambda e, h=handler: self.root.after(
+                0, lambda: (
+                    h.on_error(e),
+                    self.debug_manager.log_worker_stop(f"duplicate_{id(worker)}", success=False),
+                )
+            ))
 
-        self.start_progress()  # ✅ Запуск прогресс-бара
+        self.start_progress()
         worker.start()
 
     # Функции настроек
@@ -1381,25 +1424,40 @@ class ImprovedGUI:
         # Debug режим - используем loguru logger
         worker_logger = logger.bind(name="integrity") if self.debug_manager.is_enabled else None
 
-        # ✅ Используем IntegrityWorker вместо IntegrityRunner
         self.integrity_worker = IntegrityWorker(
             mods_folder=mods_folder,
             language_filter=language_filter,
             logger=worker_logger,
-        ).set_tk_root(self.root)  # ✅ Потокобезопасные callbacks через root.after()
+        ).set_tk_root(self.root)
+
+        # Логируем запуск воркера
+        self.debug_manager.log_worker_start(
+            f"integrity_{id(self.integrity_worker)}",
+            "integrity",
+            language_filter=language_filter,
+        )
 
         handler = self.integrity_handler
         worker = self.integrity_worker
 
         if handler:
-            # ✅ Потокобезопасные callbacks через root.after()
             worker.on_progress(
                 lambda p, t, m, h=handler: self.root.after(0, h.on_progress, p, t, m)
             )
-            worker.on_complete(lambda r, h=handler: self.root.after(0, h.on_complete, r))
-            worker.on_error(lambda e, h=handler: self.root.after(0, h.on_error, e))
+            worker.on_complete(lambda r, h=handler: self.root.after(
+                0, lambda: (
+                    h.on_complete(r),
+                    self.debug_manager.log_worker_stop(f"integrity_{id(worker)}", success=True),
+                )
+            ))
+            worker.on_error(lambda e, h=handler: self.root.after(
+                0, lambda: (
+                    h.on_error(e),
+                    self.debug_manager.log_worker_stop(f"integrity_{id(worker)}", success=False),
+                )
+            ))
 
-        self.start_progress()  # ✅ Запуск прогресс-бара
+        self.start_progress()
         worker.start()
 
     def run_game_data_load(self):
@@ -1505,34 +1563,24 @@ class ImprovedGUI:
         # Если путь содержит RimWorldWin64
         if "RimWorldWin64" in game_path or "RimWorldWin64_Data" in game_path:
             suggestions.append(
-                "⚠️ Вы указали папку с exe-файлом!\n"
-                "   Нужно указать папку выше (где лежит RimWorldWin64.exe)"
+                i18n.tr("gui_data_folder_exe_warning", "⚠️ Вы указали папку с exe-файлом!\n   Нужно указать папку выше (где лежит RimWorldWin64.exe)")
             )
 
-        # Проверяем наличие Data в соседней папке
         parent_path = os.path.dirname(game_path)
         if os.path.exists(os.path.join(parent_path, "Data")):
             suggestions.append(
-                f"✅ Папка Data найдена в: {parent_path}\n   Укажите эту папку вместо {game_path}"
+                i18n.tr("gui_data_folder_parent_found", "✅ Папка Data найдена в: {parent_path}\n   Укажите эту папку вместо {game_path}").format(parent_path=parent_path, game_path=game_path)
             )
 
-        # Формируем сообщение
         message = (
-            "Не удалось найти папку Data.\n\n"
-            f"Проверьте путь:\n{game_path}\n\n"
-            "Ожидаемая структура:\n"
-            f"  {game_path}/Data/Core/Languages/Russian/\n\n"
+            i18n.tr("gui_data_folder_error_main", "Не удалось найти папку Data.\n\nПроверьте путь:\n{game_path}\n\nОжидаемая структура:\n  {game_path}/Data/Core/Languages/..../").format(game_path=game_path)
         )
 
         if suggestions:
-            message += "💡 Подсказки:\n" + "\n\n".join(suggestions)
+            message += i18n.tr("gui_data_folder_suggestions", "💡 Подсказки:\n{suggestions}").format(suggestions="\n\n".join(suggestions))
         else:
             message += (
-                "Возможно, вы указали:\n"
-                "  • Папку с exe-файлом (RimWorldWin64)\n"
-                "  • Папку с модом вместо папки игры\n"
-                "  • Неправильный путь\n\n"
-                "Нужно указать папку, где лежит RimWorldWin64.exe"
+                i18n.tr("gui_data_folder_error_suggestions", "Возможно, вы указали:\n  • Папку с exe-файлом (RimWorldWin64)\n  • Папку с модом вместо папки игры\n  • Неправильный путь\n\nНужно указать папку, где лежит RimWorldWin64.exe")
             )
 
         messagebox.showwarning(i18n.tr("gui_warning", "Предупреждение"), message)
@@ -1592,7 +1640,7 @@ class ImprovedGUI:
                 self.config["game_path"] = game_path
                 self.save_config()
 
-                self.set_status(f"Данные загружены: {db_size} строк, {symbols_count} символов")
+                self.set_status(i18n.tr("gui_status_data_loaded", "Данные загружены: {db_size} строк, {symbols_count} символов").format(db_size=db_size, symbols_count=symbols_count))
                 messagebox.showinfo(
                     i18n.tr("gui_success", "Успех"),
                     i18n.tr(
@@ -1680,10 +1728,11 @@ def main():
         app = ImprovedGUI()
     except Exception as e:
         from tkinter import messagebox
+        from gui.gui_i18n import tr
         try:
             messagebox.showerror(
-                "Ошибка запуска",
-                f"Не удалось запустить приложение:\n{e}\n\nПроверьте консоль для деталей."
+                tr("gui_launch_error", "Ошибка запуска"),
+                tr("gui_launch_error_detail", "Не удалось запустить приложение:\n{error}\n\nПроверьте консоль для деталей.").format(error=e)
             )
         except Exception:
             pass

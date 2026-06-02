@@ -472,7 +472,38 @@ pytest --cov=translation --cov-report=html
 
 ---
 
-## 📝 Changelog (2026-05)
+## 📝 Changelog
+
+### v2.7 — Placeholder restoration and case handling (2026-06)
+
+#### 🐛 Fixes — Placeholder restoration
+- **Fixed placeholder restoration after translation** — changed internal marker from `\x00PH\x00` (null byte) to `__PH_N__` (safe string) to prevent truncation by translation APIs
+- **Updated `translation_worker.py`** — uses `__PH_N__` format for placeholder protection
+- **Updated `translation/glossary.py`** — uses `__GLPH_N__` format for placeholder protection
+- **Updated `language/rules_engine.py`** — supports both old and new marker formats for backward compatibility
+
+#### 🐛 Fixes — Case handling
+- **Fixed `_preserve_word_case()`** — now correctly handles `{...}` curly brace placeholders (previously only `[...]` were protected)
+- **Fixed capitalization for Cyrillic text** — `isupper()`/`islower()` now work correctly with Russian/Ukrainian text
+- **Fixed `_preserve_word_case()`** — placeholders starting with `__BRACKET_` or `__CURLY_` are now preserved without case changes
+
+#### 📚 Documentation
+- **Added `PLACEHOLDERS_DOCUMENTATION.md`** — comprehensive guide to all RimWorld placeholder types, internal markers, case handling rules, and Morphy.py integration
+### v2.4 — Code optimization and editor fix
+
+#### 🐛 Fixes
+- **scanner/mod_scanner.py**: Fixed indentation error in `_detect_language_from_text`
+- **gui/tabs/editor/editor_file_browser.py**: Added missing `tr()` translation method
+
+#### ⚡ Optimizations
+- **scanner/mod_scanner.py**: Optimized 6 functions for O(n) performance
+  - `_detect_language_from_text`: Single-pass character counting with frozenset lookups
+  - `parse_about_xml`: Single-pass XML parsing
+  - `analyze_languages`: Generator expressions
+  - `_scan_defs_for_languages`: Added file size limits (10MB) and early exit
+  - `detect_mod_languages`: Module-level import
+- **utils/loadfolders_parser.py**: Optimized 2 functions with set-based deduplication
+- Added safety limits: file size (10MB), text length (5000 chars)
 
 ### v2.3 — Glossary auto-split feature
 

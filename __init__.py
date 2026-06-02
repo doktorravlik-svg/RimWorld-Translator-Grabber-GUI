@@ -13,7 +13,7 @@ RimWorld Translator Grabber - інструмент для перекладу т�
 - grabber_settings: Налаштування фільтрації тегів
 """
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"
 __author__ = "RimWorld Translator Team"
 __python_version__ = "3.14"
 __last_updated__ = "2026-04-03"
