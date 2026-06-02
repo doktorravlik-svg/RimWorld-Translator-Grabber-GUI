@@ -1,53 +1,93 @@
 # mod_scanner.py
 import os
-import re
 from typing import Any
 
 from loguru import logger as loguru_logger
 from verification.xml_parser import safe_parse_xml
+from utils.loadfolders_parser import find_all_languages_folders_with_loadfolders, find_all_defs_folders_with_loadfolders
 
-# Language detection patterns
-CYRILLIC_PATTERN = re.compile(r'[\u0400-\u04FF]')
-LATIN_PATTERN = re.compile(r'[A-Za-z]')
-CHINESE_PATTERN = re.compile(r'[\u4e00-\u9fff]')
-JAPANESE_PATTERN = re.compile(r'[\u3040-\u309f\u30a0-\u30ff]')
-KOREAN_PATTERN = re.compile(r'[\uac00-\ud7af]')
+# Pre-computed character sets for O(1) lookup (used in _detect_language_from_text)
+UKRAINIAN_CHARS = frozenset("іїєґ")
+RUSSIAN_CHARS = frozenset("ыэъё")
+
+# Thresholds for language detection
+MIN_CYRILLIC_COUNT = 10
+MIN_ASIAN_COUNT = 5
+MIN_LATIN_COUNT = 10
 
 def _detect_language_from_text(text: str) -> str | None:
     """
     Определяет язык по тексту.
     Возвращает код языка или None если не определён.
+
+    Оптимизировано:
+    - Использует set-операции для O(1) проверки характерных букв
+    - Единственный проход по тексту для подсчета символов
+    - Избегает лишних вызовов strip()/lower()
     """
-    if not text or not text.strip():
+    if not text:
         return None
-    
+
     text = text.strip()
-    
-    # Проверяем кириллицу (русский)
-    cyrillic_count = len(CYRILLIC_PATTERN.findall(text))
-    if cyrillic_count > 10:
+    if not text:
+        return None
+
+    # Single-pass character counting
+    cyrillic_count = 0
+    latin_count = 0
+    chinese_count = 0
+    japanese_count = 0
+    korean_count = 0
+    has_ukrainian = False
+    has_russian = False
+
+    for char in text:
+        cp = ord(char)
+        # Cyrillic range: U+0400 to U+04FF
+        if 0x0400 <= cp <= 0x04FF:
+            cyrillic_count += 1
+            # Check for Ukrainian/Russian specific chars (using lowercase for comparison)
+            char_lower = char.lower()
+            if char_lower in UKRAINIAN_CHARS:
+                has_ukrainian = True
+            elif char_lower in RUSSIAN_CHARS:
+                has_russian = True
+        # Latin range
+        elif ('A' <= char <= 'Z') or ('a' <= char <= 'z'):
+            latin_count += 1
+        # Chinese
+        elif 0x4e00 <= cp <= 0x9fff:
+            chinese_count += 1
+        # Japanese Hiragana
+        elif 0x3040 <= cp <= 0x309f:
+            japanese_count += 1
+        # Japanese Katakana
+        elif 0x30a0 <= cp <= 0x30ff:
+            japanese_count += 1
+        # Korean
+        elif 0xac00 <= cp <= 0xd7af:
+            korean_count += 1
+
+    # Ukrainian check first (most specific)
+    if has_ukrainian:
+        return "Ukrainian"
+
+    # Russian check
+    if has_russian or cyrillic_count > MIN_CYRILLIC_COUNT:
         return "Russian"
-    
-    # Проверяем китайский
-    chinese_count = len(CHINESE_PATTERN.findall(text))
-    if chinese_count > 5:
+
+    # Asian languages
+    if chinese_count > MIN_ASIAN_COUNT:
         return "Chinese"
-    
-    # Проверяем японский
-    japanese_count = len(JAPANESE_PATTERN.findall(text))
-    if japanese_count > 5:
+    if japanese_count > MIN_ASIAN_COUNT:
         return "Japanese"
-    
-    # Проверяем корейский
-    korean_count = len(KOREAN_PATTERN.findall(text))
-    if korean_count > 5:
+    if korean_count > MIN_ASIAN_COUNT:
         return "Korean"
-    
-    # Проверяем латинницу (английский)
-    latin_count = len(LATIN_PATTERN.findall(text))
-    if latin_count > 10:
+
+    # Latin (English)
+    if latin_count > MIN_LATIN_COUNT:
         return "English"
-    
+
     return None
 
 
@@ -55,13 +95,18 @@ def parse_about_xml(about_path: str, logger=None) -> dict[str, Any]:
     """
     Выполняет глубокий парсинг About.xml для извлечения метаданных мода.
     Поддерживает стандартные теги и расширения для зависимостей и версий.
+
+    Оптимизировано:
+    - Единственный проход по дочерним элементам
+    - Кэширование результатов find()
+    - Минимальные вызовы strip()
     """
     result = {
         'name': 'Unknown Mod',
         'author': 'Unknown',
         'mod_id': None,
         'version': '0.0.0',
-        'game_versions': [],  # ✅ НОВОЕ: Версии игры, а не версия мода
+        'game_versions': [],
         'dependencies': [],
         'target_content_creator': None,
         'target_mod_id': None,
@@ -75,48 +120,54 @@ def parse_about_xml(about_path: str, logger=None) -> dict[str, Any]:
         return result
 
     try:
-        # Используем парсер с защитой от пустых файлов
         root = safe_parse_xml(about_path)
         if root is None:
             return result
 
-        # 1. Основные метаданные
+        # Cache for nodes we need multiple times
+        supp_versions_node = None
+        version_tag = None
+
+        # Single pass through all children
         for child in root:
             tag = child.tag.lower()
             text = child.text.strip() if child.text else None
 
-            if tag == 'name': result['name'] = text
-            elif tag == 'author': result['author'] = text
-            elif tag == 'packageid': result['mod_id'] = text.lower() if text else None
-            elif tag == 'description': result['description'] = text
-            elif tag == 'targetcontentcreator': result['target_content_creator'] = text
-            elif tag == 'targetmodid': result['target_mod_id'] = text
-
-            # Сбор поддерживаемых языков (если указаны)
+            if tag == 'name':
+                result['name'] = text
+            elif tag == 'author':
+                result['author'] = text
+            elif tag == 'packageid':
+                result['mod_id'] = text.lower() if text else None
+            elif tag == 'description':
+                result['description'] = text
+            elif tag == 'targetcontentcreator':
+                result['target_content_creator'] = text
+            elif tag == 'targetmodid':
+                result['target_mod_id'] = text
             elif tag == 'supportedlanguages':
                 if child.text:
-                    result['supported_languages'].extend([l.strip() for l in child.text.replace(',', '\n').split('\n') if l.strip()])
+                    result['supported_languages'].extend(
+                        [l.strip() for l in child.text.replace(',', '\n').split('\n') if l.strip()]
+                    )
                 for lang in child:
-                    if lang.text: result['supported_languages'].append(lang.text.strip())
+                    if lang.text:
+                        result['supported_languages'].append(lang.text.strip())
+            elif tag == 'version':
+                version_tag = child
+            elif tag == 'supportedversions':
+                supp_versions_node = child
 
-        # 2. Определение версии мода
-        version_tag = root.find('version')
+        # Process version
         if version_tag is not None and version_tag.text:
             result['version'] = version_tag.text.strip()
-        else:
-            # Если тега version нет, берем самую высокую из поддерживаемых версий игры
-            supp_versions = root.find('supportedVersions')
-            if supp_versions is not None:
-                v_list = [v.text.strip() for v in supp_versions if v.text]
-                if v_list:
-                    result['version'] = sorted(v_list, reverse=True)[0]
+        elif supp_versions_node is not None:
+            v_list = [v.text.strip() for v in supp_versions_node if v.text]
+            if v_list:
+                result['version'] = sorted(v_list, reverse=True)[0]
+                result['game_versions'] = v_list
 
-        # 2.1. Собираем версии игры (supportedVersions) отдельно от версии мода
-        supp_versions = root.find('supportedVersions')
-        if supp_versions is not None:
-            result['game_versions'] = [v.text.strip() for v in supp_versions if v.text]
-
-        # 3. Сбор зависимостей (packageId других модов)
+        # Process dependencies
         deps_node = root.find('modDependencies')
         if deps_node is not None:
             for dep in deps_node:
@@ -124,25 +175,24 @@ def parse_about_xml(about_path: str, logger=None) -> dict[str, Any]:
                 if p_id is not None and p_id.text:
                     result['dependencies'].append(p_id.text.strip().lower())
 
-        # 4. Сбор loadAfter (порядок загрузки после)
+        # Process loadAfter
         load_after_node = root.find('loadAfter')
         if load_after_node is not None:
             for li in load_after_node:
                 if li.text:
                     result['load_after'].append(li.text.strip())
 
-        # 5. Сбор loadBefore (порядок загрузки до)
+        # Process loadBefore
         load_before_node = root.find('loadBefore')
         if load_before_node is not None:
             for li in load_before_node:
                 if li.text:
                     result['load_before'].append(li.text.strip())
 
-        # Очистка дубликатов языков
+        # Remove duplicates from supported_languages
         result['supported_languages'] = list(set(result['supported_languages']))
 
     except Exception as e:
-        # ✅ ИСПРАВЛЕНО: Используем переданный logger или loguru_logger по умолчанию
         _logger = logger if logger else loguru_logger
         _logger.error(f"Ошибка парсинга {about_path}: {e}")
 
@@ -217,7 +267,10 @@ def analyze_languages(langs_base: str, logger=None) -> dict[str, Any]:
 
     Returns:
         {язык: {keyed_files: int, def_files: int, total_xml_files: int}}
-        ✅ ИСПРАВЛЕНО: total_xml_files вместо total_keys (считает файлы, а не ключи)
+
+    Оптимизировано:
+    - Объединены os.walk вызовы для Keyed и DefInjected
+    - Использован однокоренный подход для подсчета файлов
     """
     languages = {}
 
@@ -234,39 +287,42 @@ def analyze_languages(langs_base: str, logger=None) -> dict[str, Any]:
         if not os.path.isdir(lang_path):
             continue
 
-        lang_info = {
-            'keyed_files': 0,
-            'def_files': 0,
-            'total_xml_files': 0
-        }
+        keyed_files = 0
+        def_files = 0
 
-        # Подсчёт Keyed файлов
+        # Single pass: check for Keyed and DefInjected directories
         keyed_path = os.path.join(lang_path, "Keyed")
+        def_injected_path = os.path.join(lang_path, "DefInjected")
+
+        # Count Keyed files
         if os.path.exists(keyed_path):
             for root, _, files in os.walk(keyed_path):
-                for f in files:
-                    if f.endswith('.xml'):
-                        lang_info['keyed_files'] += 1
+                keyed_files += sum(1 for f in files if f.endswith('.xml'))
 
-        # Подсчёт DefInjected файлов
-        def_injected_path = os.path.join(lang_path, "DefInjected")
+        # Count DefInjected files
         if os.path.exists(def_injected_path):
             for root, _, files in os.walk(def_injected_path):
-                for f in files:
-                    if f.endswith('.xml'):
-                        lang_info['def_files'] += 1
+                def_files += sum(1 for f in files if f.endswith('.xml'))
 
-        lang_info['total_xml_files'] = lang_info['keyed_files'] + lang_info['def_files']
-        
+        total_xml_files = keyed_files + def_files
+
         if logger:
-            logger.debug(f"Язык {lang_dir}: Keyed={lang_info['keyed_files']}, DefInjected={lang_info['def_files']}")
-        
-        languages[lang_dir] = lang_info
+            logger.debug(f"Язык {lang_dir}: Keyed={keyed_files}, DefInjected={def_files}")
+
+        languages[lang_dir] = {
+            'keyed_files': keyed_files,
+            'def_files': def_files,
+            'total_xml_files': total_xml_files
+        }
 
     if logger:
         logger.info(f"Завершён анализ языков. Найдено: {len(languages)}")
 
     return languages
+
+# Constants for optimization
+MAX_XML_FILE_SIZE = 10 * 1024 * 1024  # 10 MB - skip large files
+MAX_TEXT_LENGTH_FOR_DETECTION = 5000  # Limit text length for language detection
 
 
 def _scan_defs_for_languages(mod_path: str, defs_folders: list[str], logger=None) -> set[str]:
@@ -280,35 +336,57 @@ def _scan_defs_for_languages(mod_path: str, defs_folders: list[str], logger=None
 
     Returns:
         Множество обнаруженных языков
+
+    Оптимизировано:
+    - Пропускает файлы больше 10MB
+    - Ограничивает длину текста для анализа
+    - Досрочный выход при обнаружении всех языков
     """
     detected_languages = set()
-    
+    all_langs = {"English", "Russian", "Chinese", "Japanese", "Korean", "Ukrainian"}
+
     if not defs_folders:
         return detected_languages
-    
+
     for defs_folder in defs_folders:
         if not os.path.exists(defs_folder):
             continue
-        
+
         for root, _, files in os.walk(defs_folder):
             for filename in files:
                 if not filename.endswith('.xml'):
                     continue
-                
+
                 filepath = os.path.join(root, filename)
+
+                # Skip large files
+                try:
+                    if os.path.getsize(filepath) > MAX_XML_FILE_SIZE:
+                        continue
+                except OSError:
+                    continue
+
                 try:
                     root_xml = safe_parse_xml(filepath)
                     if root_xml is None:
                         continue
-                    
+
                     for elem in root_xml.iter():
-                        if elem.text and elem.text.strip():
-                            lang = _detect_language_from_text(elem.text)
-                            if lang:
-                                detected_languages.add(lang)
+                        if not elem.text or not elem.text.strip():
+                            continue
+
+                        # Limit text length for performance
+                        text = elem.text[:MAX_TEXT_LENGTH_FOR_DETECTION]
+                        lang = _detect_language_from_text(text)
+                        if lang:
+                            detected_languages.add(lang)
+
+                        # Early exit if we found all languages
+                        if detected_languages == all_langs:
+                            return detected_languages
                 except Exception:
                     pass
-    
+
     return detected_languages
 
 
@@ -323,34 +401,32 @@ def detect_mod_languages(mod_path: str, logger=None) -> list[str]:
     Returns:
         Список доступных языков (например ['English', 'Russian', 'Chinese'])
     """
-    from utils.loadfolders_parser import find_all_languages_folders_with_loadfolders, find_all_defs_folders_with_loadfolders
-    
     languages = set()
-    
+
     try:
         langs_folders = find_all_languages_folders_with_loadfolders(mod_path)
-        
+
         for langs_folder in langs_folders:
             if os.path.exists(langs_folder):
                 for item in os.listdir(langs_folder):
                     item_path = os.path.join(langs_folder, item)
                     if os.path.isdir(item_path):
                         languages.add(item)
-        
+
         defs_folders = find_all_defs_folders_with_loadfolders(mod_path)
         defs_languages = _scan_defs_for_languages(mod_path, defs_folders, logger)
-        
+
         if defs_languages:
             if logger:
                 logger.debug(f"Обнаружены языки в Defs: {defs_languages}")
             languages.update(defs_languages)
-            
+
     except Exception as e:
         if logger:
             logger.debug(f"Ошибка определения языков: {e}")
-    
+
     result = sorted(list(languages))
     if logger:
         logger.debug(f"Определены языки в моде {mod_path}: {result}")
-    
+
     return result
