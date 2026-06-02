@@ -7,6 +7,72 @@
 
 from ttkbootstrap.tooltip import ToolTip
 
+HOTKEYS_CONFIG = {
+    "open_mods": {
+        "key": "Ctrl+O",
+        "tooltip": "gui_tooltip_open_mods",
+        "tooltip_default": "Открыть папку модов (Ctrl+O / Ctrl+Щ)",
+    },
+    "save_settings": {
+        "key": "Ctrl+S",
+        "tooltip": "gui_tooltip_save_settings",
+        "tooltip_default": "Сохранить настройки (Ctrl+S / Ctrl+Ы)",
+    },
+    "clear_log": {
+        "key": "Ctrl+L",
+        "tooltip": "gui_tooltip_clear_log",
+        "tooltip_default": "Очистить лог (Ctrl+L / Ctrl+Д)",
+    },
+    "show_history": {
+        "key": "Ctrl+H",
+        "tooltip": "gui_tooltip_show_history",
+        "tooltip_default": "История операций (Ctrl+H / Ctrl+Р)",
+    },
+    "show_shortcuts": {
+        "key": "F1",
+        "tooltip": "gui_tooltip_show_shortcuts",
+        "tooltip_default": "Горячие клавиши (F1)",
+    },
+    "start_translation": {
+        "key": "F5",
+        "tooltip": "gui_tooltip_start_translation",
+        "tooltip_default": "Начать перевод (F5)",
+    },
+    "start_verification": {
+        "key": "F6",
+        "tooltip": "gui_tooltip_start_verification",
+        "tooltip_default": "Верификация (F6)",
+    },
+    "full_check": {
+        "key": "F9",
+        "tooltip": "gui_tooltip_full_check",
+        "tooltip_default": "Полная проверка (F9)",
+    },
+}
+
+def register_hotkeys(hotkey_manager, callbacks, i18n_tr=None):
+    """
+    Регистрирует все горячие клавиши из конфигурации.
+    
+    Args:
+        hotkey_manager: Экземпляр HotkeyManager
+        callbacks: Словарь обработчиков ({name: callable})
+        i18n_tr: Функция для перевода (i18n.tr(key, default))
+    """
+    if i18n_tr is None:
+        i18n_tr = lambda key, default="": default
+
+    for name, config in HOTKEYS_CONFIG.items():
+        handler = callbacks.get(name)
+        if handler:
+            tooltip_key = config["tooltip"]
+            tooltip_default = config["tooltip_default"]
+            hotkey_manager.register(
+                config["key"],
+                lambda e, h=handler: h(),
+                tooltip_text=i18n_tr(tooltip_key, tooltip_default),
+            )
+
 # === Таблица физических кодов клавиш (Windows) ===
 # Эти коды одинаковы для всех раскладок
 KEYCODES = {
@@ -69,6 +135,30 @@ KEYCODES = {
     "PAGE_DOWN": 34,
     "INSERT": 45,
 }
+
+# === Кроссплатформенные keycode-карты ===
+# Для Linux/X11 физические коды отличаются от Windows
+import platform
+import sys
+
+if platform.system() == "Linux":
+    # Linux/X11 keycodes
+    KEYCODES_LINUX = {
+        "A": 38, "B": 56, "C": 54, "D": 40, "E": 26, "F": 41, "G": 42,
+        "H": 43, "I": 31, "J": 44, "K": 45, "L": 46, "M": 57, "N": 58,
+        "O": 32, "P": 33, "Q": 24, "R": 27, "S": 39, "T": 28, "U": 30,
+        "V": 55, "W": 25, "X": 53, "Y": 29, "Z": 52,
+    }
+    KEYCODES.update(KEYCODES_LINUX)
+elif platform.system() == "Darwin":
+    # macOS keycodes (based on X11 on macOS)
+    KEYCODES_MACOS = {
+        "A": 0, "B": 11, "C": 8, "D": 2, "E": 14, "F": 3, "G": 5,
+        "H": 4, "I": 34, "J": 38, "K": 40, "L": 37, "M": 46, "N": 45,
+        "O": 35, "P": 36, "Q": 6, "R": 15, "S": 7, "T": 16, "U": 6,
+        "V": 9, "W": 13, "X": 7, "Y": 10, "Z": 12,
+    }
+    KEYCODES.update(KEYCODES_MACOS)
 
 # Модификаторы
 MODIFIERS = {
@@ -300,38 +390,4 @@ class HotkeyManager:
         return key
 
 
-def setup_default_hotkeys(manager, app_instance):
-    """
-    Настраивает стандартные горячие клавиши для приложения.
 
-    Args:
-        manager: Экземпляр HotkeyManager
-        app_instance: Экземпляр главного приложения (GUI)
-    """
-    from gui.gui_i18n import tr
-
-    # Файл
-    manager.register(
-        "Ctrl+O",
-        lambda e: app_instance.tab_manager.mods_tab._browse_mods(),
-        tooltip_text=tr("menu_open_mods", "Открыть папку модов (Ctrl+O)"),
-    )
-    manager.register(
-        "Ctrl+S",
-        lambda e: app_instance.save_config(),
-        tooltip_text=tr("menu_save_settings", "Сохранить настройки (Ctrl+S)"),
-    )
-
-    # Верификация
-    manager.register(
-        "F5",
-        lambda e: app_instance.start_full_verification(),
-        tooltip_text=tr("menu_full_check", "Полная проверка (F5)"),
-    )
-
-    # Справка
-    manager.register(
-        "F1",
-        lambda e: app_instance._show_documentation(),
-        tooltip_text=tr("menu_documentation", "Документация (F1)"),
-    )

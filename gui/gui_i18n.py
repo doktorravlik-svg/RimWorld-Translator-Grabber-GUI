@@ -4,11 +4,8 @@ import locale
 from pathlib import Path
 from loguru import logger
 
-# Поддержка обоих форматов:
-# 1. Папка locales/ (новый формат, рекомендуется)
-# 2. translations.json (старый формат, обратная совместимость)
+# Загрузка переводов из папки locales/
 LOCALES_DIR = Path(__file__).parent.parent / "locales"
-TRANSLATIONS_FILE = Path(__file__).parent.parent / "translations.json"
 
 
 def _detect_system_language():
@@ -51,20 +48,15 @@ class I18N:
         self._load_translations()
 
     def _load_translations(self):
-        """Загружает переводы из locales/*.json или translations.json"""
+        """Загружает переводы из locales/*.json"""
         self.translations = {}
         try:
-            # Приоритет: папка locales/ (новый формат)
             if LOCALES_DIR.exists() and LOCALES_DIR.is_dir():
                 self._load_from_locales_dir()
-                # Fallback: translations.json (старый формат)
-            elif TRANSLATIONS_FILE.exists():
-                self._load_from_single_file()
             else:
-                logger.warning("⚠️ Файлы переводов не найдены, используем пустышки")
+                logger.warning("⚠️ Папка locales/ не найдена, используем пустышки")
         except Exception:
             logger.exception("❌ Критическая ошибка загрузки переводов")
-            # В случае ошибки self.translations останется пустым словарем
 
     def _load_from_locales_dir(self):
         """Загрузка из отдельных файлов locales/{lang}.json"""
@@ -103,11 +95,6 @@ class I18N:
             except Exception as e:
                 logger.error(f"⚠️ Ошибка загрузки {lang_file.name}: {e}")
 
-
-    def _load_from_single_file(self):
-        """Загрузка из единого файла translations.json"""
-        with open(TRANSLATIONS_FILE, encoding="utf-8") as f:
-            self.translations = json.load(f)
 
     def set_language(self, lang_code):
         """

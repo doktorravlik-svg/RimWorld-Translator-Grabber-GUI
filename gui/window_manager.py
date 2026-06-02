@@ -30,16 +30,25 @@ class GUIWindowManager:
 
     def set_status(self, message: str) -> None:
         """
-        Устанавливает текст статусной строки.
+        Устанавливает текст статусной строки (безопасно для потоков).
+
+        Использует .after() для перенаправления вызова в главный UI-поток,
+        обеспечивая потокобезопасность.
 
         Args:
             message: Текст статуса
         """
         if self._status_label:
             try:
-                self._status_label.config(text=message)
+                # .after(0, ...) гарантирует выполнение в главном потоке
+                self.root.after(0, self._update_status, message)
             except Exception:
                 pass  # Виджет мог быть уничтожен
+
+    def _update_status(self, message: str) -> None:
+        """Внутренний метод для обновления статуса в главном потоке."""
+        if self._status_label:
+            self._status_label.config(text=message)
 
     def start_progress(self) -> None:
         """Запускает отображение прогресс-бара."""

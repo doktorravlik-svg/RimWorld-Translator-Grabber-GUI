@@ -44,7 +44,7 @@ class GUIEventHandlers:
         from config.paths_config import get_paths_config
 
         paths_config = get_paths_config()
-        initial_dir = paths_config.get_mods_folder() or os.path.expanduser("~")
+        initial_dir = paths_config.get_mods_path() or os.path.expanduser("~")
 
         folder_path = filedialog.askdirectory(
             title="Выберите папку модов",

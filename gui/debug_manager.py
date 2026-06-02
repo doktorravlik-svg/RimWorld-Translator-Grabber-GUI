@@ -18,6 +18,8 @@
 from __future__ import annotations
 
 import sys
+import time
+import threading
 from collections.abc import Callable
 from datetime import datetime
 from typing import Any
@@ -61,6 +63,22 @@ class DebugManager:
         self.debug_logger: DebugLogger | None = None
         if self.debug_config.enabled:
             self.debug_logger = get_debug_logger(self.debug_config)
+
+        # Таймеры операций: {operation_name: start_time}
+        self._timers: dict[str, float] = {}
+
+        # Счётчики статистики
+        self._stats: dict[str, int] = {
+            "mods_processed": 0,
+            "files_read": 0,
+            "files_written": 0,
+            "translations_done": 0,
+            "errors_count": 0,
+            "warnings_count": 0,
+        }
+
+        # Активные воркеры
+        self._active_workers: dict[str, dict[str, Any]] = {}
 
     @property
     def is_enabled(self) -> bool:
@@ -128,7 +146,7 @@ class DebugManager:
     def log_app_start(self) -> None:
         """Записать запуск приложения"""
         if self.debug_config.enabled and self.debug_logger:
-            import sys
+            import os
 
             self.debug_logger.info("=" * 70)
             self.debug_logger.info("ПРИЛОЖЕНИЕ ЗАПУЩЕНО")
@@ -136,12 +154,221 @@ class DebugManager:
             self.debug_logger.info(f"Python: {sys.version}")
             self.debug_logger.info(f"Платформа: {sys.platform}")
             self.debug_logger.info(f"Кодировка: {sys.getdefaultencoding()}")
+            self.debug_logger.info(f"Рабочая директория: {os.getcwd()}")
+            self.debug_logger.info(f"Путь к gui_config: {self.config.get('_config_path', 'default')}")
+
+            # Версии ключевых зависимостей
+            self._log_dependency_versions()
+
+            # Статус i18n
+            self._log_i18n_status()
+
+            # Настройки из конфига
+            self.debug_logger.info(f"Тема: {self.config.get('theme', 'light')}")
+            self.debug_logger.info(f"Язык интерфейса: {self.config.get('ui_language', 'ru')}")
+            self.debug_logger.info(f"Исходный язык: {self.config.get('source_language', 'English')}")
+            self.debug_logger.info(f"Целевой язык: {self.config.get('target_language', 'Russian')}")
+            self.debug_logger.info(f"Папка модов: {self.config.get('mods_folder', 'не задана')}")
             self.debug_logger.info("=" * 70)
+
+    def _log_dependency_versions(self) -> None:
+        """Записать версии ключевых зависимостей"""
+        if not self.debug_logger:
+            return
+        deps = [
+            ("ttkbootstrap", "ttkbootstrap"),
+            ("loguru", "loguru"),
+            ("lxml", "lxml"),
+            ("deep_translator", "deep_translator"),
+            ("translators", "translators"),
+        ]
+        for name, module in deps:
+            try:
+                mod = __import__(module)
+                version = getattr(mod, "__version__", "unknown")
+                self.debug_logger.info(f"  {name}: {version}")
+            except ImportError:
+                self.debug_logger.warning(f"  {name}: НЕ УСТАНОВЛЕН")
+
+    def _log_i18n_status(self) -> None:
+        """Записать статус системы локализации"""
+        if not self.debug_logger:
+            return
+        try:
+            from gui.gui_i18n import i18n
+            available = i18n.get_available_languages()
+            current = i18n.current_language
+            total_keys = len(i18n.translations.get(current, {}))
+            self.debug_logger.info(f"i18n: текущий={current}, доступно={available}, ключей={total_keys}")
+        except Exception as e:
+            self.debug_logger.warning(f"i18n: ошибка получения статуса: {e}")
 
     def log_app_exit(self) -> None:
         """Записать завершение приложения"""
         if self.debug_config.enabled and self.debug_logger:
+            # Итоговая статистика
+            self._log_final_stats()
             self.debug_logger.info("Приложение завершает работу")
+
+    # ===== Таймеры операций =====
+
+    def timer_start(self, operation: str) -> None:
+        """Запустить таймер операции"""
+        self._timers[operation] = time.monotonic()
+        if self.debug_config.enabled and self.debug_logger:
+            self.debug_logger.debug(f"[TIMER] Старт: {operation}")
+
+    def timer_stop(self, operation: str) -> float | None:
+        """
+        Остановить таймер и записать длительность.
+
+        Returns:
+            Длительность в секундах или None если таймер не найден.
+        """
+        start = self._timers.pop(operation, None)
+        if start is None:
+            return None
+        duration = time.monotonic() - start
+        if self.debug_config.enabled and self.debug_logger:
+            self.debug_logger.info(f"[TIMER] {operation}: {duration:.2f}с")
+        return duration
+
+    # ===== Статистика обработки =====
+
+    def stat_increment(self, counter: str, value: int = 1) -> None:
+        """Увеличить счётчик статистики"""
+        self._stats[counter] = self._stats.get(counter, 0) + value
+
+    def stat_set(self, counter: str, value: int) -> None:
+        """Установить значение счётчика"""
+        self._stats[counter] = value
+
+    def stat_get(self, counter: str) -> int:
+        """Получить значение счётчика"""
+        return self._stats.get(counter, 0)
+
+    def log_stats_summary(self, label: str = "Текущая статистика") -> None:
+        """Записать сводку статистики"""
+        if self.debug_config.enabled and self.debug_logger:
+            self.debug_logger.info(f"[STATS] {label}:")
+            for key, value in sorted(self._stats.items()):
+                self.debug_logger.info(f"  {key}: {value}")
+
+    def _log_final_stats(self) -> None:
+        """Записать итоговую статистику при выходе"""
+        if not self.debug_logger:
+            return
+        self.debug_logger.info("-" * 40)
+        self.debug_logger.info("ИТОГОВАЯ СТАТИСТИКА:")
+        for key, value in sorted(self._stats.items()):
+            self.debug_logger.info(f"  {key}: {value}")
+        # Активные воркеры (если есть незавершённые)
+        if self._active_workers:
+            self.debug_logger.warning(f"  Незавершённых воркеров: {len(self._active_workers)}")
+            for name, info in self._active_workers.items():
+                self.debug_logger.warning(f"    - {name}: запущен {info.get('start_time', '?')}")
+
+    # ===== Мониторинг памяти =====
+
+    def log_memory_usage(self, label: str = "") -> None:
+        """Записать текущее использование памяти процессом"""
+        if not self.debug_config.enabled or not self.debug_logger:
+            return
+        try:
+            import psutil
+            process = psutil.Process()
+            mem = process.memory_info()
+            rss_mb = mem.rss / (1024 * 1024)
+            vms_mb = mem.vms / (1024 * 1024)
+            prefix = f"[{label}] " if label else ""
+            self.debug_logger.info(
+                f"[MEMORY] {prefix}RSS: {rss_mb:.1f} MB, VMS: {vms_mb:.1f} MB"
+            )
+        except ImportError:
+            # psutil не установлен — пробуем через resource (только Unix)
+            try:
+                import resource
+                usage = resource.getrusage(resource.RUSAGE_SELF)
+                self.debug_logger.info(f"[MEMORY] {label} maxrss: {usage.ru_maxrss / 1024:.1f} MB")
+            except (ImportError, AttributeError):
+                self.debug_logger.debug("[MEMORY] psutil не установлен, мониторинг памяти недоступен")
+
+    # ===== Логирование воркеров =====
+
+    def log_worker_start(self, worker_name: str, worker_type: str, **kwargs: Any) -> None:
+        """Записать запуск воркера"""
+        info = {
+            "type": worker_type,
+            "start_time": datetime.now().strftime("%H:%M:%S"),
+            "thread": threading.current_thread().name,
+        }
+        info.update(kwargs)
+        self._active_workers[worker_name] = info
+        if self.debug_config.enabled and self.debug_logger:
+            extra = ", ".join(f"{k}={v}" for k, v in kwargs.items())
+            self.debug_logger.info(
+                f"[WORKER] Запуск: {worker_name} (тип={worker_type}, поток={info['thread']}"
+                f"{', ' + extra if extra else ''})"
+            )
+
+    def log_worker_stop(self, worker_name: str, success: bool = True) -> None:
+        """Записать завершение воркера"""
+        info = self._active_workers.pop(worker_name, {})
+        duration_str = ""
+        if "start_monotonic" in info:
+            dur = time.monotonic() - info["start_monotonic"]
+            duration_str = f", длительность: {dur:.2f}с"
+        status = "успешно" if success else "с ошибкой"
+        if self.debug_config.enabled and self.debug_logger:
+            self.debug_logger.info(
+                f"[WORKER] Стоп: {worker_name} ({status}{duration_str})"
+            )
+
+    def log_worker_progress(self, worker_name: str, current: int, total: int, detail: str = "") -> None:
+        """Записать прогресс воркера"""
+        if self.debug_config.enabled and self.debug_logger:
+            pct = (current / total * 100) if total > 0 else 0
+            msg = f"[WORKER] {worker_name}: {current}/{total} ({pct:.1f}%)"
+            if detail:
+                msg += f" — {detail}"
+            self.debug_logger.debug(msg)
+
+    # ===== Логирование выбора модов =====
+
+    def log_mods_selection(self, selected: list[str], total_available: int) -> None:
+        """Записать выбор модов пользователем"""
+        if self.debug_config.enabled and self.debug_logger:
+            count = len(selected)
+            self.debug_logger.info(
+                f"[MODS] Выбрано: {count} из {total_available} доступных модов"
+            )
+            if count <= 20:
+                for mod_name in selected:
+                    self.debug_logger.debug(f"  - {mod_name}")
+            else:
+                for mod_name in selected[:5]:
+                    self.debug_logger.debug(f"  - {mod_name}")
+                self.debug_logger.debug(f"  ... и ещё {count - 5}")
+
+    # ===== Логирование ошибок парсинга =====
+
+    def log_xml_error(self, file_path: str, error: str, is_warning: bool = False) -> None:
+        """Записать ошибку парсинга XML"""
+        if self.debug_config.enabled and self.debug_logger:
+            level = "WARNING" if is_warning else "ERROR"
+            self.debug_logger.debug(f"[XML_{level}] {file_path}: {error}")
+            if is_warning:
+                self._stats["warnings_count"] = self._stats.get("warnings_count", 0) + 1
+            else:
+                self._stats["errors_count"] = self._stats.get("errors_count", 0) + 1
+
+    def log_xml_stats(self, files_ok: int, files_failed: int, total_tags: int) -> None:
+        """Записать статистику парсинга XML"""
+        if self.debug_config.enabled and self.debug_logger:
+            total = files_ok + files_failed
+            self.debug_logger.info(
+                f"[XML_STATS] Файлов: {total} (OK={files_ok}, ошибок={files_failed}), тегов: {total_tags}"
+            )
 
     def log_theme_change(self, old_theme: str, new_theme: str) -> None:
         """Записать изменение темы"""
@@ -164,6 +391,8 @@ class DebugManager:
             self.debug_logger.info(
                 f"[TRANSLATION] Запуск: {source} -> {target}, режим: {mode}, модов: {mods_count}"
             )
+            self.timer_start("translation")
+            self.log_memory_usage("перед переводом")
 
     def log_translation_complete(
         self, success: bool, duration: float, translated_count: int
@@ -174,6 +403,8 @@ class DebugManager:
             self.debug_logger.info(
                 f"[TRANSLATION] Завершён: {status}, время: {duration:.1f}с, переведено: {translated_count}"
             )
+            self.stat_increment("translations_done", translated_count)
+            self.log_memory_usage("после перевода")
 
     def log_verification_start(self, mods_count: int, checks: list[str]) -> None:
         """Записать запуск верификации"""
@@ -181,6 +412,23 @@ class DebugManager:
             self.debug_logger.info(
                 f"[VERIFICATION] Запуск: модов: {mods_count}, проверки: {', '.join(checks)}"
             )
+            self.timer_start("verification")
+            self.log_memory_usage("перед верификацией")
+
+    def log_verification_complete(
+        self, success: bool, errors: int, warnings: int, total_checked: int
+    ) -> None:
+        """Записать завершение верификации"""
+        if self.debug_config.enabled and self.debug_logger:
+            duration = self.timer_stop("verification") or 0
+            status = "УСПЕШНО" if success else "С ОШИБКАМИ"
+            self.debug_logger.info(
+                f"[VERIFICATION] Завершена: {status}, время: {duration:.1f}с, "
+                f"проверено: {total_checked}, ошибок: {errors}, предупреждений: {warnings}"
+            )
+            self.stat_increment("errors_count", errors)
+            self.stat_increment("warnings_count", warnings)
+            self.log_memory_usage("после верификации")
 
     def log_file_operation(self, operation: str, path: str, details: str = "") -> None:
         """

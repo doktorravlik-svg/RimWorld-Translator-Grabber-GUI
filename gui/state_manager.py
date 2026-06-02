@@ -39,7 +39,7 @@ class GUIStateManager:
         try:
             from config.config_manager import get_config_manager
             config_manager = get_config_manager()
-            self.config = config_manager.load_config()
+            self.config = config_manager.get_all()
             return self.config
         except Exception as e:
             logger.error(f"Ошибка загрузки конфигурации: {e}")
@@ -63,7 +63,7 @@ class GUIStateManager:
             try:
                 from config.config_manager import get_config_manager
                 config_manager = get_config_manager()
-                config_manager.save_config(self.config)
+                config_manager.update(self.config)
                 return True
             except PermissionError:
                 if attempt < max_retries - 1:
