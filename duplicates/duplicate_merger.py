@@ -300,7 +300,7 @@ def merge_duplicates(
                         logger.info(f"Удалён пустой файл: {entry['file']}")
                 else:
                     tree = etree.Element("root")
-                    tree.write(entry["file"], encoding="utf-8", xml_declaration=True)
+                    tree.write(entry["file"], encoding="utf-8-sig", xml_declaration=True)
 
             except Exception as e:
                 if logger:
