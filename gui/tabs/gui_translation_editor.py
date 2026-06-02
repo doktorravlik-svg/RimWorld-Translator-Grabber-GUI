@@ -1710,21 +1710,33 @@ class TranslationEditorDialog:
                     ).format(i=i, k=k)
                 )
             orig = e.get("original_value", "")
-            p_orig = re.findall(r"\{\d+\}", orig)
-            p_trans = re.findall(r"\{\d+\}", v)
+            # Проверка плейсхолдеров: числовые, именованные, смешанные, гендерные
+            # Используем те же паттерны, что и в translation_validator.py
+            _ph_pattern = re.compile(r"\{[A-Za-z0-9_][A-Za-z0-9_]*|\{\d+\}|\{[a-zA-Z0-9_]+\s*\?\s*[^}]+\}")
+            p_orig = _ph_pattern.findall(orig)
+            p_trans = _ph_pattern.findall(v)
             if set(p_orig) != set(p_trans):
+                missing = set(p_orig) - set(p_trans)
+                extra = set(p_trans) - set(p_orig)
+                detail = ""
+                if missing:
+                    detail += f" потеряны: {missing}"
+                if extra:
+                    detail += f" лишние: {extra}"
                 issues.append(
                     self.tr(
                         "editor_quality_placeholder_mismatch",
-                        "⚠️ Строка {i}: '{k}' - несоответствие плейсхолдеров",
-                    ).format(i=i, k=k)
+                        "⚠️ Строка {i}: '{k}' - несоответствие плейсхолдеров{detail}",
+                    ).format(i=i, k=k, detail=detail)
                 )
-            tags_o = re.findall(r"\[.*?\]|<.*?>", orig)
-            tags_t = re.findall(r"\[.*?\]|<.*?>", v)
-            if tags_o and not tags_t:
+            # Проверка тегов [...] и <...>
+            _tag_pattern = re.compile(r"\[[^\]]+\]|<[^>]+>")
+            tags_o = _tag_pattern.findall(orig)
+            tags_t = _tag_pattern.findall(v)
+            if tags_o and set(tags_o) != set(tags_t):
                 issues.append(
                     self.tr(
-                        "editor_quality_missing_tags", "⚠️ Строка {i}: '{k}' - отсутствуют теги"
+                        "editor_quality_missing_tags", "⚠️ Строка {i}: '{k}' - несоответствие тегов"
                     ).format(i=i, k=k)
                 )
             if v and orig and len(v) > len(orig) * 1.5:

@@ -90,11 +90,6 @@ class SettingsTab(ttk.Frame):
         self.translation_mode_var: tk.StringVar = tk.StringVar(
             value=config.get("translation_mode", "separate")
         )
-        # ✅ ОТЛАДКА: следим за изменением режима
-        def _on_mode_change(*args):
-            new_val = self.translation_mode_var.get()
-            print(f"DEBUG: translation_mode_var changed to '{new_val}'")
-        self.translation_mode_var.trace_add("write", _on_mode_change)
         self.use_morphy_var: tk.BooleanVar = tk.BooleanVar(
             value=config.get("use_morphy", True)
         )
