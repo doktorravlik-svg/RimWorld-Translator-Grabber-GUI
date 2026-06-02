@@ -21,12 +21,16 @@ class LanguageRules:
         # - Квадратные скобки RimWorld [founderName], [deity0_name], etc.
         # - Google артефакт /n/n* из Tip-подсказок (когда Google оставляет /n/n* как текст)
         # - RimWorld-формат коды x{0}, x{1} (лат. x + {цифра} — технический префикс)
-        # - Внутренние плейсхолдеры переводчика __PLACEHOLDER_n__
+        # - Внутренние плейсхолдеры переводчика __PLACEHOLDER_n__ (старый формат)
+        # - Внутренние плейсхолдеры переводчика \x00PH\x00{N}\x00PH\x00 (новый формат)
         # - Временные placeholderы переменных __VAR_n__
         # - Плейсхолдеры квадратных скобок __BVAR_n__
         # - Символы переводов строки \n / \r (не содержат букв, не влияют на has_latin)
+        # - Внутренние плейсхолдеры переводчика (старый и новый форматы)
         text_without_placeholders = re.sub(
-            r'[\n\r]|\{[^}]*\}|\[[^\]]*\]|[\\/]n[\\/]?n\*?|x\{\d{1,2}\}|__PLACEHOLDER_\d+__|__VAR_\d+__|__BVAR_\d+__',
+            r'[\n\r]|\{[^}]*\}|\[[^\]]*\]|[\\/]n[\\/]?n\*?|x\{\d{1,2}\}'
+            r'|__PLACEHOLDER_\d+__|__VAR_\d+__|__BVAR_\d+'
+            r'|__PH_\d+__|__GLPH_\d+__',
             '', text, flags=re.IGNORECASE
         )
         has_cyrillic = bool(self._cyrillic_pattern.search(text_without_placeholders))
@@ -36,21 +40,41 @@ class LanguageRules:
             # Это сигнализирует, что перевод неполный
             return text
 
+        # 0. Проверка на частичный перевод ...
+
+        # [ДОБАВИТЬ] Автоматически чистим технические теги игры перед или после замен
+        text = self.fix_rimworld_tags(text)
+
         # 1. Исправление смешивания алфавитов (ы -> и для украинизации и т.д.)
         text = self.fix_alphabet_mixing(text)
 
         # 2. Словарная коррекция (суржик)
         corrected = text
         for error, fix in CORRECTION_RULES.items():
-            pattern = re.compile(re.escape(error), re.IGNORECASE)
+            # Если правило завязано на пробелы по краям, переводим на \b (границы слов)
+            if error.startswith(" ") and error.endswith(" "):
+                clean_error = error.strip()
+                clean_fix = fix.strip()
+                pattern = re.compile(rf"\b{re.escape(clean_error)}\b", re.IGNORECASE)
 
-            def replace_case(match):
-                found = match.group(0)
-                if found.isupper():
-                    return fix.upper()
-                if found[0].isupper():
-                    return fix.capitalize()
-                return fix
+                def replace_case(match, fix=clean_fix):
+                    found = match.group(0)
+                    if found.isupper():
+                        return fix.upper()
+                    if found[0].isupper():
+                        return fix.capitalize()
+                    return fix
+            else:
+                # Для технических правил (типа тегов "< li >"), где пробелы важны буквально
+                pattern = re.compile(re.escape(error), re.IGNORECASE)
+
+                def replace_case(match, fix=fix):
+                    found = match.group(0)
+                    if found.isupper():
+                        return fix.upper()
+                    if found[0].isupper():
+                        return fix.capitalize()
+                    return fix
 
             corrected = pattern.sub(replace_case, corrected)
         return corrected
@@ -101,9 +125,9 @@ class LanguageRules:
             if not original:
                 return text
 
-            # Проверяем: оригинал без латинских букв (корейский, китайский, японский)
+            # Проверяем: оригинал без букв (только символы/цифры/плейсхолдеры)
             # В этом случае isupper()/islower() не работают, используем стандартную капитализацию
-            if not re.search(r'[A-Za-z]', original):
+            if not re.search(r'[A-Za-z\u0400-\u04FF]', original):
                 if self.config.capitalizes_sentence_start:
                     return text[0].upper() + text[1:] if len(text) > 1 else text.upper()
                 return text
@@ -136,31 +160,36 @@ class LanguageRules:
     def _preserve_word_case(self, translated: str, original: str) -> str:
         """
         Сохраняет регистр каждого слова из оригинала в переводе.
-        Содержимое [bracket] плейсхолдеров всегда сохраняется как есть.
-
-        Args:
-            translated: Переведённый текст
-            original: Оригинальный текст с нужным регистром
-
-        Returns:
-            Переведённый текст с сохранённым регистром
+        Содержимое [bracket] и {curly} плейсхолдеров всегда сохраняется как есть.
         """
         bracket_placeholders = []
+        curly_placeholders = []
+
         def _save_bracket(m):
             bracket_placeholders.append(m.group(0))
             return f"__BRACKET_{len(bracket_placeholders)-1}__"
 
-        protected_translated = re.sub(r'\[[^\]]+\]', _save_bracket, translated)
-        protected_original = re.sub(r'\[[^\]]+\]', _save_bracket, original)
+        def _save_curly(m):
+            curly_placeholders.append(m.group(0))
+            return f"__CURLY_{len(curly_placeholders)-1}__"
 
-        orig_words = protected_original.split()
-        trans_words = protected_translated.split()
+        # Защищаем [...] и {...} плейсхолдеры
+        text_prot = re.sub(r'\[[^\]]+\]', _save_bracket, translated)
+        text_prot = re.sub(r'\{[^}]+\}', _save_curly, text_prot)
+        orig_prot = re.sub(r'\[[^\]]+\]', _save_bracket, original)
+        orig_prot = re.sub(r'\{[^}]+\}', _save_curly, orig_prot)
+
+        orig_words = orig_prot.split()
+        trans_words = text_prot.split()
         result_words = []
 
         for i, trans_word in enumerate(trans_words):
             if i < len(orig_words):
                 orig_word = orig_words[i]
-                if orig_word.isupper():
+                # Пропускаем плейсхолдеры — они восстанавливаются позже
+                if orig_word.startswith("__BRACKET_") or orig_word.startswith("__CURLY_"):
+                    result_words.append(trans_word)
+                elif orig_word.isupper():
                     result_words.append(trans_word.upper())
                 elif orig_word and orig_word[0].isupper():
                     result_words.append(
@@ -173,8 +202,11 @@ class LanguageRules:
 
         result = " ".join(result_words)
 
+        # Восстанавливаем плейсхолдеры
         for i, ph in enumerate(bracket_placeholders):
-            result = re.sub(re.escape(f"__BRACKET_{i}__"), ph, result, flags=re.IGNORECASE)
+            result = result.replace(f"__BRACKET_{i}__", ph)
+        for i, ph in enumerate(curly_placeholders):
+            result = result.replace(f"__CURLY_{i}__", ph)
 
         return result
 
@@ -267,7 +299,7 @@ class LanguageRules:
             return False
 
         text_without_placeholders = re.sub(
-            r'[\n\r]|\{[^}]*\}|\[[^\]]*\]|[\\/]n[\\/]?n\*?|x\{\d{1,2}\}|x__PLACEHOLDER_\d+__|__PLACEHOLDER_\d+__|__VAR_\d+__|__BVAR_\d+__',
+            r'[\n\r]|\{[^}]*\}|\[[^\]]*\]|[\\/]n[\\/]?n\*?|x\{\d{1,2}\}|x__PLACEHOLDER_\d+__|__PLACEHOLDER_\d+__|__VAR_\d+__|__BVAR_\d+|\x00PH\x00\d+\x00PH\x00',
             '', text, flags=re.IGNORECASE
         )
 

@@ -15,13 +15,24 @@ class LanguageConfig:
     fuzzy_field_threshold: int = 90
 
 PLACEHOLDER_PATTERNS = [
-    r'\{0\}', r'\{1\}', r'\{\d+\}',
-    r'%s', r'%d',
-    r'\$([A-Za-z_][A-Za-z0-9_]*)',
-    r'\[[A-Za-z_]+\]',
-    r'\(\^Cap\)',
-    r'\<\/?li\>',
-    r'\\n',
+    # Гендерные тернарники: {PAWN_gender ? he : she : it}
+    r"\{[a-zA-Z0-9_]+\s*\?\s*[^}]+\}",
+    # Lookup: {lookup: [animal]; Case; 1}
+    r"\{lookup:\s*\[[^\]]+\];\s*[^;]+;\s*\d+\}",
+    # Фигурные скобки: {0}, {1}, {PAWN_nameDef}, {0_labelShort}
+    r"\{[A-Za-z0-9_]+\}",
+    # Форматирование: %s, %d, %0.2f
+    r"%[.\d]*[dfgsx]",
+    # Доллар-переменные: $variable
+    r"\$[A-Za-z_][A-Za-z0-9_]*",
+    # Квадратные скобки: [NamerShip], [BodyPart]
+    r"\[[A-Za-z_]+\]",
+    # Методы: (*Health), (*Food)
+    r"\(\*[^)]+\)",
+    # BBcode-теги
+    r"\<\/?li\>",
+    # Переносы строки
+    r"\\n",
 ]
 
 UNTRANSLATABLE_TERMS = {"RimWorld", "Ludeon", "Steam", "Tynan", "rjw", "cum"}
