@@ -442,25 +442,28 @@ class IntegrityCheckHandler:
         else:
             self.log("⚠️ Обнаружены проблемы целостности!")
 
-        # ✅ НОВОЕ: Показываем отдельное окно с результатами
+        # ✅ НОВОЕ: Показываем отдельное окно с результатами (через .after() для потокобезопасности)
         if self.parent_window:
-            try:
-                from gui.dialogs.integrity_results_dialog import IntegrityResultsDialog
+            def show_dialog_safe():
+                try:
+                    from gui.dialogs.integrity_results_dialog import IntegrityResultsDialog
 
-                IntegrityResultsDialog(
-                    self.parent_window,
-                    result,
-                    log_messages=[
-                        f"📊 Проверено файлов: {files_checked}",
-                        f"✅ Корректных: {files_valid}",
-                        f"❌ С ошибками: {files_invalid}",
-                        f"⚠️ Предупреждений: {warnings}",
-                        *errors,
-                        *details,
-                    ],
-                )
-            except Exception as e:
-                self.log(f"⚠️ Не удалось открыть окно результатов: {e}")
+                    IntegrityResultsDialog(
+                        self.parent_window,
+                        result,
+                        log_messages=[
+                            f"📊 Проверено файлов: {files_checked}",
+                            f"✅ Корректных: {files_valid}",
+                            f"❌ С ошибками: {files_invalid}",
+                            f"⚠️ Предупреждений: {warnings}",
+                            *errors,
+                            *details,
+                        ],
+                    )
+                except Exception as e:
+                    self.log(f"⚠️ Не удалось открыть окно результатов: {e}")
+
+            self.parent_window.after(0, show_dialog_safe)
 
         if self.stop_progress:
             self.stop_progress()
