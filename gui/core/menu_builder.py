@@ -90,11 +90,20 @@ class MenuBuilder:
         return icon
 
     def update_theme(self, theme_name: str):
-        set_theme_mode(theme_name)
-        self.menu_icons = get_menu_icons() if HAS_ICONS else {}
+        try:
+            set_theme_mode(theme_name)
+        except Exception as e:
+            logger.warning(f"Ошибка set_theme_mode: {e}")
+        try:
+            self.menu_icons = get_menu_icons() if HAS_ICONS else {}
+        except Exception as e:
+            logger.warning(f"Ошибка обновления иконок меню: {e}")
         # Tkinter не обновляет картинки в меню динамически. Пересобираем меню.
         if self.menubar:
-            self.build()
+            try:
+                self.build()
+            except Exception as e:
+                logger.warning(f"Ошибка перестройки меню: {e}")
 
     def _build_file_menu(self):
         from gui.gui_i18n import i18n
@@ -173,10 +182,11 @@ class MenuBuilder:
 
         current_theme = self.config.get("theme", "light")
         try:
-            from gui.styling.theme_manager import THEME_DESCRIPTIONS
+            from gui.styling.theme_manager import THEME_DESCRIPTIONS, is_dark_theme
 
             theme_display = THEME_DESCRIPTIONS
         except ImportError:
+            is_dark_theme = lambda name: str(name).endswith("-dark")
             theme_display = {
                 "light": i18n.tr("theme_light", "🌞 Светлая"),
                 "dark": i18n.tr("theme_dark", "🌙 Темная"),
@@ -190,8 +200,12 @@ class MenuBuilder:
 
         self._theme_var = tk.StringVar(value=current_theme)
         get_theme_names = self.callbacks.get("get_theme_names", lambda: theme_display.keys())
+        theme_names = list(get_theme_names())
 
-        for theme_key in get_theme_names():
+        light_themes = [k for k in theme_names if not is_dark_theme(k)]
+        dark_themes = [k for k in theme_names if is_dark_theme(k)]
+
+        def _add_theme(theme_key: str):
             display_name = theme_display.get(theme_key, theme_key)
             theme_menu.add_radiobutton(
                 label=display_name,
@@ -199,6 +213,17 @@ class MenuBuilder:
                 value=theme_key,
                 command=lambda t=theme_key: self._change_theme_callback(t),
             )
+
+        if light_themes:
+            theme_menu.add_command(label=i18n.tr("theme_group_light", "Светлые"), state="disabled")
+            for theme_key in light_themes:
+                _add_theme(theme_key)
+            theme_menu.add_separator()
+
+        if dark_themes:
+            theme_menu.add_command(label=i18n.tr("theme_group_dark", "Темные"), state="disabled")
+            for theme_key in dark_themes:
+                _add_theme(theme_key)
 
     def _change_theme_callback(self, theme_name: str):
         """Callback для изменения темы с передачей имени темы."""
