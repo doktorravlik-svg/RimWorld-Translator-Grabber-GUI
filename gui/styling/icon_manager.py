@@ -85,8 +85,10 @@ _root_window = None
 def set_theme_mode(theme_name: str):
     """Установить режим темы (dark/light) на основе имени темы ttkbootstrap."""
     global _current_theme_type
-    dark_themes = ["darkly", "cyborg", "vapor", "superhero", "slate", "dark"]
-    _current_theme_type = "dark" if theme_name.lower().strip() in dark_themes else "light"
+    theme_name = theme_name.lower().strip()
+    dark_themes = {"darkly", "cyborg", "vapor", "superhero", "slate", "dark"}
+    # Dark themes end with "-dark" or are standalone dark themes
+    _current_theme_type = "dark" if (theme_name in dark_themes or theme_name.endswith("-dark")) else "light"
 
 
 def _get_color_by_key(color_key: str) -> str:
