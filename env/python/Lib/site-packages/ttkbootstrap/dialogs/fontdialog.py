@@ -5,7 +5,7 @@ from tkinter import font
 from typing import Any, Optional
 
 import ttkbootstrap as ttk
-from ttkbootstrap import utility
+from ttkbootstrap import utils
 from ttkbootstrap.constants import *
 from ttkbootstrap.localization import MessageCatalog
 from ttkbootstrap.dialogs.base import Dialog
@@ -79,20 +79,22 @@ class FontDialog(Dialog):
                 self._families.add(f)
 
     def create_body(self, master: tkinter.Misc) -> None:
-        width = utility.scale_size(master, 600)
-        height = utility.scale_size(master, 500)
+        width = utils.scale_size(master, 600)
+        height = utils.scale_size(master, 500)
         self._toplevel.geometry(f"{width}x{height}")
 
-        family_size_frame = ttk.Frame(master, padding=10)
-        family_size_frame.pack(fill=X, anchor=N)
+        # A borderless Treeview: the list border is carried by a wrapping frame
+        # instead, so the (thin) scrollbar sits *inside* the border with the list.
+        ttk.Style.get_instance().configure("Flat.Treeview", borderwidth=0)
+
+        family_size_frame = ttk.Frame(master, padding=10).pack(fill=X, anchor=N)
         self._initial_focus = self._font_families_selector(family_size_frame)
         self._font_size_selector(family_size_frame)
         self._font_options_selectors(master, padding=10)
         self._font_preview(master, padding=10)
 
     def create_buttonbox(self, master: tkinter.Misc) -> None:
-        container = ttk.Frame(master, padding=(5, 10))
-        container.pack(fill=X)
+        container = ttk.Frame(master, padding=(5, 10)).pack(fill=X)
 
         ok_btn = ttk.Button(
             master=container,
@@ -116,8 +118,7 @@ class FontDialog(Dialog):
         self._toplevel.protocol("WM_DELETE_WINDOW", func=cancel_btn.invoke)
 
     def _font_families_selector(self, master: tkinter.Misc) -> ttk.Treeview:
-        container = ttk.Frame(master)
-        container.pack(fill=BOTH, expand=YES, side=LEFT)
+        container = ttk.Frame(master).pack(fill=BOTH, expand=YES, side=LEFT)
 
         header = ttk.Label(
             container,
@@ -126,22 +127,28 @@ class FontDialog(Dialog):
         )
         header.pack(fill=X, pady=(0, 2), anchor=N)
 
+        # bordered box wrapping the list + its thin scrollbar as one unit
+        listbox_frame = ttk.Frame(container, relief=SOLID, borderwidth=1).pack(fill=BOTH, expand=YES)
+
         listbox = ttk.Treeview(
-            master=container,
+            master=listbox_frame,
             height=5,
             show="",
             columns=[0],
+            style="Flat.Treeview",
         )
-        listbox.column(0, width=utility.scale_size(listbox, 250))
-        listbox.pack(side=LEFT, fill=BOTH, expand=YES)
+        listbox.column(0, width=utils.scale_size(listbox, 250))
 
         listbox_vbar = ttk.Scrollbar(
-            container,
+            listbox_frame,
             command=listbox.yview,
             orient=VERTICAL,
-            bootstyle="rounded",
+            bootstyle="",
         )
+        # scrollbar first (reserves the right edge inside the border), then the
+        # list fills the rest
         listbox_vbar.pack(side=RIGHT, fill=Y)
+        listbox.pack(side=LEFT, fill=BOTH, expand=YES)
         listbox.configure(yscrollcommand=listbox_vbar.set)
 
         for f in sorted(self._families):
@@ -155,8 +162,7 @@ class FontDialog(Dialog):
         return listbox
 
     def _font_size_selector(self, master: tkinter.Misc) -> None:
-        container = ttk.Frame(master)
-        container.pack(side=LEFT, fill=Y, padx=(10, 0))
+        container = ttk.Frame(master).pack(side=LEFT, fill=Y, padx=(10, 0))
 
         header = ttk.Label(
             container,
@@ -165,8 +171,12 @@ class FontDialog(Dialog):
         )
         header.pack(fill=X, pady=(0, 2), anchor=N)
 
-        sizes_listbox = ttk.Treeview(container, height=7, columns=[0], show="")
-        sizes_listbox.column(0, width=utility.scale_size(sizes_listbox, 24))
+        # bordered box wrapping the list + its thin scrollbar as one unit
+        sizes_frame = ttk.Frame(container, relief=SOLID, borderwidth=1).pack(fill=BOTH, expand=YES)
+
+        sizes_listbox = ttk.Treeview(
+            sizes_frame, height=7, columns=[0], show="", style="Flat.Treeview")
+        sizes_listbox.column(0, width=utils.scale_size(sizes_listbox, 24))
 
         sizes = [*range(8, 13), *range(13, 30, 2), 36, 48, 72]
         for s in sizes:
@@ -178,18 +188,18 @@ class FontDialog(Dialog):
         sizes_listbox.bind("<<TreeviewSelect>>", lambda e: self._on_select_font_size(e))
 
         sizes_listbox_vbar = ttk.Scrollbar(
-            master=container,
+            master=sizes_frame,
             orient=VERTICAL,
             command=sizes_listbox.yview,
-            bootstyle="round",
+            bootstyle="",
         )
         sizes_listbox.configure(yscrollcommand=sizes_listbox_vbar.set)
-        sizes_listbox.pack(side=LEFT, fill=Y, expand=YES, anchor=N)
-        sizes_listbox_vbar.pack(side=LEFT, fill=Y, expand=YES)
+        # scrollbar first (right edge, inside the border), then the list
+        sizes_listbox_vbar.pack(side=RIGHT, fill=Y)
+        sizes_listbox.pack(side=LEFT, fill=BOTH, expand=YES)
 
     def _font_options_selectors(self, master: tkinter.Misc, padding: int) -> None:
-        container = ttk.Frame(master, padding=padding)
-        container.pack(fill=X, padx=2, pady=2, anchor=N)
+        container = ttk.Frame(master, padding=padding).pack(fill=X, padx=2, pady=2, anchor=N)
 
         weight_lframe = ttk.Labelframe(container, text=MessageCatalog.translate("Weight"), padding=5)
         weight_lframe.pack(side=LEFT, fill=X, expand=YES)
@@ -243,8 +253,7 @@ class FontDialog(Dialog):
         opt_overstrike.pack(side=LEFT, padx=5, pady=5)
 
     def _font_preview(self, master: tkinter.Misc, padding: int) -> None:
-        container = ttk.Frame(master, padding=padding)
-        container.pack(fill=BOTH, expand=YES, anchor=N)
+        container = ttk.Frame(master, padding=padding).pack(fill=BOTH, expand=YES, anchor=N)
 
         header = ttk.Label(
             container,

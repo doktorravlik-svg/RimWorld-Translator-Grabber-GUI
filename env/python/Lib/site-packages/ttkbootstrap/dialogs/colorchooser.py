@@ -1,69 +1,23 @@
-"""Color chooser widget for ttkbootstrap dialogs.
+"""Color chooser widget and dialog for ttkbootstrap.
 
-This module provides a comprehensive color selection widget with multiple
-selection methods including RGB sliders, HSL controls, standard color palette,
-hex input, and screen color picker (color dropper).
-
-Classes:
-    ColorChooser: Main color chooser widget with tabbed interface
-    ColorValues: Named tuple for color value storage
-    ColorChoice: Named tuple for final color selection result
-
-Features:
-    - Multiple color selection methods via tabbed interface
-    - RGB color model with R, G, B sliders (0-255 range)
-    - HSL color model with H (0-360), S, L (0-100) sliders
-    - Standard color palette with common colors and shades
-    - Hex color input with validation
-    - Color dropper for selecting colors from screen
-    - Live color preview
-    - Integration with Querybox for dialog usage
-
-Color Models:
-    - RGB: Red, Green, Blue (0-255 each)
-    - HSL: Hue (0-360), Saturation (0-100), Luminance (0-100)
-    - HEX: Hexadecimal color string (#RRGGBB)
-
-Example:
-    Using ColorChooser in a dialog:
-    ```python
-    from ttkbootstrap.dialogs import Querybox
-
-    # Get color from user
-    color = Querybox.get_color(initialcolor="#FF0000")
-    if color:
-        print(f"Selected color: {color.hex}")
-        print(f"RGB: {color.rgb}")
-        print(f"HSL: {color.hsl}")
-    ```
-
-    Using ColorChooser widget directly:
-    ```python
-    import ttkbootstrap as ttk
-    from ttkbootstrap.dialogs.colorchooser import ColorChooser
-
-    root = ttk.Window()
-    chooser = ColorChooser(root, initialcolor="#00FF00")
-    chooser.pack(padx=10, pady=10)
-
-    root.mainloop()
-    ```
+A tabbed color-selection widget (spectrum, themed swatches, standard palette)
+with RGB/HSL/hex inputs and live preview, plus the `ColorChooserDialog` wrapper
+used by `Querybox.get_color`.
 """
 import tkinter
 from collections import namedtuple
-from tkinter import Frame as tkFrame, Label as tkLabel
 from typing import Any, List, Optional, Tuple
 
 from PIL import ImageColor
 
 import ttkbootstrap as ttk
-from ttkbootstrap import colorutils, utility
-from ttkbootstrap.colorutils import HEX, HSL, HUE, LUM, RGB, SAT
+from ttkbootstrap import utils
+from ttkbootstrap.utils import HEX, HSL, HUE, LUM, RGB, SAT
 from ttkbootstrap.constants import *
 from ttkbootstrap.localization import MessageCatalog
 from ttkbootstrap.widgets.tooltip import ToolTip
-from ttkbootstrap.validation import add_range_validation, add_validation, validator
-from .colordropper import ColorDropperDialog
+from ttkbootstrap.validation import Validation, validator
+from .colordropper import ColorChoice, ColorDropperDialog
 
 STD_SHADES: List[float] = [0.9, 0.8, 0.7, 0.4, 0.3]
 STD_COLORS: List[str] = [
@@ -71,8 +25,9 @@ STD_COLORS: List[str] = [
     '#0070C0', '#7030A0', '#FFFFFF', '#000000'
 ]
 
+# ColorChoice is defined once in colordropper.py and imported above, so
+# get_color and the dropper return the same type (2.0 dedupe).
 ColorValues = namedtuple('ColorValues', 'h s l r g b hex')
-ColorChoice = namedtuple('ColorChoice', 'rgb hsl hex')
 
 PEN = '✛'
 
@@ -87,10 +42,7 @@ def validate_color(event: Any) -> bool:
 
 
 class ColorChooser(ttk.Frame):
-    """A class which creates a color chooser widget
-
-    ![](../../assets/dialogs/querybox-get-color.png)
-    """
+    """A class which creates a color chooser widget."""
 
     def __init__(
             self, master: Optional[tkinter.Misc], initialcolor: Optional[str] = None,
@@ -103,9 +55,9 @@ class ColorChooser(ttk.Frame):
         - Themed: Swatches of theme colors and their shades
         - Standard: Common standard colors and their shades
 
-        The widget includes RGB/HSL/Hex value inputs, live preview, and optional
-        color dropper (platform-dependent). Color values are accessible through
-        widget variables (hue, sat, lum, red, grn, blu, hex).
+        The widget includes RGB/HSL/Hex value inputs and a live preview. Color
+        values are accessible through widget variables (hue, sat, lum, red,
+        grn, blu, hex).
 
         Parameters:
 
@@ -122,13 +74,10 @@ class ColorChooser(ttk.Frame):
                 default padding.
         """
         super().__init__(master, padding=padding)
-        self.tframe = ttk.Frame(self, padding=5)
-        self.tframe.pack(fill=X)
-        self.bframe = ttk.Frame(self, padding=(5, 0, 5, 5))
-        self.bframe.pack(fill=X)
+        self.tframe = ttk.Frame(self, padding=5).pack(fill=X)
+        self.bframe = ttk.Frame(self, padding=(5, 0, 5, 5)).pack(fill=X)
 
-        self.notebook = ttk.Notebook(self.tframe)
-        self.notebook.pack(fill=BOTH)
+        self.notebook = ttk.Notebook(self.tframe).pack(fill=BOTH)
 
         self.style = ttk.Style.get_instance()
         self.colors = self.style.colors
@@ -136,8 +85,8 @@ class ColorChooser(ttk.Frame):
 
         # color variables
         r, g, b = ImageColor.getrgb(self.initialcolor)
-        h, s, l = colorutils.color_to_hsl((r, g, b), RGB)
-        hx = colorutils.color_to_hex((r, g, b), RGB)
+        h, s, l = utils.color_to_hsl((r, g, b), RGB)
+        hx = utils.color_to_hex((r, g, b), RGB)
 
         self.hue = ttk.IntVar(value=h)
         self.sat = ttk.IntVar(value=s)
@@ -148,10 +97,10 @@ class ColorChooser(ttk.Frame):
         self.hex = ttk.StringVar(value=hx)
 
         # widget sizes (adjusted by widget scaling)
-        self.spectrum_height = utility.scale_size(self, 240)
-        self.spectrum_width = utility.scale_size(self, 530)  # looks better on Mac OS
-        # self.spectrum_width = utility.scale_size(self, 480)
-        self.spectrum_point = utility.scale_size(self, 12)
+        self.spectrum_height = utils.scale_size(self, 240)
+        self.spectrum_width = utils.scale_size(self, 530)  # looks better on Mac OS
+        # self.spectrum_width = utils.scale_size(self, 480)
+        self.spectrum_point = utils.scale_size(self, 12)
 
         # build widgets
         spectrum_frame = ttk.Frame(self.notebook)
@@ -200,11 +149,11 @@ class ColorChooser(ttk.Frame):
     def create_spectrum_indicator(self) -> None:
         """Create a square indicator that displays in the position of
         the selected color"""
-        s = utility.scale_size(self, 10)
-        width = utility.scale_size(self, 2)
+        s = utils.scale_size(self, 10)
+        width = utils.scale_size(self, 2)
         values = self.get_variables()
         x1, y1 = self.coords_from_color(values.hex)
-        colorutils.contrast_color(values.hex, 'hex')
+        utils.contrast_color(values.hex, 'hex')
         tag = ['spectrum-indicator']
         self.color_spectrum.create_rectangle(
             x1, y1, x1 + s, y1 + s, width=width, tags=[tag])
@@ -227,7 +176,7 @@ class ColorChooser(ttk.Frame):
             lum = int(l * LUM)
             row = []
             for color in colors:
-                color = colorutils.update_hsl_value(
+                color = utils.update_hsl_value(
                     color=color,
                     lum=lum,
                     inmodel='hex',
@@ -240,7 +189,7 @@ class ColorChooser(ttk.Frame):
         for row in color_rows:
             rowframe = ttk.Frame(container)
             for j, color in enumerate(row):
-                swatch = tkFrame(
+                swatch = ttk.TkFrame(
                     master=rowframe,
                     bg=color,
                     width=boxwidth,
@@ -266,7 +215,7 @@ class ColorChooser(ttk.Frame):
         container = ttk.Frame(master)
 
         # the frame and label for the original color (current)
-        old = tkFrame(
+        old = ttk.TkFrame(
             master=container,
             relief=FLAT,
             bd=2,
@@ -276,11 +225,11 @@ class ColorChooser(ttk.Frame):
             autostyle=False
         )
         old.pack(side=LEFT, fill=BOTH, expand=YES, padx=(0, 2))
-        contrastfg = colorutils.contrast_color(
+        contrastfg = utils.contrast_color(
             color=self.initialcolor,
             model='hex',
         )
-        tkLabel(
+        ttk.TkLabel(
             master=old,
             text=MessageCatalog.translate('Current'),
             background=self.initialcolor,
@@ -290,7 +239,7 @@ class ColorChooser(ttk.Frame):
         ).pack(anchor=NW)
 
         # the frame and label for the new color
-        self.preview = tkFrame(
+        self.preview = ttk.TkFrame(
             master=container,
             relief=FLAT,
             bd=2,
@@ -300,7 +249,7 @@ class ColorChooser(ttk.Frame):
             autostyle=False
         )
         self.preview.pack(side=LEFT, fill=BOTH, expand=YES, padx=(2, 0))
-        self.preview_lbl = tkLabel(
+        self.preview_lbl = ttk.TkLabel(
             master=self.preview,
             text=MessageCatalog.translate('New'),
             background=self.initialcolor,
@@ -332,28 +281,21 @@ class ColorChooser(ttk.Frame):
         rgb_cnf = {'master': container, 'from_': 0, 'to': 255, 'width': 3}
         sl_cnf = {'master': container, 'from_': 0, 'to': 100, 'width': 3}
         hue_cnf = {'master': container, 'from_': 0, 'to': 360, 'width': 3}
-        sb_hue = ttk.Spinbox(**hue_cnf, textvariable=self.hue)
-        sb_hue.grid(row=0, column=1, padx=4, pady=2, sticky=EW)
-        sb_sat = ttk.Spinbox(**sl_cnf, textvariable=self.sat)
-        sb_sat.grid(row=1, column=1, padx=4, pady=2, sticky=EW)
-        sb_lum = ttk.Spinbox(**sl_cnf, textvariable=self.lum)
-        sb_lum.grid(row=2, column=1, padx=4, pady=2, sticky=EW)
-        sb_red = ttk.Spinbox(**rgb_cnf, textvariable=self.red)
-        sb_red.grid(row=0, column=3, padx=4, pady=2, sticky=EW)
-        sb_grn = ttk.Spinbox(**rgb_cnf, textvariable=self.grn)
-        sb_grn.grid(row=1, column=3, padx=4, pady=2, sticky=EW)
-        sb_blu = ttk.Spinbox(**rgb_cnf, textvariable=self.blu)
-        sb_blu.grid(row=2, column=3, padx=4, pady=2, sticky=EW)
-        ent_hex = ttk.Entry(container, textvariable=self.hex)
-        ent_hex.grid(row=3, column=1, padx=4, columnspan=3, pady=2, sticky=EW)
+        sb_hue = ttk.Spinbox(**hue_cnf, textvariable=self.hue).grid(row=0, column=1, padx=4, pady=2, sticky=EW)
+        sb_sat = ttk.Spinbox(**sl_cnf, textvariable=self.sat).grid(row=1, column=1, padx=4, pady=2, sticky=EW)
+        sb_lum = ttk.Spinbox(**sl_cnf, textvariable=self.lum).grid(row=2, column=1, padx=4, pady=2, sticky=EW)
+        sb_red = ttk.Spinbox(**rgb_cnf, textvariable=self.red).grid(row=0, column=3, padx=4, pady=2, sticky=EW)
+        sb_grn = ttk.Spinbox(**rgb_cnf, textvariable=self.grn).grid(row=1, column=3, padx=4, pady=2, sticky=EW)
+        sb_blu = ttk.Spinbox(**rgb_cnf, textvariable=self.blu).grid(row=2, column=3, padx=4, pady=2, sticky=EW)
+        ent_hex = ttk.Entry(container, textvariable=self.hex).grid(row=3, column=1, padx=4, columnspan=3, pady=2, sticky=EW)
 
         # add input validation
-        add_validation(ent_hex, validate_color)
-        add_range_validation(sb_hue, 0, 360)
+        Validation.add(ent_hex, validate_color)
+        Validation.range(sb_hue, 0, 360)
         for sb in [sb_sat, sb_lum]:
-            add_range_validation(sb, 0, 100)
+            Validation.range(sb, 0, 100)
         for sb in [sb_red, sb_grn, sb_blu]:
-            add_range_validation(sb, 0, 255)
+            Validation.range(sb, 0, 255)
 
         # event binding for updating colors on value change
         for sb in [sb_hue, sb_sat, sb_lum]:
@@ -394,7 +336,7 @@ class ColorChooser(ttk.Frame):
         # add color points to scale
         for x, l in enumerate(range(0, width, xf)):
             lum = l / width * LUM
-            fill = colorutils.update_hsl_value(
+            fill = utils.update_hsl_value(
                 color=values.hex,
                 lum=lum,
                 inmodel='hex',
@@ -425,7 +367,7 @@ class ColorChooser(ttk.Frame):
     def coords_from_color(self, hexcolor: str) -> Tuple[float, float]:
         """Get the coordinates on the color spectrum from the color
         value"""
-        h, s, _ = colorutils.color_to_hsl(hexcolor)
+        h, s, _ = utils.color_to_hsl(hexcolor)
         x = (h / HUE) * self.spectrum_width
         y = (1 - (s / SAT)) * self.spectrum_height
         return x, y
@@ -438,8 +380,8 @@ class ColorChooser(ttk.Frame):
         h = int(min(HUE, max(0, (HUE / WIDTH) * x)))
         s = int(min(SAT, max(0, SAT - ((SAT / HEIGHT) * y))))
         l = 50
-        hx = colorutils.color_to_hex([h, s, l], 'hsl')
-        r, g, b = colorutils.color_to_rgb(hx)
+        hx = utils.color_to_hex([h, s, l], 'hsl')
+        r, g, b = utils.color_to_rgb(hx)
         return ColorValues(h, s, l, r, g, b, hx)
 
     def set_variables(self, h: int, s: int, l: int, r: int, g: int, b: int, hx: str) -> None:
@@ -467,7 +409,7 @@ class ColorChooser(ttk.Frame):
     def update_preview(self) -> None:
         """Update the color in the preview frame"""
         hx = self.hex.get()
-        fg = colorutils.contrast_color(
+        fg = utils.contrast_color(
             color=hx,
             model='hex',
         )
@@ -481,7 +423,7 @@ class ColorChooser(ttk.Frame):
         xf = self.spectrum_point
         for x, l in enumerate(range(0, width, xf)):
             lum = l / width * LUM
-            fill = colorutils.update_hsl_value(
+            fill = utils.update_hsl_value(
                 color=values.hex,
                 lum=lum,
                 inmodel='hex',
@@ -506,7 +448,7 @@ class ColorChooser(ttk.Frame):
         self.color_spectrum.moveto('spectrum-indicator', x, y)
         self.color_spectrum.tag_raise('spectrum-indicator')
         # adjust the outline color based on contrast of background
-        color = colorutils.contrast_color(values.hex, 'hex')
+        color = utils.contrast_color(values.hex, 'hex')
         self.color_spectrum.itemconfig('spectrum-indicator', outline=color)
 
     # color events
@@ -517,16 +459,16 @@ class ColorChooser(ttk.Frame):
         values = self.get_variables()
         if model == HEX:
             hx = values.hex
-            r, g, b = colorutils.color_to_rgb(hx)
-            h, s, l = colorutils.color_to_hsl(hx)
+            r, g, b = utils.color_to_rgb(hx)
+            h, s, l = utils.color_to_hsl(hx)
         elif model == RGB:
             r, g, b = values.r, values.g, values.b
-            h, s, l = colorutils.color_to_hsl([r, g, b], 'rgb')
-            hx = colorutils.color_to_hex([r, g, b])
+            h, s, l = utils.color_to_hsl([r, g, b], 'rgb')
+            hx = utils.color_to_hex([r, g, b])
         elif model == HSL:
             h, s, l = values.h, values.s, values.l
-            r, g, b = colorutils.color_to_rgb([h, s, l], 'hsl')
-            hx = colorutils.color_to_hex([h, s, l], 'hsl')
+            r, g, b = utils.color_to_rgb([h, s, l], 'hsl')
+            hx = utils.color_to_hex([h, s, l], 'hsl')
         self.set_variables(h, s, l, r, g, b, hx)
         self.update_preview()
         self.update_luminance_indicator()
@@ -542,7 +484,7 @@ class ColorChooser(ttk.Frame):
 
     def on_press_swatch(self, event: tkinter.Event) -> None:
         """Update the widget colors when a color swatch is clicked."""
-        button: tkFrame = self.nametowidget(event.widget)
+        button: ttk.TkFrame = self.nametowidget(event.widget)
         color = button.cget('background')
         self.hex.set(color)
         self.sync_color_values(HEX)
@@ -578,8 +520,6 @@ class ColorChooserDialog(Dialog):
     hex. These values can be accessed by indexing the tuple or by using
     the named fields.
 
-    ![](../../assets/dialogs/querybox-get-color.png)
-
     Examples:
 
         ```python
@@ -589,7 +529,7 @@ class ColorChooserDialog(Dialog):
         >>> colors.hex
         '#5fb04f'
         >>> colors[2]
-        '#5fb04f
+        '#5fb04f'
         >>> colors.rgb
         (95, 176, 79)
         >>> colors[0]
@@ -637,10 +577,12 @@ class ColorChooserDialog(Dialog):
         self.dropper.result.trace_add('write', self.trace_dropper_color)
 
     def create_body(self, master: tkinter.Misc) -> None:
+        """Overrides the parent method; adds the ColorChooser widget."""
         self.colorchooser = ColorChooser(master, self.initialcolor)
         self.colorchooser.pack(fill=BOTH, expand=YES)
 
     def create_buttonbox(self, master: tkinter.Misc) -> None:
+        """Overrides the parent method; adds the OK/Cancel/color-dropper buttonbox."""
         frame = ttk.Frame(master, padding=(5, 5))
 
         # OK button
@@ -658,21 +600,24 @@ class ColorChooserDialog(Dialog):
         # color dropper (not supported on Mac OS)
         if self._toplevel.winsys != 'aqua':
             dropper = ttk.Label(frame, text=PEN, font=('-size 16'))
-            ToolTip(dropper, MessageCatalog.translate('color dropper'))  # add tooltip
+            ToolTip(dropper, text=MessageCatalog.translate('color dropper'))  # add tooltip
             dropper.pack(side=RIGHT, padx=2)
             dropper.bind("<Button-1>", self.on_show_colordropper)
 
         frame.pack(side=BOTTOM, fill=X, anchor=S)
 
     def on_show_colordropper(self, event: tkinter.Event) -> None:
+        """Show the color dropper dialog."""
         self.dropper.show()
 
     def trace_dropper_color(self, *_: Any) -> None:
+        """Sync the color chooser to the hex value picked by the dropper."""
         values = self.dropper.result.get()
         self.colorchooser.hex.set(values[2])
         self.colorchooser.sync_color_values('hex')
 
     def on_button_press(self, button: ttk.Button) -> None:
+        """Set the result on OK and close the dialog; just close on Cancel."""
         if button.cget('text') == MessageCatalog.translate('OK'):
             values = self.colorchooser.get_variables()
             self._result = ColorChoice(
