@@ -1,6 +1,7 @@
 # gui_i18n.py - Система интернационализации
 import json
 import locale
+import os
 from pathlib import Path
 from loguru import logger
 
@@ -16,8 +17,14 @@ def _detect_system_language():
         Код языка ('ru', 'en', 'de', 'ja', 'ua') или 'en' по умолчанию
     """
     try:
-        # Получаем локаль системы
-        system_locale = locale.getdefaultlocale()[0]
+        # locale.getdefaultlocale() удалён в Python 3.15, используем getlocale()
+        try:
+            system_locale = locale.getlocale()[0]
+        except ValueError:
+            system_locale = None
+        if not system_locale:
+            # Фолбэк на переменные окружения (Windows/Linux без setlocale)
+            system_locale = os.environ.get("LC_ALL") or os.environ.get("LANG")
         if not system_locale:
             return "en"
 

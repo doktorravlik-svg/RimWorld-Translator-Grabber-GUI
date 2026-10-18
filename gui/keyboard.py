@@ -5,7 +5,7 @@
 на любой раскладке (RU, EN, DE, и т.д.)
 """
 
-from ttkbootstrap.tooltip import ToolTip
+from ttkbootstrap.widgets.tooltip import ToolTip
 
 HOTKEYS_CONFIG = {
     "open_mods": {
@@ -32,6 +32,11 @@ HOTKEYS_CONFIG = {
         "key": "F1",
         "tooltip": "gui_tooltip_show_shortcuts",
         "tooltip_default": "Горячие клавиши (F1)",
+    },
+    "toggle_theme": {
+        "key": "Ctrl+T",
+        "tooltip": "gui_tooltip_toggle_theme",
+        "tooltip_default": "Переключить светлую/тёмную тему (Ctrl+T / Ctrl+Е)",
     },
     "start_translation": {
         "key": "F5",

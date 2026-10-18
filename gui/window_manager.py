@@ -157,7 +157,7 @@ class GUIWindowManager:
         """
         try:
             from gui.styling.theme_manager import change_theme
-            change_theme(self.root, theme_name)
+            change_theme(self.config, self.root, theme_name)
 
             # Обновляем шрифты и цвета
             self.apply_fonts()

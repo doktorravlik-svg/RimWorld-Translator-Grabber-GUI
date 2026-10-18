@@ -156,3 +156,49 @@ SUPPORTED_RIMWORLD_VERSIONS = {"1.6", "1.5", "1.4", "1.3", "1.2", "1.1", "Common
 
 # === Логирование ===
 LOG_PREVIEW_LENGTH = 50
+
+# =====================================================================
+# === UI стандарты 2026-10 (обновление дизайна) ===
+# =====================================================================
+
+# --- Монитор системных ресурсов (статус-бар) ---
+PERFORMANCE_MONITOR_INTERVAL = 2000  # мс между опросами CPU/RAM
+PERFORMANCE_MONITOR_MIN_INTERVAL = 500  # мс, защита от слишком частого опроса
+PERFORMANCE_MONITOR_WARNING_THRESHOLD = 70  # % — жёлтая зона
+PERFORMANCE_MONITOR_CRITICAL_THRESHOLD = 90  # % — красная зона
+SHOW_PERFORMANCE_MONITOR_DEFAULT = True  # ПОКАЗЫВАТЬ по умолчанию
+
+# --- Горячие клавиши (дополнительные) ---
+HOTKEY_TOGGLE_THEME = "Ctrl+T"  # быстрое переключение светлая/тёмная тема
+
+# --- Современная типографика ---
+FONT_FAMILY = "Segoe UI"
+FONT_FAMILY_MONO = "Cascadia Mono"  # fallback: Consolas
+FONT_SIZE = 9
+FONT_SIZE_SMALL = 8
+FONT_SIZE_LARGE = 11
+FONT_SIZE_TITLE = 13
+
+# --- Современные отступы (8-pt сетка) ---
+SPACING_XS = 2
+SPACING_SM = 4
+SPACING_MD = 8
+SPACING_LG = 12
+SPACING_XL = 16
+
+# --- Скругления и тени (для будущих кастомных тем) ---
+CORNER_RADIUS_SM = 4
+CORNER_RADIUS_MD = 8
+
+# --- Анимации и отзывчивость ---
+ANIMATION_FAST_MS = 120  # hover/нажатие
+ANIMATION_SMOOTH_MS = 220  # плавные переходы
+SEARCH_DEBOUNCE_MS = 250  # задержка фильтрации
+
+# --- Bootstyle для состояний ---
+BOOTSTYLE_ACCENT = "primary"
+BOOTSTYLE_SUCCESS = "success"
+BOOTSTYLE_WARNING = "warning"
+BOOTSTYLE_DANGER = "danger"
+BOOTSTYLE_INFO = "info"
+
