@@ -35,6 +35,8 @@ class ReportExporter:
         title: Заголовок отчёта
         columns: Названия колонок
         date: Дата создания отчёта (по умолчанию текущая)
+        keys: Ключи словарей data, соответствующие колонкам (опционально;
+            если не заданы — выводятся из имени колонки)
     """
 
     def __init__(
@@ -43,11 +45,22 @@ class ReportExporter:
         title: str,
         columns: Sequence[str],
         date: datetime | None = None,
+        keys: Sequence[str] | None = None,
     ):
         self.data = data
         self.title = title
         self.columns = columns
         self.date = date or datetime.now()
+        self.keys = keys
+
+    def _cell_value(self, row: dict[str, Any], index: int) -> Any:
+        """Значение ячейки: по явному ключу или по нормализованному имени колонки."""
+        if self.keys is not None and index < len(self.keys):
+            return row.get(self.keys[index], "")
+        # Fallback: normalize column name to match data keys
+        col_name = self.columns[index]
+        normalized = col_name.lower().replace(" ", "_")
+        return row.get(normalized, "")
 
     def export_txt(self, file_path: str) -> bool:
         """
@@ -65,7 +78,7 @@ class ReportExporter:
                 f.write(f"Дата: {self.date.strftime('%Y-%m-%d %H:%M:%S')}\n")
                 f.write("=" * 80 + "\n\n")
                 for row in self.data:
-                    values = [str(row.get(col.lower().replace(" ", "_"), "")) for col in self.columns]
+                    values = [str(self._cell_value(row, i)) for i in range(len(self.columns))]
                     f.write(" | ".join(values) + "\n")
             return True
         except (OSError, PermissionError) as e:
@@ -153,8 +166,16 @@ class ReportExporter:
             for row in self.data:
                 row_class = row.get("class", row.get("type", ""))
                 html += f'        <tr class="{row_class}">\n'
-                for col in self.columns:
-                    val = row.get(col.lower().replace(" ", "_"), "")
+                for i in range(len(self.columns)):
+                    val = self._cell_value(row, i)
+                    # Экранирование HTML-специальных символов
+                    val = (
+                        str(val)
+                        .replace("&", "&amp;")
+                        .replace("<", "&lt;")
+                        .replace(">", "&gt;")
+                        .replace('"', "&quot;")
+                    )
                     html += f"            <td>{val}</td>\n"
                 html += "        </tr>\n"
             

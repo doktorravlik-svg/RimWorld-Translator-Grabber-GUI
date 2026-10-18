@@ -452,17 +452,10 @@ class LogPanel(ttk.LabelFrame):
         )
 
         if show:
-            self.log_text.insert(tk.END, message + "\n", level)
-
-            # Ограничиваем количество строк
-            line_count = int(self.log_text.index("end-1c").split(".")[0])
-            if line_count > self.MAX_LINES:
-                excess = line_count - self.MAX_LINES
-                self.log_text.delete("1.0", f"{excess}.0")
-
-            # Прокрутка вниз
-            if self.auto_scroll_var.get():
-                self.log_text.see(tk.END)
+            self._pending_lines.append((message, level))
+            if not self._update_scheduled:
+                self._update_scheduled = True
+                self.after_idle(self._flush_pending_log)
 
     def log_batch(self, messages):
         """Пакетное добавление сообщений (для производительности)"""
@@ -479,8 +472,39 @@ class LogPanel(ttk.LabelFrame):
             )
 
             if show:
-                self.log_text.insert(tk.END, message + "\n", level)
+                self._pending_lines.append((message, level))
 
+        if self._pending_lines and not self._update_scheduled:
+            self._update_scheduled = True
+            self.after_idle(self._flush_pending_log)
+
+    def _flush_pending_log(self):
+        """Пакетно вставляет накопленные строки в текстовое поле (оптимизация)."""
+        self._update_scheduled = False
+        if not self._pending_lines:
+            return
+
+        lines = self._pending_lines
+        self._pending_lines = []
+
+        # Собираем текст и теги в единую строку для одной вставки
+        chunks = []
+        for message, level in lines:
+            chunks.append(message + "\n")
+
+        text = "".join(chunks)
+        if not text:
+            return
+
+        # Вставляем пакетом — один вызов insert вместо построчного
+        self.log_text.insert(tk.END, text)
+        # Применяем теги по строкам (tag_add для каждого уровня)
+        start_line = int(self.log_text.index("end-1c").split(".")[0]) - len(lines)
+        for i, (message, level) in enumerate(lines):
+            line = start_line + i
+            self.log_text.tag_add(level, f"{line}.0", f"{line + 1}.0")
+
+        # Ограничим количество строк — удаляем сверху пачками
         line_count = int(self.log_text.index("end-1c").split(".")[0])
         if line_count > self.MAX_LINES:
             excess = line_count - self.MAX_LINES

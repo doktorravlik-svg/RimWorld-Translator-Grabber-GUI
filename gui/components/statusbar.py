@@ -11,6 +11,11 @@ import tkinter as tk
 import ttkbootstrap as ttk
 from gui.gui_i18n import tr
 from gui.styling.icon_manager import HAS_ICONS, get_status_bar_icons
+from gui.styling.theme_manager import is_dark_theme
+from gui.components.performance_monitor import HAS_PSUTIL, PerformanceMonitor
+
+# Интервал обновления монитора ресурсов (мс) — единый источник: gui/constants.py
+from gui.constants import PERFORMANCE_MONITOR_INTERVAL
 
 # Локальные импорты с fallback
 try:
@@ -59,41 +64,43 @@ class StatusBar(ttk.Frame):
         self.status_label.pack(side="left", padx=(0, 5))
 
         # Счётчики с тултипами (через ttkbootstrap Tooltip)
-        self.mods_label = self._stat(stats, "Модов: 0", "#3b82f6")
+        self.mods_label = self._stat(stats, tr("status_mods_count", "Модов: 0"), "primary")
         self.mods_label.pack(side="left", padx=3)
         self.set_tooltip(self.mods_label, tr("tooltip_mods", "Количество обработанных модов"))
 
-        self.translated_label = self._stat(stats, "Переведено: 0", "#22c55e")
+        self.translated_label = self._stat(stats, tr("status_translated_count", "Переведено: 0"), "success")
         self.translated_label.pack(side="left", padx=3)
         self.set_tooltip(
             self.translated_label, tr("tooltip_translated", "Количество переведённых записей")
         )
 
-        self.errors_label = self._stat(stats, "Ошибок: 0", "#ef4444")
+        self.errors_label = self._stat(stats, tr("status_errors_count", "Ошибок: 0"), "danger")
         self.errors_label.pack(side="left", padx=3)
         self.set_tooltip(
             self.errors_label, tr("tooltip_errors", "Количество ошибок при последней операции")
         )
 
-        self.warnings_label = self._stat(stats, "Предупреждений: 0", "#f59e0b")
+        self.warnings_label = self._stat(stats, tr("status_warnings_count", "Предупреждений: 0"), "warning")
         self.warnings_label.pack(side="left", padx=3)
         self.set_tooltip(
             self.warnings_label,
             tr("tooltip_warnings", "Количество предупреждений при последней операции"),
         )
 
-        # Последнее действие
-        # ✅ ИСПОЛЬЗУЕМ цвет, подходящий для текущей темы (серый для светлой, светло-серый для темной)
-        is_dark = self._check_dark_theme()
-        last_action_color = "#aaaaaa" if is_dark else "gray"
-
+        # Последнее действие — используем muted (secondary) bootstyle
         self.last_action_label = ttk.Label(
             stats,
             text=tr("last_action_none", "Последнее: -"),
-            foreground=last_action_color,
+            bootstyle="secondary",
             font=("Segoe UI", 8),
         )
         self.last_action_label.pack(side="right", padx=4)
+
+        # ✅ НОВОЕ (2026): Монитор системных ресурсов (CPU / RAM / потоки)
+        # Показывается только при наличии psutil и если включено в конфиге
+        self.performance_monitor: PerformanceMonitor | None = None
+        self._monitor_config = self._load_monitor_config()
+        self._init_performance_monitor(stats)
 
         # Состояние
         self._last_update = 0.0
@@ -106,47 +113,122 @@ class StatusBar(ttk.Frame):
     @staticmethod
     def _stat(parent: ttk.Frame, text: str, fg: str) -> ttk.Label:
         """Создать метку статистики."""
-        return ttk.Label(parent, text=text, foreground=fg, font=("Segoe UI", 8))
+        return ttk.Label(parent, text=text, bootstyle=fg, font=("Segoe UI", 8))
 
     # ttkbootstrap ToolTip используется через set_tooltip — ручные обработчики <Enter>/<Leave> больше не нужны
 
     def _check_dark_theme(self) -> bool:
-        """Проверяет тёмную тему."""
+        """Проверяет тёмную тему через единый реестр theme_manager."""
         try:
             from config.config_manager import get_config_manager
-            from gui.styling.theme_manager import TTKBOOTSTRAP_THEMES
 
-            cfg = get_config_manager().get_all()
-            bs = TTKBOOTSTRAP_THEMES.get(cfg.get("theme", "light"), "cosmo")
-            return bs in ("darkly", "cyborg", "superhero", "solar")
+            theme_key = get_config_manager().get("theme", "light")
+            return is_dark_theme(theme_key)
         except Exception:
             return False
 
-    # ── Статус ──────────────────────────────────────────────
-    def set_status(self, message: str):
-        """Устанавливает текст статусной строки (безопасно для потоков)."""
+    # ── Монитор ресурсов ─────────────────────────────────────────
+    def _load_monitor_config(self) -> dict:
+        """Загрузить настройки монитора из конфига (с безопасными дефолтами)."""
         try:
-            # Проверяем, что виджет существует и не был уничтожен
-            if self.winfo_toplevel() and self.status_label.winfo_exists():
-                # .after(0, ...) гарантирует выполнение в главном UI-потоке
-                self.after(0, lambda: self.status_label.config(text=message))
+            from config.config_manager import get_config_manager
+
+            cfg = get_config_manager()
+            interval = int(
+                cfg.get("performance_monitor_interval", PERFORMANCE_MONITOR_INTERVAL)
+            )
+            return {
+                "enabled": bool(cfg.get("show_performance_monitor", True)),
+                "interval": max(500, interval),
+            }
+        except Exception:
+            return {"enabled": True, "interval": PERFORMANCE_MONITOR_INTERVAL}
+
+    def _init_performance_monitor(self, parent):
+        """Создать (и при необходимости показать) монитор ресурсов."""
+        if not HAS_PSUTIL:
+            return
+
+        self._monitor_parent = parent
+        self.performance_monitor = PerformanceMonitor(
+            parent, interval_ms=self._monitor_config.get("interval")
+        )
+
+        if self._monitor_config.get("enabled", True):
+            self.performance_monitor.pack(side="right", padx=(2, 6))
+        else:
+            self.performance_monitor.stop()
+
+    def toggle_performance_monitor(self) -> bool:
+        """
+        Переключить отображение монитора ресурсов.
+
+        Returns:
+            Новое состояние (True = показан) или False если недоступен
+        """
+        if not self.performance_monitor:
+            return False
+
+        try:
+            enabled = not bool(self.performance_monitor.winfo_ismapped())
+            if enabled:
+                self.performance_monitor.pack(side="right", padx=(2, 6))
+                self.performance_monitor.start()
+            else:
+                self.performance_monitor.pack_forget()
+                self.performance_monitor.stop()
+        except Exception:
+            return False
+
+        try:
+            from config.config_manager import get_config_manager
+
+            get_config_manager().set("show_performance_monitor", enabled, save=False)
+        except Exception:
+            pass
+        return enabled
+
+    # ── Статус ──────────────────────────────────────────────
+    def _on_ui(self, fn):
+        """Выполнить функцию в главном UI-потоке (безопасно из любого потока)."""
+        if threading.current_thread() is threading.main_thread():
+            fn()
+            return
+        try:
+            self.after(0, fn)
         except Exception:
             pass  # Виджет мог быть уничтожен
 
+    def set_status(self, message: str):
+        """Устанавливает текст статусной строки (безопасно для потоков)."""
+        def _apply():
+            try:
+                # Проверяем, что виджет существует и не был уничтожен
+                if self.status_label.winfo_exists():
+                    self.status_label.config(text=message)
+            except Exception:
+                pass  # Виджет мог быть уничтожен
+
+        self._on_ui(_apply)
+
     # ── Статистика с throttle ───────────────────────────────
     def update_stats(self, **kwargs):
-        """Накапливает данные и обновляет UI с задержкой."""
-        self._stats_buffer.update(kwargs)  # Сохраняем все пришедшие ключи
+        """Накапливает данные и обновляет UI с задержкой (безопасно для потоков)."""
 
-        now = time.time()
-        if now - self._last_update < (self._throttle_interval / 1000):
-            if not self._throttle_timer:
-                self._throttle_timer = self.after(
-                    self._throttle_interval, self._flush_pending_update
-                )
-            return
+        def _apply():
+            self._stats_buffer.update(kwargs)  # Сохраняем все пришедшие ключи
 
-        self._flush_pending_update()
+            now = time.time()
+            if now - self._last_update < (self._throttle_interval / 1000):
+                if not self._throttle_timer:
+                    self._throttle_timer = self.after(
+                        self._throttle_interval, self._flush_pending_update
+                    )
+                return
+
+            self._flush_pending_update()
+
+        self._on_ui(_apply)
 
     def _flush_pending_update(self):
         if self._throttle_timer:
@@ -161,22 +243,22 @@ class StatusBar(ttk.Frame):
     def _apply_stats(self, kwargs: dict):
         if "mods" in kwargs:
             self.stats["mods"] = kwargs["mods"]
-            self.mods_label.config(text=f"Модов: {self.stats['mods']}", foreground="#3b82f6")
+            self.mods_label.config(text=f"Модов: {self.stats['mods']}", bootstyle="primary")
         if "translated" in kwargs:
             self.stats["translated"] = kwargs["translated"]
-            c = "#22c55e" if self.stats["translated"] > 0 else "gray"
+            bootstyle = "success" if self.stats["translated"] > 0 else "secondary"
             self.translated_label.config(
-                text=f"Переведено: {self.stats['translated']}", foreground=c
+                text=f"Переведено: {self.stats['translated']}", bootstyle=bootstyle
             )
         if "errors" in kwargs:
             self.stats["errors"] = kwargs["errors"]
-            c = "#ef4444" if self.stats["errors"] > 0 else "gray"
-            self.errors_label.config(text=f"Ошибок: {self.stats['errors']}", foreground=c)
+            bootstyle = "danger" if self.stats["errors"] > 0 else "secondary"
+            self.errors_label.config(text=f"Ошибок: {self.stats['errors']}", bootstyle=bootstyle)
         if "warnings" in kwargs:
             self.stats["warnings"] = kwargs["warnings"]
-            c = "#f59e0b" if self.stats["warnings"] > 0 else "gray"
+            bootstyle = "warning" if self.stats["warnings"] > 0 else "secondary"
             self.warnings_label.config(
-                text=f"Предупреждений: {self.stats['warnings']}", foreground=c
+                text=f"Предупреждений: {self.stats['warnings']}", bootstyle=bootstyle
             )
         if "last_action" in kwargs:
             self.stats["last_action"] = kwargs["last_action"]
@@ -184,32 +266,49 @@ class StatusBar(ttk.Frame):
 
     def reset_stats(self):
         self.stats = {"mods": 0, "translated": 0, "errors": 0, "warnings": 0, "last_action": "-"}
-        self.mods_label.config(text=tr("status_mods_count", "Модов: 0"), foreground="#3b82f6")
-        self.translated_label.config(text=tr("status_translated_count", "Переведено: 0"), foreground="gray")
-        self.errors_label.config(text=tr("status_errors_count", "Ошибок: 0"), foreground="gray")
-        self.warnings_label.config(text=tr("status_warnings_count", "Предупреждений: 0"), foreground="gray")
+        self.mods_label.config(text=tr("status_mods_count", "Модов: 0"), bootstyle="primary")
+        self.translated_label.config(text=tr("status_translated_count", "Переведено: 0"), bootstyle="secondary")
+        self.errors_label.config(text=tr("status_errors_count", "Ошибок: 0"), bootstyle="secondary")
+        self.warnings_label.config(text=tr("status_warnings_count", "Предупреждений: 0"), bootstyle="secondary")
         self.last_action_label.config(text=tr("last_action_none", "Последнее: -"))
 
     # ── Прогресс ────────────────────────────────────────────
     def start_progress(self, text: str = None):
-        self.progress_bar["value"] = 0
-        if text:
-            self._progress_text.set(text)
-        else:
-            self._progress_text.set("")
-            self.progress_bar.mode = "indeterminate"
-        self.progress_bar.start(20)
+        def _apply():
+            self.progress_bar["value"] = 0
+            if text:
+                # С текстом — детерминированный прогресс (0% до set_progress)
+                self._progress_text.set(text)
+                self.progress_bar.configure(mode="determinate")
+                self.progress_bar.stop()
+            else:
+                # Без текста — неопределённая анимация (спиннер)
+                self._progress_text.set("")
+                self.progress_bar.configure(mode="indeterminate")
+                self.progress_bar.start(20)
+
+        self._on_ui(_apply)
 
     def stop_progress(self):
-        self.progress_bar.stop()
-        self.progress_bar["value"] = 0
-        self.progress_bar.mode = "determinate"
-        self._progress_text.set("")
+        def _apply():
+            self.progress_bar.stop()
+            self.progress_bar["value"] = 0
+            self.progress_bar.configure(mode="determinate")
+            self._progress_text.set("")
+
+        self._on_ui(_apply)
 
     def set_progress(self, value: float, text: str = None):
-        safe_value = max(0, min(100, value))
-        self.progress_bar["value"] = safe_value
-        self._progress_text.set(text if text else f"{safe_value:.1f}%")
+        def _apply():
+            # Устанавливаем конкретное значение — режим должен быть determinate
+            if self.progress_bar["mode"] != "determinate":
+                self.progress_bar.stop()
+                self.progress_bar.configure(mode="determinate")
+            safe_value = max(0, min(100, value))
+            self.progress_bar["value"] = safe_value
+            self._progress_text.set(text if text else f"{safe_value:.1f}%")
+
+        self._on_ui(_apply)
 
     def update_detailed_progress(self, current: int, total: int):
         """Обновляет прогресс на основе количества обработанных элементов."""

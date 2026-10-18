@@ -83,7 +83,7 @@ class PathEntryWithBrowse(ttk.Frame):
         self.entry.pack(side="left", fill="x", expand=True, padx=(0, 5))
 
         # Привязка события изменения
-        self.entry_var.trace("w", lambda *args: self._on_change())
+        self.entry_var.trace_add("write", lambda *args: self._on_change())
         self.entry.bind("<FocusOut>", lambda e: self.validate_path())
 
         # Кнопка "Обзор"
