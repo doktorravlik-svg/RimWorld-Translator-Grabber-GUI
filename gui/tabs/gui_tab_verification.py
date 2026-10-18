@@ -14,18 +14,20 @@ from gui.constants import (
     PAD_X,
     PAD_Y,
     PROGRESS_BOOTSTYLES,
+    SEARCH_DEBOUNCE_MS,
 )
 from gui.gui_i18n import tr
 from ttkbootstrap.constants import *
-from ttkbootstrap.tooltip import ToolTip
+from ttkbootstrap.widgets.tooltip import ToolTip
 
 
 class VerificationTab(ttk.Frame):
-    def __init__(self, parent, on_verify_callback=None, on_full_verify_callback=None):
+    def __init__(self, parent, on_verify_callback=None, on_full_verify_callback=None, log_callback=None):
         super().__init__(parent)
         self.on_verify_callback = on_verify_callback
         self.on_full_verify_callback = on_full_verify_callback
-        self.report_format_var = tk.StringVar(value="text")
+        self.log_callback = log_callback
+        self.report_format_var = tk.StringVar(value="txt")
         self.verify_translations_var = tk.BooleanVar(value=True)
         self.verify_dependencies_var = tk.BooleanVar(value=True)
         self.verify_conflicts_var = tk.BooleanVar(value=True)
@@ -37,6 +39,10 @@ class VerificationTab(ttk.Frame):
         self.verification_language_var = tk.StringVar(value="Все языки")
         self._verify_filter_debounce_timer = None  # Debounce таймер
         self._all_result_items = []  # Все элементы дерева для фильтрации
+        # ✅ НОВОЕ: Сортировка результатов по столбцам
+        self._sort_column = None
+        self._sort_reverse = False
+        self._heading_base = {}
         self._setup_ui()
 
     def _setup_ui(self):
@@ -52,11 +58,11 @@ class VerificationTab(ttk.Frame):
         self.report_format_combo = ttk.Combobox(
             options_frame,
             textvariable=self.report_format_var,
-            values=["text", "json", "html"],
+            values=["txt", "json", "html"],
             width=15,
         )
         self.report_format_combo.grid(row=0, column=1, sticky="w", padx=PAD_X, pady=PAD_Y)
-        ToolTip(self.report_format_combo, "Выберите формат экспорта отчёта")
+        ToolTip(self.report_format_combo, text="Выберите формат экспорта отчёта")
 
         checks_frame = ttk.Frame(options_frame)
         checks_frame.grid(row=1, column=0, columnspan=3, sticky="w", padx=PAD_X, pady=PAD_Y)
@@ -66,7 +72,7 @@ class VerificationTab(ttk.Frame):
             variable=self.verify_translations_var,
         )
         chk_trans.pack(anchor="w", side="left", padx=PAD_X)
-        ToolTip(chk_trans, "Проверить качество переводов модов")
+        ToolTip(chk_trans, text="Проверить качество переводов модов")
 
         chk_deps = ttk.Checkbutton(
             checks_frame,
@@ -74,7 +80,7 @@ class VerificationTab(ttk.Frame):
             variable=self.verify_dependencies_var,
         )
         chk_deps.pack(anchor="w", side="left", padx=PAD_X)
-        ToolTip(chk_deps, "Проверить отсутствие зависимостей модов")
+        ToolTip(chk_deps, text="Проверить отсутствие зависимостей модов")
 
         chk_conflicts = ttk.Checkbutton(
             checks_frame,
@@ -82,7 +88,7 @@ class VerificationTab(ttk.Frame):
             variable=self.verify_conflicts_var,
         )
         chk_conflicts.pack(anchor="w", side="left", padx=PAD_X)
-        ToolTip(chk_conflicts, "Найти конфликтующие моды")
+        ToolTip(chk_conflicts, text="Найти конфликтующие моды")
 
         # ✅ НОВОЕ: Фильтр по языку верификации
         lang_frame = ttk.Frame(options_frame)
@@ -102,7 +108,7 @@ class VerificationTab(ttk.Frame):
         self.verification_language_combo.pack(side="left", padx=PAD_X)
         ToolTip(
             self.verification_language_combo,
-            "Выберите язык для проверки переводов. 'Все языки' — проверять все.",
+            text="Выберите язык для проверки переводов. 'Все языки' — проверять все.",
         )
 
         # ✅ НОВОЕ: Checkbox для фильтрации переводов по языку при проверке целостности
@@ -115,7 +121,7 @@ class VerificationTab(ttk.Frame):
         chk_filter_integrity.grid(row=3, column=0, columnspan=3, sticky="w", padx=PAD_X, pady=PAD_Y)
         ToolTip(
             chk_filter_integrity,
-            "Если отмечено, проверка целостности будет проверять только файлы выбранного языка",
+            text="Если отмечено, проверка целостности будет проверять только файлы выбранного языка",
         )
 
         btn_frame = ttk.Frame(self)
@@ -127,7 +133,7 @@ class VerificationTab(ttk.Frame):
             bootstyle="success",
         )
         self.verify_btn.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(self.verify_btn, "Быстрая проверка выбранных модов")
+        ToolTip(self.verify_btn, text="Быстрая проверка выбранных модов")
 
         self.full_verify_btn = ttk.Button(
             btn_frame,
@@ -136,7 +142,7 @@ class VerificationTab(ttk.Frame):
             bootstyle="info",
         )
         self.full_verify_btn.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(self.full_verify_btn, "Полная проверка всех модов")
+        ToolTip(self.full_verify_btn, text="Полная проверка всех модов")
 
         # Прогресс верификации — нативный Progressbar с bootstyle
         progress_frame = ttk.Frame(self)
@@ -171,7 +177,7 @@ class VerificationTab(ttk.Frame):
         # ✅ ИСПРАВЛЕНО: Debounce для поиска (300мс задержка)
         self._verify_filter_debounce_timer = None
         self.verify_search_entry.bind("<KeyRelease>", self._on_verify_filter_debounced)
-        ToolTip(self.verify_search_entry, "Введите текст для фильтрации результатов")
+        ToolTip(self.verify_search_entry, text="Введите текст для фильтрации результатов")
         ttk.Button(
             search_frame,
             text="✕",
@@ -190,7 +196,7 @@ class VerificationTab(ttk.Frame):
             command=self._apply_filters,
         )
         chk_err.pack(side="left", padx=PAD_X)
-        ToolTip(chk_err, "Показать только ошибки")
+        ToolTip(chk_err, text="Показать только ошибки")
 
         chk_warn = ttk.Checkbutton(
             filter_frame,
@@ -199,7 +205,7 @@ class VerificationTab(ttk.Frame):
             command=self._apply_filters,
         )
         chk_warn.pack(side="left", padx=PAD_X)
-        ToolTip(chk_warn, "Показать только предупреждения")
+        ToolTip(chk_warn, text="Показать только предупреждения")
 
         chk_info = ttk.Checkbutton(
             filter_frame,
@@ -208,7 +214,7 @@ class VerificationTab(ttk.Frame):
             command=self._apply_filters,
         )
         chk_info.pack(side="left", padx=PAD_X)
-        ToolTip(chk_info, "Показать информационные сообщения")
+        ToolTip(chk_info, text="Показать информационные сообщения")
 
         export_frame = ttk.Frame(self)
         export_frame.grid(row=5, column=0, columnspan=3, sticky="e", padx=PAD_FRAME_X, pady=PAD_Y)
@@ -219,7 +225,7 @@ class VerificationTab(ttk.Frame):
             bootstyle="info",
         )
         btn_export_txt.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_export_txt, "Экспортировать отчёт в TXT")
+        ToolTip(btn_export_txt, text="Экспортировать отчёт в TXT")
 
         btn_export_json = ttk.Button(
             export_frame,
@@ -228,7 +234,7 @@ class VerificationTab(ttk.Frame):
             bootstyle="info",
         )
         btn_export_json.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_export_json, "Экспортировать отчёт в JSON")
+        ToolTip(btn_export_json, text="Экспортировать отчёт в JSON")
 
         btn_export_html = ttk.Button(
             export_frame,
@@ -237,7 +243,7 @@ class VerificationTab(ttk.Frame):
             bootstyle="info",
         )
         btn_export_html.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_export_html, "Экспортировать отчёт в HTML")
+        ToolTip(btn_export_html, text="Экспортировать отчёт в HTML")
 
         tree_frame = ttk.LabelFrame(self, text=tr("verification_results", "📋 Результаты проверки"))
         tree_frame.grid(
@@ -281,6 +287,15 @@ class VerificationTab(ttk.Frame):
         # Псевдоним для обратной совместимости
         self.result_tree = self.result_tree_widget.tree
 
+        # ✅ НОВОЕ: Сортировка результатов — клик по заголовку (как в других вкладках)
+        self._heading_base = {
+            col: self.result_tree_widget.tree.heading(col)["text"]
+            for col in ("type", "mod", "message")
+        }
+        self.result_tree_widget.tree.heading("type", command=lambda: self._sort_by("type"))
+        self.result_tree_widget.tree.heading("mod", command=lambda: self._sort_by("mod"))
+        self.result_tree_widget.tree.heading("message", command=lambda: self._sort_by("message"))
+
         # ✅ НОВОЕ: Статистика без LabelFrame — экономия места
         self.stats_label = ttk.Label(
             self,
@@ -301,41 +316,147 @@ class VerificationTab(ttk.Frame):
         self.columnconfigure(2, weight=1)
 
     def _on_verify_filter_debounced(self, event=None):
-        """Debounce для фильтрации результатов (300мс задержка)"""
-        if self._verify_filter_debounce_timer:
-            self.after_cancel(self._verify_filter_debounce_timer)
-        self._verify_filter_debounce_timer = self.after(300, self._filter_results)
-
-    def _filter_results(self, event=None):
-        """Фильтрация результатов верификации по поисковому запросу"""
+        """Debounce для фильтрации результатов (SEARCH_DEBOUNCE_MS задержка)"""
         try:
-            if not hasattr(self, "result_tree") or self.result_tree is None:
-                return
-            search_text = self.verify_search_var.get().lower()
+            if self._verify_filter_debounce_timer:
+                self.after_cancel(self._verify_filter_debounce_timer)
+        except Exception:
+            pass
+        self._verify_filter_debounce_timer = self.after(SEARCH_DEBOUNCE_MS, self._apply_filters)
 
-            # Итерируемся по ВСЕМ элементам (не только видимым)
+    def _result_visible(self, item):
+        """
+        Проверяет видимость результата: поиск + фильтры по типам.
+
+        Returns:
+            True если результат проходит оба фильтра
+        """
+        values = self.result_tree.item(item, "values")
+        if not values:
+            return False
+
+        # 1. Поиск по всем колонкам
+        search_text = self.verify_search_var.get().strip().lower()
+        if search_text and not any(search_text in str(v).lower() for v in values):
+            return False
+
+        # 2. Фильтр по типу (❌/⚠️/ℹ️/✅)
+        result_type = values[0].lower()
+        if "error" in result_type:
+            return self.show_errors_var.get()
+        if "warning" in result_type:
+            return self.show_warnings_var.get()
+        if "info" in result_type:
+            return self.show_info_var.get()
+        return True  # success и прочие — всегда видимы
+
+    def _sorted_results(self, items):
+        """Сортирует видимые результаты по текущему столбцу"""
+        if not self._sort_column or len(items) < 2:
+            return items
+        try:
+            return sorted(
+                items,
+                key=lambda iid: self._result_sort_key(iid, self._sort_column),
+                reverse=self._sort_reverse,
+            )
+        except Exception:
+            return items
+
+    def _result_sort_key(self, item_id, column):
+        """Ключ сортировки результата для указанного столбца"""
+        values = self.result_tree.item(item_id, "values")
+        col_idx = {"type": 0, "mod": 1, "message": 2}.get(column, 2)
+        raw = str(values[col_idx]) if len(values) > col_idx else ""
+        if column == "type":
+            upper = raw.upper()
+            rank = 3
+            if "ERROR" in upper:
+                rank = 0
+            elif "WARNING" in upper:
+                rank = 1
+            elif "SUCCESS" in upper:
+                rank = 2
+            return (rank, raw.casefold())
+        return (raw.casefold(),)
+
+    def _apply_filters(self):
+        """Применить фильтры (поиск + типы) и сортировку к результатам"""
+        self._verify_filter_debounce_timer = None
+        try:
+            if not getattr(self, "result_tree", None):
+                return
+
+            visible = [
+                item for item in self._all_result_items if self._result_visible(item)
+            ]
+            visible = self._sorted_results(visible)
+
+            # Перестраиваем дерево: detach всех, reattach только видимые (в порядке сортировки)
             for item in self._all_result_items:
-                values = self.result_tree.item(item, "values")
-                if not values:
-                    continue
-                # Ищем во всех колонках
-                match = any(search_text in str(v).lower() for v in values)
-                if not search_text or match:
-                    self.result_tree.reattach(item, "", "end")
-                else:
+                try:
                     self.result_tree.detach(item)
+                except tk.TclError:
+                    continue
+            for item in visible:
+                try:
+                    self.result_tree.reattach(item, "", "end")
+                except tk.TclError:
+                    continue
+
+            self._update_heading_arrows()
+            self._update_shown_stats(len(visible))
         except Exception:
             # Тихо игнорируем ошибки фильтрации — не ломаем UI
             pass
 
+    def _sort_by(self, column):
+        """Сортировка результатов по столбцу — клик по заголовку"""
+        if self._sort_column == column:
+            self._sort_reverse = not self._sort_reverse
+        else:
+            self._sort_column = column
+            self._sort_reverse = False
+        self._apply_filters()
+
+    def _update_heading_arrows(self):
+        """Обновляет стрелки ▲/▼ в заголовках столбцов результатов"""
+        if not getattr(self, "_heading_base", None):
+            return
+        for column, base_text in self._heading_base.items():
+            if column == self._sort_column:
+                arrow = " ▼" if self._sort_reverse else " ▲"
+                text = base_text + arrow
+            else:
+                text = base_text
+            try:
+                self.result_tree.heading(column, text=text)
+            except tk.TclError:
+                continue
+
+    def _update_shown_stats(self, visible_count):
+        """Обновляет статистику с учётом показанных результатов"""
+        total = len(self.verification_results)
+        errors = sum(1 for r in self.verification_results if r["type"] == "error")
+        warnings = sum(1 for r in self.verification_results if r["type"] == "warning")
+        successes = sum(1 for r in self.verification_results if r["type"] == "success")
+        self.stats_label.config(
+            text=f"{tr('stats_total', 'Всего')}: {total} | {tr('stats_success', '✅ Успешно')}: {successes} | "
+            f"{tr('stats_warnings', '⚠️ Предупреждения')}: {warnings} | {tr('stats_errors', '❌ Ошибки')}: {errors} | "
+            f"{tr('deps_shown_stats', 'Показано')}: {visible_count}"
+        )
+
+    def _filter_results(self, event=None):
+        """Фильтрация результатов верификации по поисковому запросу"""
+        self._apply_filters()
+
     def _clear_verify_search(self):
-        """Очистить поиск и показать все результаты"""
+        """Очистить поиск и показать все результаты (с учётом фильтров типов)"""
         try:
-            if not hasattr(self, "result_tree") or self.result_tree is None:
+            if not getattr(self, "result_tree", None):
                 return
             self.verify_search_var.set("")
-            for item in self._all_result_items:
-                self.result_tree.reattach(item, "", "end")
+            self._apply_filters()
         except Exception:
             pass
 
@@ -499,6 +620,10 @@ class VerificationTab(ttk.Frame):
         for item in self.result_tree.get_children():
             self.result_tree.delete(item)
         self._all_result_items.clear()  # Очищаем список всех элементов
+        # ✅ НОВОЕ: сброс сортировки и стрелок
+        self._sort_column = None
+        self._sort_reverse = False
+        self._update_heading_arrows()
         # ✅ УДАЛЕНО: result_text больше не существует
         # self.result_text.delete(1.0, tk.END)
         self.stats_label.config(text=tr("check_not_performed", "Проверка не проводилась"))
@@ -506,37 +631,10 @@ class VerificationTab(ttk.Frame):
     def clear(self):
         self._clear_results()
 
-    def _apply_filters(self):
-        """Применить фильтры к результатам верификации"""
-        # Итерируемся по ВСЕМ элементам (не только видимым)
-        for item in self._all_result_items:
-            values = self.result_tree.item(item, "values")
-            if not values:
-                continue
-            result_type = values[0].lower()
-            show = False
-            if "error" in result_type and self.show_errors_var.get():
-                show = True
-            elif "warning" in result_type and self.show_warnings_var.get():
-                show = True
-            elif "info" in result_type and self.show_info_var.get():
-                show = True
-            elif "success" in result_type:
-                show = True
-            if show:
-                self.result_tree.reattach(item, "", "end")
-            else:
-                self.result_tree.detach(item)
-
     def _update_stats(self):
-        total = len(self.verification_results)
-        errors = sum(1 for r in self.verification_results if r["type"] == "error")
-        warnings = sum(1 for r in self.verification_results if r["type"] == "warning")
-        successes = sum(1 for r in self.verification_results if r["type"] == "success")
-        self.stats_label.config(
-            text=f"{tr('stats_total', 'Всего')}: {total} | {tr('stats_success', '✅ Успешно')}: {successes} | "
-            f"{tr('stats_warnings', '⚠️ Предупреждения')}: {warnings} | {tr('stats_errors', '❌ Ошибки')}: {errors}"
-        )
+        """Обновить статистику (с учётом показанных после фильтрации)"""
+        visible = sum(1 for item in self._all_result_items if self._result_visible(item))
+        self._update_shown_stats(visible)
 
     def _export_report(self, format_type):
         """Экспортировать отчёт в файл"""

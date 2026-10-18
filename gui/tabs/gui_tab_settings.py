@@ -163,10 +163,17 @@ class SettingsTab(ttk.Frame):
     def _on_font_change(self, key: str, family: str, size: int) -> None:
         """Callback при изменении шрифта."""
         if key == "reset":
-            # Сброс всех шрифтов
+            # Сброс всех шрифтов: вызываем внутренние подписчики (если есть)
             for callback in self._font_change_callbacks:
                 try:
                     callback()
+                except Exception:
+                    pass
+            # ✅ ИСПРАВЛЕНО: также вызываем внешний колбэк, иначе сброс
+            # шрифтов не применяется визуально до перезапуска приложения
+            if self.on_font_change_callback:
+                try:
+                    self.on_font_change_callback()
                 except Exception:
                     pass
         elif self.on_font_change_callback:
@@ -377,7 +384,7 @@ class SettingsTab(ttk.Frame):
         main_frame = ttk.Frame(parent)
 
         # ScrolledFrame с автоматическим скрытием скроллбара
-        scrollable_frame = ScrolledFrame(main_frame, autohide=True)
+        scrollable_frame = ScrolledFrame(main_frame, auto_hide=True)
         scrollable_frame.pack(fill="both", expand=True)
 
         self._font_previews = {}
@@ -507,7 +514,6 @@ class SettingsTab(ttk.Frame):
             frame,
             text=tr("section_engine_advanced", "Дополнительные настройки"),
             collapsed=True,
-            bootstyle="info",
         )
         self.advanced_collapsible.pack(fill="x", pady=10)
 
@@ -649,8 +655,11 @@ class SettingsTab(ttk.Frame):
 
     def _is_dark_theme(self) -> bool:
         """Проверяет, используется ли тёмная тема"""
+        from gui.styling.theme_manager import TTKBOOTSTRAP_THEMES
+
         theme = self.config.get("theme", "light")
-        return theme in ("dark", "ocean", "superhero", "cyborg", "darkly", "solar")
+        bs_theme = TTKBOOTSTRAP_THEMES.get(theme, theme)
+        return bs_theme.endswith("-dark") or bs_theme in {"darkly", "cyborg", "superhero", "solar", "vapor"}
 
     def _browse_preset(self) -> None:
         """Выбрать файл пресета."""

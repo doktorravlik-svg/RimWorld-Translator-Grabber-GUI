@@ -17,7 +17,7 @@ import ttkbootstrap as ttk
 from gui.constants import PAD_BTN_X, PAD_FRAME_X, PAD_FRAME_Y
 from gui.gui_i18n import tr
 from ttkbootstrap.constants import *
-from ttkbootstrap.tooltip import ToolTip
+from ttkbootstrap.widgets.tooltip import ToolTip
 
 # Путь к конфигу
 FILTERS_CONFIG_FILE = os.path.join(
@@ -270,7 +270,7 @@ class FiltersTab(ttk.Frame):
             bootstyle="success",
         )
         btn_save.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_save, "Сохранить настройки фильтров")
+        ToolTip(btn_save, text="Сохранить настройки фильтров")
 
         btn_reset = ttk.Button(
             btn_frame,
@@ -279,7 +279,7 @@ class FiltersTab(ttk.Frame):
             bootstyle="warning",
         )
         btn_reset.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_reset, "Сбросить все настройки к умолчаниям")
+        ToolTip(btn_reset, text="Сбросить все настройки к умолчаниям")
 
         btn_open = ttk.Button(
             btn_frame,
@@ -288,7 +288,7 @@ class FiltersTab(ttk.Frame):
             bootstyle="info",
         )
         btn_open.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_open, "Открыть filters_config.json")
+        ToolTip(btn_open, text="Открыть filters_config.json")
 
         btn_help = ttk.Button(
             btn_frame,
@@ -297,7 +297,7 @@ class FiltersTab(ttk.Frame):
             bootstyle="secondary-outline",
         )
         btn_help.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_help, "Показать справку по фильтрам")
+        ToolTip(btn_help, text="Показать справку по фильтрам")
 
     # ========================================
     # WHITELIST

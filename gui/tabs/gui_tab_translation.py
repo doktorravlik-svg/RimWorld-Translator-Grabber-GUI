@@ -1,4 +1,5 @@
 import os
+import re
 import tkinter as tk
 from tkinter import messagebox
 
@@ -14,11 +15,12 @@ from gui.constants import (
     PAD_X,
     PAD_Y,
     PROGRESS_BOOTSTYLES,
+    SEARCH_DEBOUNCE_MS,
 )
 from gui.core.debounce_mixin import DebounceMixin
 from gui.gui_i18n import tr
 from ttkbootstrap.constants import *
-from ttkbootstrap.tooltip import ToolTip
+from ttkbootstrap.widgets.tooltip import ToolTip
 from utils.mod_translation_status import ModTranslationChecker
 
 
@@ -52,7 +54,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             command=self._on_mods_folder_changed,
         )
         self.mods_selector.grid(row=0, column=0, sticky="ew", padx=PAD_FRAME_X, pady=PAD_FRAME_Y)
-        ToolTip(self.mods_selector, tr("tooltip_mods_folder", "Выберите папку с модами RimWorld"))
+        ToolTip(self.mods_selector, text=tr("tooltip_mods_folder", "Выберите папку с модами RimWorld"))
 
         # ✅ НОВОЕ: Инициализируем translation_checker СРАЗУ
         initial_folder = get_paths_config().get_mods_path()
@@ -70,7 +72,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             command=self._on_change,
         )
         self.output_selector.grid(row=1, column=0, sticky="ew", padx=PAD_FRAME_X, pady=PAD_Y)
-        ToolTip(self.output_selector, tr("tooltip_output_folder", "Папка для сохранения переведённых модов"))
+        ToolTip(self.output_selector, text=tr("tooltip_output_folder", "Папка для сохранения переведённых модов"))
 
         lang_frame = ttk.Frame(self)
         lang_frame.grid(row=2, column=0, sticky="w", padx=PAD_FRAME_X, pady=PAD_Y)
@@ -82,7 +84,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             command=self._on_target_language_changed,
         )
         self.target_lang.pack(anchor="w", pady=2)
-        ToolTip(self.target_lang, tr("tooltip_target_lang", "Язык, на который будет выполнен перевод"))
+        ToolTip(self.target_lang, text=tr("tooltip_target_lang", "Язык, на который будет выполнен перевод"))
 
         mods_frame = ttk.LabelFrame(self, text=tr("translation_mods", "Моды для перевода"))
         mods_frame.grid(row=3, column=0, sticky="nsew", padx=PAD_FRAME_X, pady=PAD_FRAME_Y)
@@ -96,7 +98,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             command=self._select_all_mods,
         )
         btn_select_all.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_select_all, tr("tooltip_select_all", "Выбрать все моды для перевода"))
+        ToolTip(btn_select_all, text=tr("tooltip_select_all", "Выбрать все моды для перевода"))
 
         btn_deselect_all = ttk.Button(
             btn_frame,
@@ -104,7 +106,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             command=self._deselect_all_mods,
         )
         btn_deselect_all.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_deselect_all, tr("tooltip_deselect_all", "Снять выбор со всех модов"))
+        ToolTip(btn_deselect_all, text=tr("tooltip_deselect_all", "Снять выбор со всех модов"))
 
         btn_refresh = ttk.Button(
             btn_frame,
@@ -113,7 +115,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             bootstyle="info",
         )
         btn_refresh.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_refresh, tr("tooltip_refresh", "Обновить список модов (пересканировать папку)"))
+        ToolTip(btn_refresh, text=tr("tooltip_refresh", "Обновить список модов (пересканировать папку)"))
 
         btn_translated = ttk.Button(
             btn_frame,
@@ -123,7 +125,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             ),
         )
         btn_translated.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_translated, tr("tooltip_translated", "Выбрать только переведённые моды"))
+        ToolTip(btn_translated, text=tr("tooltip_translated", "Выбрать только переведённые моды"))
 
         btn_untranslated = ttk.Button(
             btn_frame,
@@ -133,7 +135,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             ),
         )
         btn_untranslated.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_untranslated, tr("tooltip_untranslated", "Выбрать только непереведённые моды"))
+        ToolTip(btn_untranslated, text=tr("tooltip_untranslated", "Выбрать только непереведённые моды"))
 
         btn_separate = ttk.Button(
             btn_frame,
@@ -143,7 +145,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             ),
         )
         btn_separate.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_separate, tr("tooltip_separate", "Выбрать только отдельные моды-переводы"))
+        ToolTip(btn_separate, text=tr("tooltip_separate", "Выбрать только отдельные моды-переводы"))
 
         filter_frame = ttk.Frame(mods_frame)
         filter_frame.pack(fill="x", padx=PAD_X, pady=PAD_Y)
@@ -156,12 +158,12 @@ class TranslationTab(ttk.Frame, DebounceMixin):
         )
         self.search_entry.pack(side="left", fill="x", expand=True, padx=PAD_ENTRY_X)
         self.search_entry.bind("<KeyRelease>", self._on_filter_change_debounced)
-        ToolTip(self.search_entry, tr("tooltip_search", "Введите текст для фильтрации списка модов"))
+        ToolTip(self.search_entry, text=tr("tooltip_search", "Введите текст для фильтрации списка модов"))
         btn_clear_search = ttk.Button(
             filter_frame, text="✕", width=3, command=self._clear_mod_search, bootstyle="secondary"
         )
         btn_clear_search.pack(side="left")
-        ToolTip(btn_clear_search, tr("tooltip_clear_search", "Очистить поиск"))
+        ToolTip(btn_clear_search, text=tr("tooltip_clear_search", "Очистить поиск"))
 
         self.show_translated_var = tk.BooleanVar(value=True)
         self.show_partial_var = tk.BooleanVar(value=True)
@@ -175,7 +177,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             command=self._apply_filters,
         )
         chk_trans.pack(side="left", padx=PAD_X)
-        ToolTip(chk_trans, tr("tooltip_show_translated", "Показать переведённые моды"))
+        ToolTip(chk_trans, text=tr("tooltip_show_translated", "Показать переведённые моды"))
 
         chk_partial = ttk.Checkbutton(
             filter_frame,
@@ -184,7 +186,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             command=self._apply_filters,
         )
         chk_partial.pack(side="left", padx=PAD_X)
-        ToolTip(chk_partial, tr("tooltip_show_partial", "Показать моды с частичным переводом"))
+        ToolTip(chk_partial, text=tr("tooltip_show_partial", "Показать моды с частичным переводом"))
 
         chk_untranslated = ttk.Checkbutton(
             filter_frame,
@@ -193,7 +195,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             command=self._apply_filters,
         )
         chk_untranslated.pack(side="left", padx=PAD_X)
-        ToolTip(chk_untranslated, tr("tooltip_show_untranslated", "Показать моды без перевода"))
+        ToolTip(chk_untranslated, text=tr("tooltip_show_untranslated", "Показать моды без перевода"))
 
         chk_separate = ttk.Checkbutton(
             filter_frame,
@@ -202,7 +204,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             command=self._apply_filters,
         )
         chk_separate.pack(side="left", padx=PAD_X)
-        ToolTip(chk_separate, tr("tooltip_show_separate", "Показать отдельные моды-переводы"))
+        ToolTip(chk_separate, text=tr("tooltip_show_separate", "Показать отдельные моды-переводы"))
 
         tree_frame = ttk.Frame(mods_frame)
         tree_frame.pack(fill="both", expand=True, padx=PAD_X, pady=PAD_Y)
@@ -224,12 +226,19 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             selectmode="browse",
         )
         self.mods_tree_widget.pack(fill="both", expand=True)
+        # ✅ НОВОЕ: сортировка по столбцам — клик по заголовку
         self.mods_tree_widget.tree.heading(
-            "name", command=lambda: self._sort_treeview("name", False)
+            "name", command=lambda: self._sort_by("name")
         )
         self.mods_tree_widget.tree.heading(
-            "status", command=lambda: self._sort_treeview("status", False)
+            "status", command=lambda: self._sort_by("status")
         )
+        self._sort_column = None
+        self._sort_reverse = False
+        self._heading_base = {
+            "name": self.mods_tree_widget.tree.heading("name")["text"],
+            "status": self.mods_tree_widget.tree.heading("status")["text"],
+        }
 
         self.mods_tree_widget.tree.column("select", stretch=False)
 
@@ -268,7 +277,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             bootstyle="warning",
         )
         force_update_chk.grid(row=5, column=0, sticky="w", padx=PAD_FRAME_X, pady=(0, PAD_Y))
-        ToolTip(force_update_chk, tr("tooltip_force_update", "Если включено - перезапишет все существующие переводы"))
+        ToolTip(force_update_chk, text=tr("tooltip_force_update", "Если включено - перезапишет все существующие переводы"))
 
         self.fuzzy_var = tk.BooleanVar(value=True)
         fuzzy_chk = ttk.Checkbutton(
@@ -283,7 +292,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
         fuzzy_chk.grid(row=6, column=0, sticky="w", padx=PAD_FRAME_X, pady=(0, PAD_Y))
         ToolTip(
             fuzzy_chk,
-            tr("tooltip_fuzzy", "Если включено - будет искать переводы по частичному совпадению ключей (80%+)"),
+            text=tr("tooltip_fuzzy", "Если включено - будет искать переводы по частичному совпадению ключей (80%+)"),
         )
 
         self.use_morphy_var = tk.BooleanVar(value=self.config.get("use_morphy", False))
@@ -299,7 +308,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
         morphy_chk.grid(row=7, column=0, sticky="w", padx=PAD_FRAME_X, pady=(0, PAD_FRAME_Y))
         ToolTip(
             morphy_chk,
-            tr("tooltip_morphy", "Автоматическое склонение слов по падежам (только для рус./укр. переводов)"),
+            text=tr("tooltip_morphy", "Автоматическое склонение слов по падежам (только для рус./укр. переводов)"),
         )
 
         btn_action_frame = ttk.Frame(self)
@@ -314,7 +323,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
         self.clear_cache_btn.pack(side="left", padx=PAD_BTN_X)
         ToolTip(
             self.clear_cache_btn,
-            tr("tooltip_clear_cache", "Очистить кэш переводов и БД. Используйте если удалили переводы из XML но программа их ещё видит"),
+            text=tr("tooltip_clear_cache", "Очистить кэш переводов и БД. Используйте если удалили переводы из XML но программа их ещё видит"),
         )
 
         self.translate_btn = ttk.Button(
@@ -324,7 +333,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             bootstyle="success",
         )
         self.translate_btn.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(self.translate_btn, tr("tooltip_translate", "Начать перевод выбранных модов"))
+        ToolTip(self.translate_btn, text=tr("tooltip_translate", "Начать перевод выбранных модов"))
 
         self.cancel_btn = ttk.Button(
             btn_action_frame,
@@ -334,7 +343,7 @@ class TranslationTab(ttk.Frame, DebounceMixin):
             state="disabled",
         )
         self.cancel_btn.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(self.cancel_btn, tr("tooltip_cancel", "Отменить текущий перевод"))
+        ToolTip(self.cancel_btn, text=tr("tooltip_cancel", "Отменить текущий перевод"))
 
         self.columnconfigure(0, weight=1)
         self.rowconfigure(3, weight=1)
@@ -388,12 +397,49 @@ class TranslationTab(ttk.Frame, DebounceMixin):
                     ),
                 )
 
-    def _sort_treeview(self, column, reverse):
-        items = [(self.mods_tree.set(k, column), k) for k in self.mods_tree.get_children("")]
-        items.sort(reverse=reverse)
-        for index, (val, k) in enumerate(items):
-            self.mods_tree.move(k, "", index)
-        self.mods_tree.heading(column, command=lambda: self._sort_treeview(column, not reverse))
+    def _sort_by(self, column):
+        """Сортировка модов по столбцу — клик по заголовку"""
+        if self._sort_column == column:
+            self._sort_reverse = not self._sort_reverse
+        else:
+            self._sort_column = column
+            self._sort_reverse = False
+        self._apply_filters()
+
+    def _mod_sort_key(self, item, column):
+        """Ключ сортировки мода для указанного столбца"""
+        values = self.mods_tree.item(item, "values")
+        name = str(values[1]) if len(values) > 1 else ""
+        status = str(values[2]) if len(values) > 2 else ""
+        if column == "status":
+            return (self._status_rank(status), status.casefold())
+        return (name.casefold(),)
+
+    def _status_rank(self, status):
+        """Ранг статуса: переведён < частично < нет переводов < отдельный"""
+        rank_map = {"complete": 0, "partial": 1, "empty": 2, "separate": 3}
+        return rank_map.get(self._get_status_tag(status), 4)
+
+    @staticmethod
+    def _natural_key(value):
+        """Натуральный регистронезависимый ключ (1.10 > 1.9)"""
+        parts = re.findall(r"\d+|\D+", str(value))
+        return tuple((1, int(p)) if p.isdigit() else (0, p.casefold()) for p in parts)
+
+    def _update_heading_arrows(self):
+        """Обновляет стрелки ▲/▼ в заголовках столбцов"""
+        if not getattr(self, "_heading_base", None):
+            return
+        for column, base_text in self._heading_base.items():
+            if column == self._sort_column:
+                arrow = " ▼" if self._sort_reverse else " ▲"
+                text = base_text + arrow
+            else:
+                text = base_text
+            try:
+                self.mods_tree.heading(column, text=text)
+            except tk.TclError:
+                continue
 
     def _on_change(self, value=None):
         """Callback при изменении конфигурации"""
@@ -619,7 +665,14 @@ class TranslationTab(ttk.Frame, DebounceMixin):
                                 self._all_mods_with_paths[item] = mod_path
                                 break
 
-                self.after(0, self._refresh_statuses)
+                # Планируем обновление UI. ✅ БЕЗОПАСНОСТЬ ПОТОКОВ: не вызываем
+                # winfo_exists() из фонового потока (RuntimeError "main thread is
+                # not in main loop"). _refresh_statuses выполняется в главном потоке.
+                # try/except гасит гонку при закрытии окна (после destroy()).
+                try:
+                    self.after(0, self._refresh_statuses)
+                except RuntimeError:
+                    pass  # Окно уже уничтожено (завершение приложения)
             except Exception as e:
                 print(f"Ошибка сканирования модов: {e}")
 
@@ -709,67 +762,83 @@ class TranslationTab(ttk.Frame, DebounceMixin):
         else:
             return "empty"
 
-    def _on_filter_change(self, event=None):
-        self._apply_filters()
-
     def _on_filter_change_debounced(self, event=None):
-        """Debounce для фильтрации (300мс задержка)"""
-        self.debounce("filter", 300, self._apply_filters)
+        """Debounce для фильтрации (SEARCH_DEBOUNCE_MS задержка)"""
+        self.debounce("filter", SEARCH_DEBOUNCE_MS, self._apply_filters)
 
     def _clear_mod_search(self):
-        """Очистить поиск и показать все моды"""
+        """Очистить поиск и применить фильтры (с учётом чекбоксов)"""
         self.search_var.set("")
-        for item in self._all_mods_items:
-            self.mods_tree.reattach(item, "", "end")
+        self._apply_filters()
 
-    def _apply_filters(self):
-        """Применить фильтры к модом (поиск + статусы)"""
+    def _mod_visible(self, item):
+        """Проверяет видимость мода: поиск + фильтры по статусу"""
+        values = self.mods_tree.item(item, "values")
+        if not values:
+            return False
+
         search_text = self.search_var.get().lower()
+        mod_name = values[1].lower()
+        status = values[2]
 
+        # 1. Поиск
+        if search_text and search_text not in mod_name:
+            return False
+
+        # 2. Фильтр по статусу
         status_translated = tr("translation_status_translated", "Переведён")
         status_partial = tr("translation_filter_partial", "⚠️ Частично")
         status_untranslated = tr("translation_status_no_translation", "Нет переводов")
         status_separate = tr("translation_status_separate", "Отдельный мод")
 
-        for item in self._all_mods_items:
-            values = self.mods_tree.item(item, "values")
-            if not values:
-                continue
+        is_translated = status_translated in status or "Переведён" in status
+        is_partial = status_partial in status or "Частично" in status
+        is_untranslated = (
+            status_untranslated in status
+            or "Нет переводов" in status
+            or "Не переведён" in status
+        )
+        is_separate = status_separate in status or "Отдельный мод" in status or "separate" in status.lower()
 
-            mod_name = values[1].lower()
-            status = values[2]
+        if is_translated and self.show_translated_var.get():
+            return True
+        if is_partial and self.show_partial_var.get():
+            return True
+        if is_untranslated and self.show_untranslated_var.get():
+            return True
+        if is_separate and getattr(self, "show_separate_var", None) and self.show_separate_var.get():
+            return True
+        return False
 
-            if search_text and search_text not in mod_name:
-                self.mods_tree.detach(item)
-                continue
+    def _apply_filters(self):
+        """Применить фильтры (поиск + статусы) с сохранением сортировки"""
+        try:
+            if not getattr(self, "mods_tree", None):
+                return
 
-            is_translated = status_translated in status or "Переведён" in status
-            is_partial = status_partial in status or "Частично" in status
-            is_untranslated = (
-                status_untranslated in status
-                or "Нет переводов" in status
-                or "Не переведён" in status
-            )
-            is_separate = status_separate in status or "Отдельный мод" in status or "separate" in status.lower()
+            visible = [item for item in self._all_mods_items if self._mod_visible(item)]
+            if self._sort_column:
+                visible.sort(
+                    key=lambda i: self._mod_sort_key(i, self._sort_column),
+                    reverse=self._sort_reverse,
+                )
 
-            show = False
-            if is_translated and self.show_translated_var.get():
-                show = True
-            elif is_partial and self.show_partial_var.get():
-                show = True
-            elif is_untranslated and self.show_untranslated_var.get():
-                show = True
-            elif (
-                is_separate
-                and getattr(self, "show_separate_var", None)
-                and self.show_separate_var.get()
-            ):
-                show = True
+            # Перестраиваем дерево: detach всех, reattach видимые в порядке сортировки
+            for item in self._all_mods_items:
+                try:
+                    self.mods_tree.detach(item)
+                except tk.TclError:
+                    continue
+            for item in visible:
+                try:
+                    self.mods_tree.reattach(item, "", "end")
+                except tk.TclError:
+                    continue
 
-            if show:
-                self.mods_tree.reattach(item, "", "end")
-            else:
-                self.mods_tree.detach(item)
+            self._update_heading_arrows()
+        except Exception:
+            # Тихо игнорируем ошибки фильтрации — не ломаем UI
+            pass
 
     def _get_mod_translation_status(self, mod_path):
         """

@@ -1,4 +1,5 @@
 import os
+import re
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox
@@ -16,10 +17,11 @@ from gui.constants import (
     PAD_X,
     PAD_Y,
     PROGRESS_BOOTSTYLES,
+    SEARCH_DEBOUNCE_MS,
 )
 from gui.gui_i18n import tr
 from ttkbootstrap.constants import *
-from ttkbootstrap.tooltip import ToolTip
+from ttkbootstrap.widgets.tooltip import ToolTip
 
 
 class DuplicatesTab(ttk.Frame):
@@ -35,6 +37,10 @@ class DuplicatesTab(ttk.Frame):
         self._progress_updater = None
         self._dup_filter_debounce_timer = None  # Debounce таймер
         self._all_dup_items = []  # Все элементы дерева для фильтрации
+        # ✅ НОВОЕ: Сортировка дубликатов по столбцам
+        self._sort_column = None
+        self._sort_reverse = False
+        self._heading_base = {}
         self._setup_ui()
 
     def _setup_ui(self):
@@ -53,10 +59,10 @@ class DuplicatesTab(ttk.Frame):
         self.mods_entry = ttk.Entry(mods_frame, width=60)
         self.mods_entry.pack(side="left", fill="x", expand=True, padx=PAD_ENTRY_X)
         self.mods_entry.insert(0, get_paths_config().get_mods_path())
-        ToolTip(self.mods_entry, tr("dup_tooltip_mods", "Папка с модами RimWorld для сканирования"))
+        ToolTip(self.mods_entry, text=tr("dup_tooltip_mods", "Папка с модами RimWorld для сканирования"))
         btn_browse_mods = ttk.Button(mods_frame, text="📂", command=self._browse_mods, width=3)
         btn_browse_mods.pack(side="left")
-        ToolTip(btn_browse_mods, tr("dup_tooltip_browse_mods", "Выбрать папку с модами"))
+        ToolTip(btn_browse_mods, text=tr("dup_tooltip_browse_mods", "Выбрать папку с модами"))
         opts_frame.columnconfigure(0, weight=1)
 
         # Папка вывода
@@ -69,11 +75,11 @@ class DuplicatesTab(ttk.Frame):
         self.output_entry.pack(side="left", fill="x", expand=True, padx=PAD_ENTRY_X)
         self.output_entry.insert(0, get_paths_config().get_output_path())
         ToolTip(
-            self.output_entry, tr("dup_tooltip_output", "Папка для сохранения результата слияния")
+            self.output_entry, text=tr("dup_tooltip_output", "Папка для сохранения результата слияния")
         )
         btn_browse_out = ttk.Button(output_frame, text="📂", command=self._browse_output, width=3)
         btn_browse_out.pack(side="left")
-        ToolTip(btn_browse_out, tr("dup_tooltip_browse_output", "Выбрать папку вывода"))
+        ToolTip(btn_browse_out, text=tr("dup_tooltip_browse_output", "Выбрать папку вывода"))
         opts_frame.columnconfigure(1, weight=1)
 
         # Чекбоксы опций
@@ -85,14 +91,14 @@ class DuplicatesTab(ttk.Frame):
             variable=self.merge_var,
         )
         chk_merge.pack(side="left", padx=PAD_X)
-        ToolTip(chk_merge, tr("dup_tooltip_auto_merge", "Автоматически объединять дубликаты"))
+        ToolTip(chk_merge, text=tr("dup_tooltip_auto_merge", "Автоматически объединять дубликаты"))
         chk_backup = ttk.Checkbutton(
             chk_frame,
             text=tr("duplicates_create_backup", "Создавать резервные копии"),
             variable=self.backup_var,
         )
         chk_backup.pack(side="left", padx=PAD_X)
-        ToolTip(chk_backup, tr("dup_tooltip_backup", "Создавать бэкап перед слиянием"))
+        ToolTip(chk_backup, text=tr("dup_tooltip_backup", "Создавать бэкап перед слиянием"))
 
         # Row 1: Кнопки действий
         btn_frame = ttk.Frame(self)
@@ -105,7 +111,7 @@ class DuplicatesTab(ttk.Frame):
             bootstyle="info",
         )
         btn_scan.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_scan, tr("dup_tooltip_scan", "Просканировать папку модов на дубликаты"))
+        ToolTip(btn_scan, text=tr("dup_tooltip_scan", "Просканировать папку модов на дубликаты"))
 
         btn_select_all = ttk.Button(
             btn_frame,
@@ -113,7 +119,7 @@ class DuplicatesTab(ttk.Frame):
             command=self._select_all_duplicates,
         )
         btn_select_all.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_select_all, tr("dup_tooltip_select_all", "Выбрать все группы дубликатов"))
+        ToolTip(btn_select_all, text=tr("dup_tooltip_select_all", "Выбрать все группы дубликатов"))
 
         btn_deselect = ttk.Button(
             btn_frame,
@@ -121,7 +127,7 @@ class DuplicatesTab(ttk.Frame):
             command=self._deselect_all_duplicates,
         )
         btn_deselect.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_deselect, tr("dup_tooltip_deselect", "Снять выбор со всех групп"))
+        ToolTip(btn_deselect, text=tr("dup_tooltip_deselect", "Снять выбор со всех групп"))
 
         btn_merge = ttk.Button(
             btn_frame,
@@ -130,7 +136,7 @@ class DuplicatesTab(ttk.Frame):
             bootstyle="success",
         )
         btn_merge.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_merge, tr("dup_tooltip_merge", "Слить выбранные группы дубликатов"))
+        ToolTip(btn_merge, text=tr("dup_tooltip_merge", "Слить выбранные группы дубликатов"))
 
         btn_help = ttk.Button(
             btn_frame,
@@ -139,7 +145,7 @@ class DuplicatesTab(ttk.Frame):
             bootstyle="secondary",
         )
         btn_help.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_help, tr("dup_tooltip_help", "Открыть справку по вкладке «Дубликаты»"))
+        ToolTip(btn_help, text=tr("dup_tooltip_help", "Открыть справку по вкладке «Дубликаты»"))
 
         # Row 2: Прогресс (grid_remove по умолчанию)
         progress_frame = ttk.Frame(self)
@@ -173,13 +179,13 @@ class DuplicatesTab(ttk.Frame):
         self.dup_search_entry.bind("<KeyRelease>", self._on_dup_filter_debounced)
         ToolTip(
             self.dup_search_entry,
-            tr("dup_tooltip_search", "Введите текст для фильтрации дубликатов"),
+            text=tr("dup_tooltip_search", "Введите текст для фильтрации дубликатов"),
         )
         btn_clear = ttk.Button(
             search_frame, text="✕", width=3, command=self._clear_search, bootstyle="secondary"
         )
         btn_clear.pack(side="left")
-        ToolTip(btn_clear, tr("dup_tooltip_clear", "Очистить поиск"))
+        ToolTip(btn_clear, text=tr("dup_tooltip_clear", "Очистить поиск"))
 
         # Row 4: Найденные дубликаты (дерево)
         preview_frame = ttk.LabelFrame(self, text=tr("duplicates_found", "📋 Найденные дубликаты"))
@@ -206,6 +212,15 @@ class DuplicatesTab(ttk.Frame):
         )
         self.dup_tree_widget.pack(fill="both", expand=True)
         self.dup_tree_widget.tree.column("select", stretch=False)
+        # ✅ НОВОЕ: Сортировка — клик по заголовку
+        self.dup_tree = self.dup_tree_widget.tree
+        self._heading_base = {
+            col: self.dup_tree_widget.tree.heading(col)["text"]
+            for col in ("group", "files", "size")
+        }
+        self.dup_tree_widget.tree.heading("group", command=lambda: self._sort_by("group"))
+        self.dup_tree_widget.tree.heading("files", command=lambda: self._sort_by("files"))
+        self.dup_tree_widget.tree.heading("size", command=lambda: self._sort_by("size"))
         self.dup_tree_widget.tree.tag_configure(
             "duplicate", background="#fff3cd", foreground="black"
         )
@@ -213,7 +228,6 @@ class DuplicatesTab(ttk.Frame):
         self.dup_tree_widget.tree.bind(
             "<Button-3>", self._show_dup_context_menu
         )  # Контекстное меню
-        self.dup_tree = self.dup_tree_widget.tree
 
         # Row 5: Статистика
         stats_frame = ttk.LabelFrame(self, text=tr("duplicates_stats", "📊 Статистика"))
@@ -283,6 +297,10 @@ class DuplicatesTab(ttk.Frame):
         self.log(tr("duplicates_scanning", "Сканирование папки: ") + mods_folder)
         self.dup_tree.delete(*self.dup_tree.get_children())
         self._all_dup_items.clear()  # Очищаем список всех элементов
+        # ✅ НОВОЕ: сброс сортировки для нового сканирования
+        self._sort_column = None
+        self._sort_reverse = False
+        self._update_heading_arrows()
         self.duplicates_data.clear()
         self.selected_duplicates.clear()
 
@@ -315,8 +333,8 @@ class DuplicatesTab(ttk.Frame):
                         mod_path = os.path.join(mods_folder, item)
                         if os.path.isdir(mod_path):
                             lang_folders.extend(self._collect_language_folders(mod_path))
-                except Exception:
-                    self.after(0, lambda: self.log(f"⚠️ Ошибка чтения папки модов: {ex}"))
+                except Exception as e:
+                    self.after(0, lambda: self.log(f"⚠️ Ошибка чтения папки модов: {e}"))
 
             if not lang_folders:
                 self.after(0, lambda: self.log("⚠️ Папки Languages не найдены"))
@@ -537,18 +555,22 @@ class DuplicatesTab(ttk.Frame):
         progress_frame.grid_remove()
 
     def _on_dup_filter_debounced(self, event=None):
-        """Debounce для фильтрации дубликатов (300мс задержка)"""
-        if self._dup_filter_debounce_timer:
-            self.after_cancel(self._dup_filter_debounce_timer)
-        self._dup_filter_debounce_timer = self.after(300, self._filter_duplicates)
+        """Debounce для фильтрации дубликатов (SEARCH_DEBOUNCE_MS задержка)"""
+        try:
+            if self._dup_filter_debounce_timer:
+                self.after_cancel(self._dup_filter_debounce_timer)
+        except Exception:
+            pass
+        self._dup_filter_debounce_timer = self.after(SEARCH_DEBOUNCE_MS, self._filter_duplicates)
 
     def _filter_duplicates(self, event=None):
         """Фильтрация дубликатов по поисковому запросу"""
+        self._dup_filter_debounce_timer = None
         try:
             if not hasattr(self, "dup_tree") or self.dup_tree is None:
                 return
 
-            search_text = self.dup_search_var.get().lower()
+            search_text = self.dup_search_var.get().strip().lower()
 
             # Итерируемся по ВСЕМ элементам (не только видимым)
             for item in self._all_dup_items:
@@ -557,10 +579,30 @@ class DuplicatesTab(ttk.Frame):
                     continue
                 group_name = values[1].lower()
                 files_text = values[2].lower()
-                if not search_text or search_text in group_name or search_text in files_text:
+                matches = not search_text or search_text in group_name or search_text in files_text
+                if matches:
                     self.dup_tree.reattach(item, "", "end")
                 else:
                     self.dup_tree.detach(item)
+
+            # Сохраняем применённую сортировку
+            if self._sort_column:
+                visible = [i for i in self._all_dup_items if i in self.dup_tree.get_children("")]
+                visible.sort(
+                    key=lambda i: self._dup_sort_key(i, self._sort_column),
+                    reverse=self._sort_reverse,
+                )
+                for item in self._all_dup_items:
+                    try:
+                        self.dup_tree.detach(item)
+                    except tk.TclError:
+                        continue
+                for item in visible:
+                    try:
+                        self.dup_tree.reattach(item, "", "end")
+                    except tk.TclError:
+                        continue
+            self._update_heading_arrows()
         except Exception:
             # Тихо игнорируем ошибки фильтрации — не ломаем UI
             pass
@@ -571,10 +613,43 @@ class DuplicatesTab(ttk.Frame):
             if not hasattr(self, "dup_tree") or self.dup_tree is None:
                 return
             self.dup_search_var.set("")
-            for item in self._all_dup_items:
-                self.dup_tree.reattach(item, "", "end")
+            self._filter_duplicates()
         except Exception:
             pass
+
+    def _sort_by(self, column):
+        """Сортировка дубликатов по столбцу — клик по заголовку"""
+        if self._sort_column == column:
+            self._sort_reverse = not self._sort_reverse
+        else:
+            self._sort_column = column
+            self._sort_reverse = False
+        self._filter_duplicates()
+
+    def _dup_sort_key(self, item, column):
+        """Ключ сортировки элемента дерева дубликатов"""
+        values = self.dup_tree.item(item, "values")
+        idx = {"group": 1, "files": 2, "size": 3}.get(column, 1)
+        raw = str(values[idx]) if len(values) > idx else ""
+        if column == "size":
+            m = re.search(r"[\d.]+", raw.replace(",", "."))
+            return (float(m.group()) if m else 0.0, raw.casefold())
+        return (raw.casefold(),)
+
+    def _update_heading_arrows(self):
+        """Обновляет стрелки ▲/▼ в заголовках столбцов"""
+        if not getattr(self, "_heading_base", None):
+            return
+        for column, base_text in self._heading_base.items():
+            if column == self._sort_column:
+                arrow = " ▼" if self._sort_reverse else " ▲"
+                text = base_text + arrow
+            else:
+                text = base_text
+            try:
+                self.dup_tree.heading(column, text=text)
+            except tk.TclError:
+                continue
 
     def _on_dup_click(self, event):
         """Обработка клика по дубликату в дереве"""
@@ -644,10 +719,10 @@ class DuplicatesTab(ttk.Frame):
                     rel_path, mod_path = first_file
                     lang = "Russian"  # Fallback
                 else:
-                    # Обработка старого формата (только rel_path)
-                    rel_path = first_file
-                    mod_path = mods_folder
-                    lang = "Russian"
+                     # Обработка старого формата (только rel_path)
+                     rel_path = first_file
+                     mod_path = self.mods_entry.get()
+                     lang = "Russian"
 
                 if mod_path and os.path.exists(mod_path):
                     context_menu.add_command(

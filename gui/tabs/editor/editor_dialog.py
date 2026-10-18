@@ -22,17 +22,15 @@ def get_editor_dialog_class():
     return TranslationEditorDialog
 
 
-# Для удобства прямого импорта
-TranslationEditorDialog = None
-
-
 def __getattr__(name):
-    """Ленивый импорт TranslationEditorDialog"""
-    if name == "TranslationEditorDialog":
-        global TranslationEditorDialog
-        if TranslationEditorDialog is None:
-            from gui.tabs.gui_translation_editor import TranslationEditorDialog
+    """Ленивый импорт TranslationEditorDialog (PEP 562).
 
-            TranslationEditorDialog = TranslationEditorDialog
-        return TranslationEditorDialog
+    ВАЖНО: не объявлять TranslationEditorDialog на уровне модуля —
+    иначе __getattr__ не вызывается и `from ... import X` вернёт None.
+    """
+    if name == "TranslationEditorDialog":
+        from gui.tabs.gui_translation_editor import TranslationEditorDialog as _cls
+
+        globals()["TranslationEditorDialog"] = _cls
+        return _cls
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

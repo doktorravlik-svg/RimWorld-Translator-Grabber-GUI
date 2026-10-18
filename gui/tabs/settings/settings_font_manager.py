@@ -152,8 +152,9 @@ class SettingsFontManager:
         current = self._get_current_font(key)
         dialog = FontDialog(initialfont=current[0], initialsize=current[1])
         if dialog.result:
-            font_family = dialog.result[0]
-            font_size = dialog.result[1]
+            font = dialog.result
+            font_family = font.cget("family")
+            font_size = font.cget("size")
 
             self.config[key] = {
                 "family": font_family,

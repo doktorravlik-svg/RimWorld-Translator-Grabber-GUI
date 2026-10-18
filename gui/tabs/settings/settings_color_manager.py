@@ -41,22 +41,8 @@ class SettingsColorManager:
     }
 
     THEMES = [
-        "lumen", "minty", "solar", "superhero", "dark", "cyborg",
-        "cerulean", "cosmo", "flatly", "journal", "litera",
-        "pulse", "morph", "united", "yeti",
+        "light", "dark", "ocean", "forest", "solar", "vapor", "cyborg", "superhero",
     ]
-
-    DEFAULT_LOG_COLORS = {
-        "log_bg_color": "#1E1E1E",
-        "log_text_color": "#D4D4D4",
-    }
-
-    DEFAULT_TAG_COLORS = {
-        "log_tag_info": "#2196F3",
-        "log_tag_success": "#4CAF50",
-        "log_tag_warning": "#FF9800",
-        "log_tag_error": "#F44336",
-    }
 
     def __init__(
         self,
@@ -197,7 +183,7 @@ class SettingsColorManager:
 
         ttk.Label(section, text="Тема:", width=15).pack(side="left", padx=5, pady=5)
 
-        self._theme_var = tk.StringVar(value=self.config.get("theme", "lumen"))
+        self._theme_var = tk.StringVar(value=self.config.get("theme", "light"))
         theme_combo = ttk.Combobox(
             section,
             textvariable=self._theme_var,
@@ -221,15 +207,20 @@ class SettingsColorManager:
         try:
             import ttkbootstrap as ttk
             from config.config_manager import get_config_manager
+            from gui.styling.theme_manager import TTKBOOTSTRAP_THEMES
 
             theme = self._theme_var.get()
-            style = ttk.Style(theme)
+            bs_theme = TTKBOOTSTRAP_THEMES.get(theme, "bootstrap-light")
+            style = ttk.Style()
+            style.theme_use(bs_theme)
 
             self.config["theme"] = theme
             get_config_manager().set("theme", theme, save=False)
             get_config_manager().save()
 
-            self._is_dark = theme in ("dark", "cyborg", "superhero", "darkly", "solar")
+            self._is_dark = bs_theme.endswith("-dark") or bs_theme in {
+                "darkly", "superhero", "solar", "cyborg", "vapor",
+            }
 
             if self.is_dark_theme:
                 self.is_dark_theme.__self__.config["theme"] = theme

@@ -33,10 +33,11 @@ from gui.constants import (
     PAD_X,
     PAD_Y,
     PROGRESS_BOOTSTYLES,
+    SEARCH_DEBOUNCE_MS,
 )
 from gui.gui_i18n import tr
 from ttkbootstrap.constants import *
-from ttkbootstrap.tooltip import ToolTip
+from ttkbootstrap.widgets.tooltip import ToolTip
 
 # Абсолютный путь к директории проекта
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -61,6 +62,10 @@ class TranslationEditorTab(ttk.Frame):
         self.editor_search_var = tk.StringVar()
         self._editor_filter_debounce_timer = None  # Debounce таймер
         self._all_editor_items = []  # Все элементы дерева для фильтрации
+        # ✅ НОВОЕ: Сортировка файлов по столбцам
+        self._sort_column = None
+        self._sort_reverse = False
+        self._heading_base = {}
         self._setup_ui()
 
         # ✅ НОВОЕ: Автоматически сканируем папку модов при загрузке вкладки
@@ -74,7 +79,7 @@ class TranslationEditorTab(ttk.Frame):
         if self.log_callback:
             try:
                 self.log_callback(f"[Editor] {msg}")
-            except (AttributeError, Exception):
+            except Exception:
                 # Callback может быть недоступен во время __init__
                 print(f"[Editor] {msg}")
         else:
@@ -126,7 +131,7 @@ class TranslationEditorTab(ttk.Frame):
         self.file_var = tk.StringVar()
         self.file_entry = ttk.Entry(sf, textvariable=self.file_var, width=50)
         self.file_entry.pack(side="left", fill="x", expand=True, padx=PAD_X)
-        ToolTip(self.file_entry, tr("editor_file_tooltip", "Путь к файлу перевода"))
+        ToolTip(self.file_entry, text=tr("editor_file_tooltip", "Путь к файлу перевода"))
 
         # ✅ НОВОЕ: Группа кнопок выбора в одном меню
         browse_btn = ttk.Menubutton(sf, text=tr("editor_browse_btn", "📂 Выбрать ▾"), width=14)
@@ -136,7 +141,7 @@ class TranslationEditorTab(ttk.Frame):
         browse_menu.add_command(label=tr("editor_browse_mods", "📁 Выбрать из модов..."), command=self._browse_from_mods)
         browse_btn.configure(menu=browse_menu)
         browse_btn.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(browse_btn, tr("editor_browse_tooltip", "Выбрать файл или папку переводов"))
+        ToolTip(browse_btn, text=tr("editor_browse_tooltip", "Выбрать файл или папку переводов"))
 
         # ── Версия игры ──
         version_frame = ttk.Frame(sf)
@@ -164,7 +169,7 @@ class TranslationEditorTab(ttk.Frame):
             state="readonly",
         )
         self.game_version_combo.pack(side="left", padx=PAD_X)
-        ToolTip(self.game_version_combo, tr("editor_version_filter_tooltip", "Фильтр по версии RimWorld"))
+        ToolTip(self.game_version_combo, text=tr("editor_version_filter_tooltip", "Фильтр по версии RimWorld"))
         self.game_version_combo.bind("<<ComboboxSelected>>", self._on_version_change)
 
         self.show_versions_var = tk.BooleanVar(value=True)
@@ -175,7 +180,7 @@ class TranslationEditorTab(ttk.Frame):
             command=self._on_show_versions_change,
         )
         chk_versions.pack(side="left", padx=PAD_X)
-        ToolTip(chk_versions, tr("editor_show_versions_tooltip", "Включить/отключить фильтрацию по версии"))
+        ToolTip(chk_versions, text=tr("editor_show_versions_tooltip", "Включить/отключить фильтрацию по версии"))
 
         # ── Последние файлы ──
         lf = self._get_last_files()
@@ -189,7 +194,7 @@ class TranslationEditorTab(ttk.Frame):
             self.last_files_combo.bind("<<ComboboxSelected>>", self._on_last_file_selected)
             btn_open_last = ttk.Button(sf, text=tr("editor_open_btn", "Открыть"), command=self._open_last_file)
             btn_open_last.pack(side="left", padx=PAD_BTN_X)
-            ToolTip(btn_open_last, tr("editor_open_last_tooltip", "Открыть последний файл"))
+            ToolTip(btn_open_last, text=tr("editor_open_last_tooltip", "Открыть последний файл"))
 
         # ── Прогресс сканирования ──
         progress_frame = ttk.Frame(self)
@@ -217,7 +222,7 @@ class TranslationEditorTab(ttk.Frame):
             bootstyle="success",
         )
         btn_editor.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_editor, tr("editor_btn_editor_tooltip", "Открыть редактор переводов"))
+        ToolTip(btn_editor, text=tr("editor_btn_editor_tooltip", "Открыть редактор переводов"))
 
         btn_refresh = ttk.Button(
             bf,
@@ -226,7 +231,7 @@ class TranslationEditorTab(ttk.Frame):
             bootstyle="info",
         )
         btn_refresh.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_refresh, tr("editor_btn_refresh_tooltip", "Обновить список файлов переводов"))
+        ToolTip(btn_refresh, text=tr("editor_btn_refresh_tooltip", "Обновить список файлов переводов"))
 
         # ── Поиск ──
         search_frame = ttk.Frame(self)
@@ -237,8 +242,9 @@ class TranslationEditorTab(ttk.Frame):
             search_frame, textvariable=self.editor_search_var, bootstyle="info"
         )
         self.editor_search_entry.pack(side="left", fill="x", expand=True, padx=PAD_ENTRY_X)
-        self.editor_search_entry.bind("<KeyRelease>", self._filter_editor_files)
-        ToolTip(self.editor_search_entry, tr("editor_search_tooltip", "Введите текст для фильтрации файлов"))
+        # ✅ ИСПРАВЛЕНО: debounce вместо прямой фильтрации (заморозки на больших списках)
+        self.editor_search_entry.bind("<KeyRelease>", self._on_editor_search_debounced)
+        ToolTip(self.editor_search_entry, text=tr("editor_search_tooltip", "Введите текст для фильтрации файлов"))
         btn_clear_search = ttk.Button(
             search_frame,
             text="✕",
@@ -247,7 +253,7 @@ class TranslationEditorTab(ttk.Frame):
             bootstyle="secondary",
         )
         btn_clear_search.pack(side="left")
-        ToolTip(btn_clear_search, tr("editor_clear_search_tooltip", "Очистить поиск"))
+        ToolTip(btn_clear_search, text=tr("editor_clear_search_tooltip", "Очистить поиск"))
 
         # ── Легенда цветов ──
         legend = ttk.LabelFrame(self, text=tr("editor_color_legend", "🎨 Легенда цветов"))
@@ -299,6 +305,15 @@ class TranslationEditorTab(ttk.Frame):
 
         # Псевдоним для обратной совместимости
         self.tree = self.tree_widget.tree
+
+        # ✅ НОВОЕ: Сортировка файлов — клик по заголовку
+        self._heading_base = {
+            col: self.tree_widget.tree.heading(col)["text"]
+            for col in ("path", "entries", "status")
+        }
+        self.tree_widget.tree.heading("path", command=lambda: self._sort_editor_by("path"))
+        self.tree_widget.tree.heading("entries", command=lambda: self._sort_editor_by("entries"))
+        self.tree_widget.tree.heading("status", command=lambda: self._sort_editor_by("status"))
 
     # ═══════════════════════════════════════════
     # Обработчики событий дерева
@@ -722,9 +737,16 @@ class TranslationEditorTab(ttk.Frame):
                         rel = os.path.relpath(fp, base_folder)
                         files_data.append((fp, rel, cnt, status))
 
-            if self.winfo_exists():
+            # ✅ БЕЗОПАСНОСТЬ ПОТОКОВ: winfo_exists() НЕ потокобезопасен и вызывает
+            # RuntimeError ("main thread is not in main loop") при вызове из
+            # фонового потока. Планируем обновление UI через after(0, ...), а
+            # проверку существования виджета делает уже _populate_tree в главном потоке.
+            # try/except гасит гонку при закрытии окна (после destroy()).
+            try:
                 self.after(0, lambda: self._populate_tree(files_data))
                 self.log(f"✅ Найдено {len(files_data)} файлов '{target_lang}'")
+            except RuntimeError:
+                pass  # Окно уже уничтожено (завершение приложения)
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -762,8 +784,15 @@ class TranslationEditorTab(ttk.Frame):
                         rel = os.path.relpath(fp, folder)
                         files_data.append((fp, rel, cnt, status))
 
-            if self.winfo_exists():
+            # ✅ БЕЗОПАСНОСТЬ ПОТОКОВ: не вызываем winfo_exists() из фонового
+            # потока (это небезопасно и роняет поток с RuntimeError). Обновление
+            # UI планируем через after(0, ...); _populate_tree сам проверит
+            # существование дерева уже в главном потоке. try/except гасит гонку
+            # при закрытии окна (после destroy()).
+            try:
                 self.after(0, lambda: self._populate_tree(files_data))
+            except RuntimeError:
+                pass  # Окно уже уничтожено (завершение приложения)
 
         threading.Thread(target=_worker, daemon=True).start()
 
@@ -778,6 +807,10 @@ class TranslationEditorTab(ttk.Frame):
         self.log(f"_populate_tree: {len(files_data)} файлов для вставки")
         self.tree.delete(*self.tree.get_children())
         self._all_editor_items.clear()  # Очищаем список всех элементов
+        # ✅ НОВОЕ: сброс сортировки для нового сканирования
+        self._sort_column = None
+        self._sort_reverse = False
+        self._update_editor_heading_arrows()
 
         # Статистика
         total_files = len(files_data)
@@ -808,27 +841,118 @@ class TranslationEditorTab(ttk.Frame):
         # Скрыть прогресс
         self._hide_progress()
 
-    def _filter_editor_files(self, event=None):
-        """Фильтрация файлов по поисковому запросу"""
-        search_text = self.editor_search_var.get().lower()
+    def _on_editor_search_debounced(self, event=None):
+        """Debounce для поиска файлов (SEARCH_DEBOUNCE_MS задержка)"""
+        try:
+            if self._editor_filter_debounce_timer:
+                self.after_cancel(self._editor_filter_debounce_timer)
+        except Exception:
+            pass
+        self._editor_filter_debounce_timer = self.after(
+            SEARCH_DEBOUNCE_MS, self._filter_editor_files
+        )
 
-        # Итерируемся по ВСЕМ элементам (не только видимым)
-        for item in self._all_editor_items:
-            values = self.tree.item(item, "values")
-            if not values:
-                continue
-            path_text = values[0].lower()
-            text_value = self.tree.item(item, "text").lower()
-            if not search_text or search_text in path_text or search_text in text_value:
-                self.tree.reattach(item, "", "end")
+    def _filter_editor_files(self, event=None):
+        """Фильтрация файлов по поисковому запросу (с учётом сортировки)"""
+        self._editor_filter_debounce_timer = None
+        try:
+            search_text = self.editor_search_var.get().strip().lower()
+
+            visible = [
+                item for item in self._all_editor_items if self._editor_item_visible(item, search_text)
+            ]
+            visible = self._sorted_editor_items(visible)
+
+            for item in self._all_editor_items:
+                try:
+                    self.tree.detach(item)
+                except tk.TclError:
+                    continue
+            for item in visible:
+                try:
+                    self.tree.reattach(item, "", "end")
+                except tk.TclError:
+                    continue
+
+            self._update_editor_heading_arrows()
+            self._update_editor_shown_stats(len(visible))
+        except Exception as e:
+            self.log(f"Ошибка фильтрации: {e}")
+
+    def _editor_item_visible(self, item, search_text):
+        """Проверяет видимость файла по поисковому запросу"""
+        values = self.tree.item(item, "values")
+        if not values:
+            return False
+        if not search_text:
+            return True
+        path_text = values[0].lower()
+        text_value = self.tree.item(item, "text").lower()
+        return search_text in path_text or search_text in text_value
+
+    def _sorted_editor_items(self, items):
+        """Сортирует видимые элементы по текущему столбцу"""
+        if not self._sort_column or len(items) < 2:
+            return items
+        try:
+            return sorted(
+                items,
+                key=lambda iid: self._editor_sort_key(iid, self._sort_column),
+                reverse=self._sort_reverse,
+            )
+        except Exception:
+            return items
+
+    def _editor_sort_key(self, item, column):
+        """Ключ сортировки файла для указанного столбца"""
+        values = self.tree.item(item, "values")
+        idx = {"path": 0, "entries": 1, "status": 2}.get(column, 0)
+        raw = str(values[idx]) if len(values) > idx else ""
+        if column == "entries":
+            return (0, int(raw)) if raw.isdigit() else (1, 0)
+        return (0, raw.casefold())
+
+    def _update_editor_heading_arrows(self):
+        """Обновляет стрелки ▲/▼ в заголовках столбцов"""
+        if not self._heading_base:
+            return
+        for column, base_text in self._heading_base.items():
+            if column == self._sort_column:
+                arrow = " ▼" if self._sort_reverse else " ▲"
+                text = base_text + arrow
             else:
-                self.tree.detach(item)
+                text = base_text
+            try:
+                self.tree.heading(column, text=text)
+            except tk.TclError:
+                continue
+
+    def _update_editor_shown_stats(self, visible_count):
+        """Обновляет счётчик показанных файлов в статистике"""
+        try:
+            total = len(self._all_editor_items)
+            current = self.stats_label["text"]
+            if self.tr("deps_shown_stats", "Показано") + ":" in current:
+                current = current.split("|")[0].strip()
+            self.stats_label.config(
+                text=f"{current} | {self.tr('deps_shown_stats', 'Показано')}: {visible_count} / {total}"
+            )
+        except Exception:
+            pass
+
+    def _sort_editor_by(self, column):
+        """Сортировка файлов по столбцу — клик по заголовку"""
+        if self._sort_column == column:
+            self._sort_reverse = not self._sort_reverse
+        else:
+            self._sort_column = column
+            self._sort_reverse = False
+        self._filter_editor_files()
 
     def _clear_editor_search(self):
         """Очистить поиск и показать все файлы"""
         self.editor_search_var.set("")
-        for item in self._all_editor_items:
-            self.tree.reattach(item, "", "end")
+        self._filter_editor_files()
 
     def _show_progress(self):
         """Показать прогресс-бар"""

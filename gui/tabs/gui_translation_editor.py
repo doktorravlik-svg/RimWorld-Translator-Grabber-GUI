@@ -101,6 +101,7 @@ class TranslationEditorDialog:
         self._auto_save_id = None
         self._sort_column = None
         self._sort_reverse = False
+        self._heading_base = {}
         self._glossary_sync_enabled = True
         self._glossary_min_confidence = 0.9
 
@@ -489,6 +490,11 @@ class TranslationEditorDialog:
         # ✅ Упаковываем ScrollableTree в панель дерева
         self.tree_widget.pack(fill="both", expand=True)
 
+        # ✅ НОВОЕ: базовые тексты заголовков для стрелок ▲/▼
+        self._heading_base = {
+            col: self.tree_widget.tree.heading(col)["text"]
+            for col in ("key", "value", "status")
+        }
         self.tree_widget.tree.heading("key", command=lambda: self._sort_by("key"))
         self.tree_widget.tree.heading("value", command=lambda: self._sort_by("value"))
         self.tree_widget.tree.heading("status", command=lambda: self._sort_by("status"))
@@ -816,10 +822,34 @@ class TranslationEditorDialog:
 
         def sort_key(entry):
             val = entry.get(column, "")
-            return int(val) if val.isdigit() else val.lower()
+            # ✅ ИСПРАВЛЕНО: единый тип ключа — без TypeError при смешанных цифрах/тексте
+            return self._sort_key(val)
 
         self.entries.sort(key=sort_key, reverse=self._sort_reverse)
         self._update_tree(self.search_var.get().lower() if hasattr(self, "search_var") else "")
+        self._update_heading_arrows()
+
+    @staticmethod
+    def _sort_key(val):
+        """Натуральный регистронезависимый ключ сортировки (1.10 > 1.9)"""
+        text = str(val)
+        parts = re.findall(r"\d+|\D+", text)
+        return tuple((1, int(p)) if p.isdigit() else (0, p.casefold()) for p in parts)
+
+    def _update_heading_arrows(self):
+        """Обновляет стрелки ▲/▼ в заголовках столбцов"""
+        if not getattr(self, "_heading_base", None):
+            return
+        for column, base_text in self._heading_base.items():
+            if column == self._sort_column:
+                arrow = " ▼" if self._sort_reverse else " ▲"
+                text = base_text + arrow
+            else:
+                text = base_text
+            try:
+                self.tree.heading(column, text=text)
+            except tk.TclError:
+                continue
 
     def _select_all_entries(self):
         self.tree.selection_set(self.tree.get_children())
@@ -1287,10 +1317,13 @@ class TranslationEditorDialog:
 
     def _filter_entries_debounced(self, event=None):
         """Отложенная фильтрация для снижения нагрузки на процессор при вводе"""
-        if hasattr(self, "_editor_filter_debounce_timer") and self._editor_filter_debounce_timer:
-            self.dialog.after_cancel(self._editor_filter_debounce_timer)
-        
-        # Запускаем поиск через 300 мс после окончания ввода
+        try:
+            if hasattr(self, "_editor_filter_debounce_timer") and self._editor_filter_debounce_timer:
+                self.dialog.after_cancel(self._editor_filter_debounce_timer)
+        except Exception:
+            pass
+
+        # Запускаем поиск после завершения ввода
         self._editor_filter_debounce_timer = self.dialog.after(
             300, lambda: self._update_tree(self.search_var.get().lower())
         )
@@ -1574,7 +1607,8 @@ class TranslationEditorDialog:
         """Массовое редактирование (вынесено в отдельный диалог)"""
         from gui.dialogs.mass_edit_dialog import MassEditDialog
 
-        count = MassEditDialog(self.dialog, self.tree, self.entries, self.history_manager)
+        dialog = MassEditDialog(self.dialog, self.tree, self.entries, self.history_manager)
+        count = getattr(dialog, "result_count", 0)
         if count:
             self.modified = True
             self._update_tree()

@@ -11,7 +11,7 @@ import difflib
 from typing import Optional
 
 import tkinter as tk
-from tkinter import ttk
+import ttkbootstrap as ttk
 
 from gui.gui_i18n import tr
 

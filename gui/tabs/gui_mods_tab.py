@@ -1,5 +1,6 @@
 from loguru import logger
 import os
+import re
 import tkinter as tk
 from tkinter import messagebox
 
@@ -15,11 +16,12 @@ from gui.constants import (
     PAD_TREE_Y,
     PAD_X,
     PAD_Y,
+    SEARCH_DEBOUNCE_MS,
 )
 from gui.gui_i18n import tr
 from lxml import etree
 from ttkbootstrap.constants import *
-from ttkbootstrap.tooltip import ToolTip
+from ttkbootstrap.widgets.tooltip import ToolTip
 from verification.xml_parser import safe_parse_xml
 
 
@@ -54,7 +56,7 @@ class ModsManagerTab(ttk.Frame):
         if self.log_callback:
             try:
                 self.log_callback(message)
-            except (AttributeError, Exception):
+            except Exception:
                 # Callback может быть недоступен во время __init__
                 print(f"[ModsManager] {message}")
         else:
@@ -77,13 +79,13 @@ class ModsManagerTab(ttk.Frame):
         )
         self.search_entry.pack(side="left", fill="x", expand=True, padx=PAD_X)
         self.search_entry.bind("<KeyRelease>", self._on_filter_change_debounced)
-        ToolTip(self.search_entry, "Введите текст для поиска модов")
+        ToolTip(self.search_entry, text="Введите текст для поиска модов")
         # Кнопка очистки поиска
         btn_clear = ttk.Button(
             search_frame, text="✕", width=3, command=self._clear_search, bootstyle="secondary"
         )
         btn_clear.pack(side="left")
-        ToolTip(btn_clear, "Очистить поиск")
+        ToolTip(btn_clear, text="Очистить поиск")
 
         # Чекбоксы фильтров
         checks_frame = ttk.Frame(filter_frame)
@@ -95,7 +97,7 @@ class ModsManagerTab(ttk.Frame):
             command=self._apply_filters,
         )
         chk_active.pack(side="left", padx=PAD_X)
-        ToolTip(chk_active, "Показать активные моды")
+        ToolTip(chk_active, text="Показать активные моды")
 
         chk_inactive = ttk.Checkbutton(
             checks_frame,
@@ -104,7 +106,7 @@ class ModsManagerTab(ttk.Frame):
             command=self._apply_filters,
         )
         chk_inactive.pack(side="left", padx=PAD_X)
-        ToolTip(chk_inactive, "Показать отключенные моды")
+        ToolTip(chk_inactive, text="Показать отключенные моды")
 
         chk_trans = ttk.Checkbutton(
             checks_frame,
@@ -113,7 +115,7 @@ class ModsManagerTab(ttk.Frame):
             command=self._apply_filters,
         )
         chk_trans.pack(side="left", padx=PAD_X)
-        ToolTip(chk_trans, "Показать моды-переводы")
+        ToolTip(chk_trans, text="Показать моды-переводы")
 
         chk_regular = ttk.Checkbutton(
             checks_frame,
@@ -122,7 +124,7 @@ class ModsManagerTab(ttk.Frame):
             command=self._apply_filters,
         )
         chk_regular.pack(side="left", padx=PAD_X)
-        ToolTip(chk_regular, "Показать обычные моды")
+        ToolTip(chk_regular, text="Показать обычные моды")
 
         chk_errors = ttk.Checkbutton(
             checks_frame,
@@ -131,7 +133,7 @@ class ModsManagerTab(ttk.Frame):
             command=self._apply_filters,
         )
         chk_errors.pack(side="left", padx=PAD_X)
-        ToolTip(chk_errors, "Показать моды с ошибками")
+        ToolTip(chk_errors, text="Показать моды с ошибками")
 
         # Кнопки действий
         btn_frame = ttk.Frame(filter_frame)
@@ -140,25 +142,25 @@ class ModsManagerTab(ttk.Frame):
             btn_frame, text=tr("mods_enable_all", "✅ Включить все"), command=self._enable_all
         )
         btn_enable.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_enable, "Включить все моды")
+        ToolTip(btn_enable, text="Включить все моды")
 
         btn_disable = ttk.Button(
             btn_frame, text=tr("mods_disable_all", "⬜ Отключить все"), command=self._disable_all
         )
         btn_disable.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_disable, "Отключить все моды")
+        ToolTip(btn_disable, text="Отключить все моды")
 
         btn_refresh = ttk.Button(
             btn_frame, text=tr("mods_refresh", "🔄 Обновить список"), command=self._refresh_mods
         )
         btn_refresh.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_refresh, "Обновить список модов")
+        ToolTip(btn_refresh, text="Обновить список модов")
 
         btn_save = ttk.Button(
             btn_frame, text=tr("mods_save", "💾 Сохранить"), command=self._save_config
         )
         btn_save.pack(side="left", padx=PAD_BTN_X)
-        ToolTip(btn_save, "Сохранить конфигурацию модов")
+        ToolTip(btn_save, text="Сохранить конфигурацию модов")
 
         self.stats_label = ttk.Label(filter_frame, text=tr("mods_loading", "Загрузка..."))
         self.stats_label.pack(anchor="w", padx=PAD_X, pady=PAD_Y)
@@ -195,6 +197,8 @@ class ModsManagerTab(ttk.Frame):
         )
         # ✅ Упаковываем ScrollableTree
         self.tree_widget.pack(fill="both", expand=True)
+        # ✅ ИСПРАВЛЕНО: заголовок колонки #0 (ScrollableTree не задаёт текст для дерева)
+        self.tree_widget.tree.heading("#0", text=tr("mods_package_id", "Package ID"))
         self.tree_widget.tree.heading("#0", command=lambda: self._sort_by("mod_id"))
         self.tree_widget.tree.heading("active", command=lambda: self._sort_by("is_active"))
         self.tree_widget.tree.heading("name", command=lambda: self._sort_by("name"))
@@ -203,6 +207,11 @@ class ModsManagerTab(ttk.Frame):
         self.tree_widget.tree.heading("author", command=lambda: self._sort_by("author"))
         self.sort_column = None
         self.sort_reverse = False
+        # ✅ НОВОЕ: базовые тексты заголовков (из дерева) для корректных стрелок ▲/▼
+        self._heading_base = {
+            col: self.tree_widget.tree.heading(col)["text"]
+            for col in ("#0", "active", "name", "type", "version", "author")
+        }
 
         self.tree_widget.tree.bind("<Double-1>", self._toggle_selected)
 
@@ -395,6 +404,12 @@ class ModsManagerTab(ttk.Frame):
             if not mod["is_translation"] and not self.show_regular_var.get():
                 continue
             self.filtered_mods.append(mod)
+        # ✅ НОВОЕ: сохраняем применённую сортировку после фильтрации
+        if self.sort_column:
+            self.filtered_mods.sort(
+                key=lambda x: self._sort_key(x, self.sort_column),
+                reverse=self.sort_reverse,
+            )
         self._update_tree()
         self._update_stats()
 
@@ -503,7 +518,7 @@ class ModsManagerTab(ttk.Frame):
 
     def _save_config(self):
         active_mods = {mod["mod_id"] for mod in self.mods_data if mod["is_active"]}
-        from mods_config import get_active_mods, set_active_mods
+        from config.mods_config import get_active_mods, set_active_mods
 
         previous_active_mods = get_active_mods()
         try:
@@ -544,32 +559,69 @@ class ModsManagerTab(ttk.Frame):
         self._apply_filters()
 
     def _on_filter_change_debounced(self, event=None):
-        """Debounce для фильтрации модов (300мс задержка)"""
+        """Debounce для фильтрации модов (SEARCH_DEBOUNCE_MS задержка)"""
         if hasattr(self, '_filter_debounce_timer') and self._filter_debounce_timer:
-            self.after_cancel(self._filter_debounce_timer)
-        self._filter_debounce_timer = self.after(300, self._apply_filters)
+            try:
+                self.after_cancel(self._filter_debounce_timer)
+            except Exception:
+                pass
+        self._filter_debounce_timer = self.after(SEARCH_DEBOUNCE_MS, self._apply_filters)
 
     def _on_filter_change(self, event):
         """Обработка изменения фильтра"""
         self._apply_filters()
 
     def _sort_by(self, column):
-        """Сортировка по столбцу"""
+        """Сортировка по столбцу — клик по заголовку"""
         if self.sort_column == column:
             self.sort_reverse = not self.sort_reverse
         else:
             self.sort_column = column
             self.sort_reverse = False
-        # Сортируем данные
+        # Сортируем данные (регистронезависимо, версии — натурально)
         self.filtered_mods.sort(
-            key=lambda x: x.get(column, ""),
+            key=lambda x: self._sort_key(x, column),
             reverse=self.sort_reverse,
         )
         # Обновляем дерево
         self._update_tree()
-        # Обновляем заголовок столбца
-        arrow = " ▲" if self.sort_reverse else " ▼"
-        self.tree.heading(column, text=self.tree.heading(column)["text"].rstrip(" ▲▼") + arrow)
+        # Обновляем стрелки во ВСЕХ заголовках (не только активном)
+        self._update_heading_arrows()
+
+    def _sort_key(self, mod, column):
+        """Ключ сортировки мода для указанного столбца"""
+        value = mod.get(column, "")
+        if column == "version":
+            return (self._version_key(str(value)),)
+        if column in ("is_active", "is_translation", "parse_error"):
+            return (bool(value),)
+        if column == "name":
+            # Моды с ошибками (⚠️) в начале при прямой сортировке
+            return (not mod.get("parse_error", False), str(value).casefold())
+        return (str(value).casefold(),)
+
+    @staticmethod
+    def _version_key(value):
+        """Натуральный ключ сортировки версии (1.10 > 1.9)"""
+        parts = re.findall(r"\d+|\D+", value or "")
+        return tuple(
+            (1, int(part)) if part.isdigit() else (0, part.casefold()) for part in parts
+        )
+
+    def _update_heading_arrows(self):
+        """Обновляет стрелки ▲/▼ в заголовках столбцов"""
+        if not getattr(self, "_heading_base", None):
+            return
+        for column, base_text in self._heading_base.items():
+            if column == self.sort_column:
+                arrow = " ▼" if self.sort_reverse else " ▲"
+                text = base_text + arrow
+            else:
+                text = base_text
+            try:
+                self.tree.heading(column, text=text)
+            except tk.TclError:
+                continue
 
     def _show_context_menu(self, event):
         item = self.tree.identify_row(event.y)
@@ -623,9 +675,4 @@ class ModsManagerTab(ttk.Frame):
             self._tab_shown_once = True
             self._load_mods()
             # Debug: логируем первый показ вкладки
-            if hasattr(self, "_log_callback") and self._log_callback:
-                try:
-                    pass
-                    # Если есть debug_manager, логируем
-                except Exception:
-                    pass
+            self._log("Вкладка модов отображена, список загружен")
