@@ -547,15 +547,17 @@ class ImprovedGUI:
         except Exception as e:
             self.log(f"⚠️ Ошибка сохранения конфига: {e}")
 
-        # 4) Иконки + перестроение меню (не критично)
+        # 4) Иконки (не критично)
         try:
             icons.set_theme(theme_name)
         except Exception as e:
             self.log(f"⚠️ Ошибка обновления иконок: {e}")
+        # Перестроение меню откладываем: меню темы в этот момент ещё открыто,
+        # и синхронное удаление menubar ломает Tk-состояние (вылет приложения).
         try:
-            self._rebuild_menu()
+            self.root.after_idle(self._rebuild_menu)
         except Exception as e:
-            self.log(f"⚠️ Ошибка перестроения меню: {e}")
+            self.log(f"⚠️ Ошибка отложенного перестроения меню: {e}")
 
         # 5) Перекраска дерева зависимостей (не критично)
         # ВАЖНО: tab_dependencies — это Frame-контейнер вкладки, а виджет

@@ -30,6 +30,8 @@ RimWorld Translator Grabber is a powerful tool for automating the translation of
 ### 🎨 Interface
 
 - ✅ **Modern GUI**: Built with ttkbootstrap and theme support
+- ✅ **Theme picker**: Light and dark themes grouped separately in the View → Theme menu
+- ✅ **Crash fix**: Switching themes via the menu no longer closes the application (menu rebuild is deferred until the dropdown closes)
 - ✅ **Multilingual UI**: Interface available in 5+ languages
 - ✅ **Visual editor**: Translation editing with syntax highlighting
 - ✅ **Mods tree**: Easy navigation of mods with filtering
