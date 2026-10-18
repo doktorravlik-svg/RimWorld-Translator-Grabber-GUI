@@ -44,21 +44,13 @@ class IntegrityResultsDialog:
         self._item_data = {}
         self._tooltip = None
 
-        # ✅ ИСПРАВЛЕНО: Очистка данных при закрытии диалога
+        # ✅ ИСПРАВЛЕНО: Очистка данных при закрытии диалога (один bind!)
         self.dialog.bind("<<Destroy>>", self._on_destroy)
 
-        # ✅ ИСПРАВЛЕНО: Очистка данных при закрытии диалога
-        self.dialog.bind("<<Destroy>>", self._on_destroy)
+        # ✅ ИСПРАВЛЕНО: Центрирование относительно родителя через утилиту
+        from gui.utils.ui_helpers import center_window
 
-        # ✅ ИСПРАВЛЕНО: Центрирование относительно родителя
-        self.dialog.update_idletasks()
-        parent_x = self.parent.winfo_rootx()
-        parent_y = self.parent.winfo_rooty()
-        parent_width = self.parent.winfo_width()
-        parent_height = self.parent.winfo_height()
-        x = parent_x + (parent_width - 1200) // 2
-        y = parent_y + (parent_height - 650) // 2
-        self.dialog.geometry(f"1200x650+{x}+{y}")
+        center_window(self.dialog, self.parent, 1200, 650)
 
         self._build_ui()
         self._populate_results()
@@ -76,7 +68,11 @@ class IntegrityResultsDialog:
         warnings = getattr(self.result, "warnings", 0)
 
         status_icon = "✅" if success else "❌"
-        status_text = "Проверка пройдена" if success else "Обнаружены проблемы"
+        status_text = (
+            tr("integrity_status_passed", "Проверка пройдена")
+            if success
+            else tr("integrity_status_failed", "Обнаружены проблемы")
+        )
         status_color = "success" if success else "danger"
 
         ttk.Label(
@@ -90,17 +86,18 @@ class IntegrityResultsDialog:
         stats_frame.pack(fill="x", padx=10, pady=5)
 
         stats = [
-            ("Проверено файлов:", str(files_checked), "#3b82f6"),
-            ("Корректных:", str(files_valid), "#22c55e"),
-            ("С ошибками:", str(files_invalid), "#ef4444"),
-            ("Предупреждений:", str(warnings), "#f59e0b"),
+            (tr("integrity_files_checked", "Проверено файлов:"), str(files_checked)),
+            (tr("integrity_files_valid", "Корректных:"), str(files_valid)),
+            (tr("integrity_files_invalid", "С ошибками:"), str(files_invalid)),
+            (tr("integrity_files_warnings", "Предупреждений:"), str(warnings)),
         ]
+        stat_styles = ["primary", "success", "danger", "warning"]
 
-        for label, value, color in stats:
+        for (label, value), bootstyle in zip(stats, stat_styles):
             row = ttk.Frame(stats_frame)
             row.pack(side="left", padx=10)
             ttk.Label(row, text=label, font=("Segoe UI", 9)).pack(side="left")
-            ttk.Label(row, text=value, font=("Segoe UI", 9, "bold"), foreground=color).pack(
+            ttk.Label(row, text=value, font=("Segoe UI", 9, "bold"), bootstyle=bootstyle).pack(
                 side="left", padx=(3, 0)
             )
 

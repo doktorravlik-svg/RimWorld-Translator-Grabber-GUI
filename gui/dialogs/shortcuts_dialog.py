@@ -114,7 +114,7 @@ def show_shortcuts(parent):
     # Прокручиваемый контейнер
     from ttkbootstrap.widgets.scrolled import ScrolledFrame
 
-    scrollable = ScrolledFrame(main_frame, autohide=True)
+    scrollable = ScrolledFrame(main_frame, auto_hide=True)
     scrollable.pack(fill="both", expand=True)
 
     # Группы горячих клавиш

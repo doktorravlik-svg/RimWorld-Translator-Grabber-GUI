@@ -26,13 +26,20 @@ class MassEditDialog:
         self.tree = tree
         self.entries = entries
         self.history_manager = history_manager
+        # Результат работы диалога: количество изменённых записей (0 = ничего не изменено)
+        self.result_count = 0
 
         self._selected = self.tree.selection()
         if not self._selected:
-            show_info(parent, tr("editor_select_entries_mass", "Выберите записи для массового редактирования"))
+            show_info(tr("editor_select_entries_mass", "Выберите записи для массового редактирования"))
             return
 
         self._create_dialog()
+        # Ждём закрытия диалога, затем result_count заполнен из apply()
+        try:
+            self.dialog.wait_window()
+        except Exception:
+            pass
 
     def _create_dialog(self):
         """Создаёт диалоговое окно"""
@@ -118,6 +125,7 @@ class MassEditDialog:
 
                 self.tree.item(iid, values=(k, fv))
 
+            self.result_count = cnt
             self.dialog.destroy()
             return cnt
 

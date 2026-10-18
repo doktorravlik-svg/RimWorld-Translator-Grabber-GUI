@@ -183,6 +183,5 @@ def ask_confirm_safe(parent, message: str, title: str = None, default: bool = Fa
             default=default_value
         )
 
-    _show_messagebox_safe(parent, title or tr("editor_confirm_title", "Подтверждение"), message,
-                          lambda t, m: result.__setitem__(0, messagebox.askyesno(t, m, default=default_value)))
+    _show_messagebox_safe(parent, title or tr("editor_confirm_title", "Подтверждение"), message, _show)
     return result[0]

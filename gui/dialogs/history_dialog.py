@@ -73,8 +73,8 @@ def show_history(parent, operation_history=None):
 
     filter_var = tk.StringVar(value="")
 
-    # Поле поиска
-    search_entry = ttk.Entry(filter_frame, textvariable=filter_var, width=30, bootstyle="search")
+    # Поле поиска (bootstyle "search" удалён в ttkbootstrap 2.x — невалидный токен)
+    search_entry = ttk.Entry(filter_frame, textvariable=filter_var, width=30, bootstyle="info")
     search_entry.pack(side="left", padx=(0, 10))
 
     # Кнопки действий
@@ -142,7 +142,7 @@ def show_history(parent, operation_history=None):
     # Прокручиваемый контейнер
     from ttkbootstrap.widgets.scrolled import ScrolledFrame
 
-    scrollable = ScrolledFrame(list_frame, autohide=True)
+    scrollable = ScrolledFrame(list_frame, auto_hide=True)
     scrollable.pack(fill="both", expand=True)
 
     def _populate_list(entries):

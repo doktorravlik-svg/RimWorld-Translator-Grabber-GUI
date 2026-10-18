@@ -162,7 +162,7 @@ def show_about(parent):
 
     from ttkbootstrap.widgets.scrolled import ScrolledFrame
 
-    scrollable = ScrolledFrame(features_frame, autohide=True)
+    scrollable = ScrolledFrame(features_frame, auto_hide=True)
     scrollable.pack(fill="both", expand=True)
 
     for feature in features:

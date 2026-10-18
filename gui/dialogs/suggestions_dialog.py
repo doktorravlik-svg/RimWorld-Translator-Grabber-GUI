@@ -33,7 +33,7 @@ class SuggestionsDialog:
         self.db = get_translation_db(target_language)
 
         if self.db is None:
-            show_warning(parent, tr("editor_db_not_connected", "База переводов не подключена"))
+            show_warning(tr("editor_db_not_connected", "База переводов не подключена"))
             return
 
         self._create_dialog()
@@ -143,7 +143,7 @@ class SuggestionsDialog:
 
         self.editor._update_tree()
         self.editor.history_manager.push_state(self.editor.entries.copy())
-        show_ok(self.dialog, tr("editor_suggestion_applied", "Предложение применено"))
+        show_ok(tr("editor_suggestion_applied", "Предложение применено"))
         self.dialog.destroy()
 
     def _refresh_suggestions(self):

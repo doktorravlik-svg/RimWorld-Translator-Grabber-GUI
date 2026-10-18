@@ -247,9 +247,9 @@ class DebugLogDialog(DebounceMixin):
                 content = self.log_text.get("1.0", "end")
                 with open(file_path, "w", encoding="utf-8") as f:
                     f.write(content)
-                show_info(self.dialog, tr("debug_log_saved", "Лог сохранён:\n{path}").format(path=file_path))
+                show_info(tr("debug_log_saved", "Лог сохранён:\n{path}").format(path=file_path))
             except Exception as e:
-                show_error(self.dialog, tr("debug_log_save_error", "Ошибка сохранения:\n{e}").format(e=e))
+                show_error(tr("debug_log_save_error", "Ошибка сохранения:\n{e}").format(e=e))
 
     def _timestamp(self):
         """Получить текущую метку времени"""

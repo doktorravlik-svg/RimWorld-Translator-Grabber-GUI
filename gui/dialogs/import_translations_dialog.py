@@ -235,8 +235,11 @@ class ImportTranslationsDialog:
             )
 
         except Exception as e:
-            self._update_stats_text(f"\n❌ Ошибка импорта: {e}\n")
-            self.dialog.after(0, lambda: messagebox.showerror(tr("import_error", "Ошибка"), str(e)))
+            # Захватываем текст ошибки: переменная `e` удаляется
+            # после выхода из except, а lambda выполняется позже через after()
+            error_text = str(e)
+            self._update_stats_text(f"\n❌ Ошибка импорта: {error_text}\n")
+            self.dialog.after(0, lambda: messagebox.showerror(tr("import_error", "Ошибка"), error_text))
         finally:
             self.dialog.after(0, self._finish_import)
 
