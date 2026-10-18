@@ -750,6 +750,8 @@
         "theme_vapor": "💨 Пар ",
         "theme_cyborg": "🤖 Киборг ",
         "theme_superhero": "🦸 Супергерой ",
+        "theme_group_light": "☀️ Светлые темы",
+        "theme_group_dark": "🌙 Тёмные темы",
         "editor_glossary": "Глоссарий",
         "editor_history_btn": "История версий",
         "editor_suggestions": "Подсказки",

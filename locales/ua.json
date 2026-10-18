@@ -747,6 +747,8 @@
         "theme_vapor": "💨 Пара ",
         "theme_cyborg": "🤖 Кіборг ",
         "theme_superhero": "🦸 Супергерой ",
+        "theme_group_light": "☀️ Світлі теми",
+        "theme_group_dark": "🌙 Темні теми",
         "editor_append": "Додати до кінця",
         "editor_apply_selected": "Застосувати до вибраних",
         "editor_entries_count2": "записів",

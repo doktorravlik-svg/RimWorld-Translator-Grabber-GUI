@@ -642,6 +642,8 @@
     "theme_vapor": "💨 Dampf",
     "theme_cyborg": "🤖 Cyborg",
     "theme_superhero": "🦸 Superheld",
+    "theme_group_light": "☀️ Helle Themen",
+    "theme_group_dark": "🌙 Dunkle Themen",
     "editor_glossary": "Glossar",
     "editor_history_btn": "Versionsgeschichte",
     "editor_suggestions": "Vorschläge",

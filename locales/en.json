@@ -747,6 +747,8 @@
         "theme_vapor": "💨 Vapor ",
         "theme_cyborg": "🤖 Cyborg ",
         "theme_superhero": "🦸 Superhero ",
+        "theme_group_light": "☀️ Light themes",
+        "theme_group_dark": "🌙 Dark themes",
         "editor_glossary": "Glossary",
         "editor_history_btn": "Version history",
         "editor_suggestions": "Suggestions",

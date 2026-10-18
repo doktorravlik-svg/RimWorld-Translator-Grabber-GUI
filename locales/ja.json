@@ -747,6 +747,8 @@
     "theme_vapor": "💨 ヴェイパー ",
     "theme_cyborg": "🤖 サイボーグ ",
     "theme_superhero": "🦸 スーパーヒーロー ",
+    "theme_group_light": "☀️ ライトテーマ",
+    "theme_group_dark": "🌙 ダークテーマ",
     "editor_append": "最後に追加",
     "editor_apply_selected": "選択したものに適用",
     "editor_entries_count2": "記録",
