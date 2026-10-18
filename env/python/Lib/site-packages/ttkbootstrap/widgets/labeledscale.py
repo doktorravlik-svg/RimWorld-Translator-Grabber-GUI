@@ -1,29 +1,13 @@
 """LabeledScale widget for ttkbootstrap.
 
-This module provides the LabeledScale widget, which combines a Scale
-widget with a Label that automatically displays the current value.
-
-Example:
-    ```python
-    import ttkbootstrap as ttk
-
-    root = ttk.Window()
-
-    # Create a labeled scale
-    scale = ttk.LabeledScale(root, from_=0, to=100)
-    scale.pack(padx=10, pady=10)
-
-    # Access the current value
-    print(scale.value)
-
-    root.mainloop()
-    ```
+A `ttk.Scale` paired with a `ttk.Label` that tracks and displays the current
+value above or below the scale.
 """
-from tkinter import Misc
+from tkinter import Misc, TclError, Variable
 from typing import Any, Optional, Union
 
 from ttkbootstrap import (
-    Frame, IntVar, Label, Scale
+    DoubleVar, Frame, Label, Scale
 )
 from ttkbootstrap.constants import DEFAULT, Side
 
@@ -37,15 +21,21 @@ class LabeledScale(Frame):
 
     The label position can be configured to appear above or below the scale
     using the 'compound' parameter.
+
+    The value is backed by a ``DoubleVar`` (fractional scales are honored) and
+    is exposed as the read/write ``value`` property.
     """
 
     def __init__(
             self,
             master: Optional[Misc] = None,
-            variable: Optional[IntVar] = None,
+            *,
+            variable: Optional[Variable] = None,
             from_: Union[int, float] = 0,
             to: Union[int, float] = 10,
+            value: Optional[Union[int, float]] = None,
             bootstyle: str = DEFAULT,
+            compound: str = "top",
             **kwargs: Any
     ) -> None:
         """Construct a horizontal LabeledScale.
@@ -55,15 +45,21 @@ class LabeledScale(Frame):
             master (Widget, optional):
                 The parent widget.
 
-            variable (tk.IntVar, optional):
+            variable (tk.Variable, optional):
                 A tkinter variable to be associated with the Scale widget.
-                If not specified, a tkinter.IntVar is created automatically.
+                If not specified, a ``tkinter.DoubleVar`` is created
+                automatically.
 
-            from_ (int, optional):
+            from_ (int or float, optional):
                 The minimum value of the scale. Defaults to 0.
 
-            to (int, optional):
+            to (int or float, optional):
                 The maximum value of the scale. Defaults to 10.
+
+            value (int or float, optional):
+                The initial value of the scale (like ``ttk.Scale``'s ``value``).
+                Clamped into the ``from_``..``to`` range. If omitted, the scale
+                starts at ``from_``.
 
             bootstyle (str, optional):
                 The style keyword used to set the color of the scale and label.
@@ -77,14 +73,25 @@ class LabeledScale(Frame):
             **kwargs (dict[str, Any], optional):
                 Other keyword arguments passed to the Frame widget.
         """
+        # Pop the composite option BEFORE initializing the Frame -- forwarding
+        # `compound` to ttk.Frame raises TclError -- and initialize the Frame
+        # exactly once.
+        self._label_top = compound == "top"
         super().__init__(master=master, **kwargs)
-        self._label_top = kwargs.pop('compound', 'top') == 'top'
 
-        Frame.__init__(self, master, **kwargs)
-        self._variable = variable or IntVar(master)
-        self._variable.set(from_)
-        self._last_valid = from_
+        # Resolve the initial value. `ttk.Scale` accepts a `value`; forward it
+        # here. Unlike a bare Scale (which stores an out-of-range value raw),
+        # `_adjust` reverts out-of-range values to `_last_valid`, which must stay
+        # in range -- so clamp the initial value into [from_, to]. Omitting
+        # `value` keeps the historical default of starting at `from_`.
+        lo, hi = (from_, to) if from_ <= to else (to, from_)
+        initial = from_ if value is None else min(max(value, lo), hi)
+
+        self._variable: Variable = variable if variable is not None else DoubleVar(master)
+        self._variable.set(initial)
+        self._last_valid: Union[int, float] = initial
         self._bootstyle = bootstyle
+        self._adjust_id: Optional[str] = None  # pending after_idle for the label
 
         self.label = Label(self, bootstyle=bootstyle)
         self.scale = Scale(self, variable=self._variable, from_=from_, to=to, bootstyle=bootstyle)
@@ -106,7 +113,17 @@ class LabeledScale(Frame):
         self.bind('<Map>', self._adjust)
 
     def destroy(self) -> None:
-        """Destroy this widget and possibly its associated variable."""
+        """Destroy this widget and possibly its associated variable.
+
+        Cancels any pending label-adjust idle callback first, so it cannot fire
+        into the half-torn-down widget (use-after-destroy ``AttributeError``).
+        """
+        if self._adjust_id is not None:
+            try:
+                self.after_cancel(self._adjust_id)
+            except (ValueError, TclError):
+                pass
+            self._adjust_id = None
         try:
             self._variable.trace_remove('write', self.__tracecb)
         except AttributeError:
@@ -137,9 +154,17 @@ class LabeledScale(Frame):
         """Adjust the label position and text according to the scale value."""
 
         def adjust_label() -> None:
-            self.update_idletasks()  # ensure geometry info is current
-
-            x, y = self.scale.coords()
+            self._adjust_id = None
+            # The idle callback can outlive a destroy(); bail if we are gone.
+            if self.scale is None or self.label is None:
+                return
+            try:
+                if not self.winfo_exists():
+                    return
+                self.update_idletasks()  # ensure geometry info is current
+                x, y = self.scale.coords()
+            except TclError:
+                return
 
             # Vertical placement above or below the scale
             if self._label_top:
@@ -171,8 +196,17 @@ class LabeledScale(Frame):
             return
 
         self._last_valid = newval
-        self.label['text'] = newval
-        self.after_idle(adjust_label)
+        # `:g` renders 4.0 as "4" and 3.7 as "3.7" -- a DoubleVar-backed integer
+        # scale still reads as integers.
+        self.label['text'] = f"{newval:g}"
+        # Coalesce repeated adjusts (trace + <Configure> + <Map>) into one idle
+        # callback, and keep its id so destroy() can cancel it.
+        if self._adjust_id is not None:
+            try:
+                self.after_cancel(self._adjust_id)
+            except (ValueError, TclError):
+                pass
+        self._adjust_id = self.after_idle(adjust_label)
 
     @property
     def value(self) -> Union[int, float]:
