@@ -17,7 +17,6 @@ RimWorld Translator Grabber is a powerful tool for automating the translation of
 ## ✨ Features
 
 ### 🔄 Translation
-
 - ✅ **8+ translation engines**: Google Translate, MyMemory, DeepL, Bing, DeepLX, Translators, LibreTranslate, Argos Translate
 - ✅ **Fallback chain**: Automatically switches to the next engine on error
 - ✅ **Smart routing**: Auto-prioritizes engines by translation success
@@ -26,7 +25,7 @@ RimWorld Translator Grabber is a powerful tool for automating the translation of
 - ✅ **Glossary**: Custom dictionaries for domain-specific terms
 - ✅ **Smart splitting**: Automatic chunking of long texts
 - ✅ **Rate limiting**: Protection against IP bans
-- ✅ **Morphological processing**: PyMorphy3 for RU/UA declension, spaCy for PL/DE/FR
+- ✅ **Morphological processing**: PyMorphy3 for RU/UA declension, spaCy for PL/DE/FR (optional)
 
 ### 🎨 Interface
 
@@ -210,6 +209,60 @@ print(f"Hit rate: {stats['hit_rate']}%")
 ```
 
 ---
+
+## 🔤 Placeholder Handling
+
+### Supported Placeholder Types
+
+| Type | Format | Example |
+|------|--------|---------|
+| Indexed | `{0}`, `{1}`, `{2}` | `Hello {0}, you have {1} messages` |
+| Named | `{PAWN_nameDef}` | `{PAWN_nameDef} killed {TARGET}` |
+| Mixed | `{0_labelShort}` | `{0_labelShort} is pregnant!` |
+| Gender ternary | `{PAWN_gender ? masc : fem : neut}` | `{PAWN_gender ? он : она : оно}` |
+| Hotkeys | `{Key:Accept}` | `{Key:TimeSpeed_Normal}` |
+| Lookup | `{lookup: [animal]; Case; 1}` | Used in RulePackDefs |
+| Square brackets | `[NamerShip]` | RulePack template variables |
+| Methods | `(*Health)` | RimWorld method calls |
+| Dollar | `$variable` | Custom variables |
+| Formatting | `%s`, `%d`, `%0.2f` | printf-style formatting |
+
+### Internal Markers
+
+During translation, placeholders are protected with internal markers:
+
+| Component | Marker Format | Example |
+|-----------|---------------|---------|
+| `translation_worker.py` | `__PH_N__` | `__PH_0__`, `__PH_1__` |
+| `glossary.py` | `__GLPH_N__` | `__GLPH_0__`, `__GLPH_1__` |
+
+**Why?** Translation APIs may corrupt null bytes (`\x00`). Using safe ASCII strings (`__PH_N__`) prevents this.
+
+### Case Handling
+
+The system preserves the original casing from the source text:
+
+| Original | Translation | Rule |
+|----------|-------------|------|
+| `Hello World` | `Привет Мир` | Title Case preserved |
+| `HELLO WORLD` | `ПРИВЕТ МИР` | UPPER CASE preserved |
+| `hello world` | `привет мир` | lower case preserved |
+| `[NamerShip] Beautiful` | `[NamerShip] Красивый` | Placeholders preserved as-is |
+| `{PAWN_nameDef} killed` | `{PAWN_nameDef} убил` | Case matches original |
+
+**Note:** Placeholders `[...]` and `{...}` are never modified by case rules.
+
+### Morphy.py Integration
+
+`utils/Morphy.py` processes `Strings/*.txt` files after translation:
+
+1. Reads translated `.txt` files
+2. Determines part of speech (adjective/noun) via pymorphy3
+3. Generates `RulePackDef` XML with all gender forms
+
+Trigger: Automatically called after Strings folder translation for Russian/Ukrainian.
+
+Details: [`PLACEHOLDERS_DOCUMENTATION.md`](PLACEHOLDERS_DOCUMENTATION.md)
 
 ## 🏗️ Architecture
 
@@ -489,6 +542,47 @@ pytest --cov=translation --cov-report=html
 
 #### 📚 Documentation
 - **Added `PLACEHOLDERS_DOCUMENTATION.md`** — comprehensive guide to all RimWorld placeholder types, internal markers, case handling rules, and Morphy.py integration
+
+
+#### 🐛 Fixes — Placeholder handling
+- **Comprehensive placeholder support** — now handles ALL RimWorld placeholder types:
+  - `{Key:Accept}` — hotkey placeholders (18 variants)
+  - `{lookup: [animal]; Case; 1}` — lookup syntax
+  - `{REASON}`, `{ENTITY}`, `{SUBJECT}` — named variables (183+ types)
+  - `{0_numCase ? день : дня : дней}` — quantity declension
+  - `<color=red>text</color>`, `<b>`, `<i>` — RichText (stripped before processing)
+- Fixed `RULEPACK_PATTERN` — now catches `[0]`, `[adj_fem]`, `[attributionSource_titleCase]`
+- Fixed `RICH_TEXT_PATTERN` — now catches all RichText tags including nested
+- Fixed `GENDER_BLOCK_DETECTOR` — now catches 3-way gender ternary
+- Fixed `generate_labeled_pair()` — processes all 6 placeholder types in correct order
+- Fixed `expand_string_for_training()` — handles lookup, hotkey, RichText
+- Fixed `validate_placeholders()` — checks all placeholder types
+- Fixed `_pct()` function — `_` no longer shadowed by exception variable
+- Fixed `_create_context_labeled_variants()` — handles lookup, hotkey, RichText
+- Fixed `process_sentence()` in multilingual_script.py — replaces all placeholder types
+
+### v2.5 — Dataset augmentation and active learning pipeline
+
+#### ✨ New features
+- **Dataset augmentation** (`training/augmentor.py`): `RimWorldDatasetAugmentor` class generates synthetic data by mutating template variables (PAWN_nameDef, weapon, material, biome) while preserving grammatical structure. Converts 1,000 XML lines into 15,000+ unique grammatical contexts.
+- **Human corrections memory** (`core/corrections_memory.py`): `HumanCorrectionsMemory` class stores user-corrected sentences in `brain/models/human_sentences.json`. Corrections are loaded during training with 5x oversampling to ensure strong model learning.
+- **Training pipeline integration** (`training/train_crf.py`): Integrated augmentor and human corrections memory. The pipeline now:
+  1. Parses XML files from dataset
+  2. Generates augmented synthetic data
+  3. Loads human corrections from memory
+  4. Trains CRF model with all data
+- **UDPipe download tab** (`gui_app/gui_app.py`): New "UDPype Downloads" tab with:
+  - List of available language models (20 languages)
+  - Download button and context menu
+  - Progress indicator and status labels
+  - Link to official UDPipe repository
+- **Tag correction context menu** (`gui_app/context_menu.py`): Right-click menu item "Исправить тег" cycles tags: O → T-GEND → ANCHOR → O
+- **Localization support** (`gui_app/localization.py`): Added RU/EN strings for all new UI elements
+
+#### 🐛 Fixes
+- Fixed `AttributeError: module 'ttkbootstrap' has no attribute 'Listbox'` in `gui_app.py` by importing `Listbox` from `tkinter` directly
+- Fixed logging output in GUI - replaced `print()` statements with `logger.info/error/success` in `augmentor.py`, `morphology_manager.py`, `train_core.py`, and `train_crf.py` so all messages appear in the GUI log panel
+
 ### v2.4 — Code optimization and editor fix
 
 #### 🐛 Fixes
@@ -532,7 +626,6 @@ pytest --cov=translation --cov-report=html
 - **Morphy.py**: `generate_balanced_xml` now accepts `keyword` parameter for correct XML tags
 - **translation_worker.py**: Per-file processing for Strings folder enables updating changed/new files
 
----
 ### v2.1 — Import fixes and Morphy improvements
 
 #### 🐛 Fixes
@@ -546,14 +639,9 @@ pytest --cov=translation --cov-report=html
 - **Morphy.py**: Added proper XML generation for European languages (PL/DE/FR) with correct symbol lists
 - **Morphy.py**: Mode `european` now works without spaCy (falls back to base form)
 
----
-
-## 📝 Changelog (2026-04)
-
-### v2.0+ — Major improvements
+### v2.0 — Major architecture changes
 
 #### 🐛 Fixes
-
 - **Verification without freezes**: batch insertion of results (`log_batch`) instead of line-by-line — O(n²) → O(n).
 - **Logging to panel**: `ModsManagerTab` and `TranslationEditorTab` now write to the log panel instead of the console.
 - **SignalBus cleaned**: removed dead code (`_worker_thread`, `_event_queue`, `start/stop`) — never used.

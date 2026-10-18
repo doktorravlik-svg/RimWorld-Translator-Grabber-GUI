@@ -58,7 +58,9 @@ from gui.styling import (
     apply_theme,
     change_theme,
     get_font_tuple,
+    get_theme_name_display,
     get_theme_names,
+    is_dark_theme,
 )
 from gui.styling.theme_manager import TTKBOOTSTRAP_THEMES
 from signals import SignalBus
@@ -74,7 +76,7 @@ class ImprovedGUI:
     def __init__(self, root=None):
         # Если root не передан, создаем ttkbootstrap Window
         if root is None:
-            theme_name = TTKBOOTSTRAP_THEMES.get("light", "cosmo")
+            theme_name = TTKBOOTSTRAP_THEMES.get("light", "bootstrap-light")
             self.root = ttk.Window(themename=theme_name)
         else:
             self.root = root
@@ -137,6 +139,8 @@ class ImprovedGUI:
             "show_history": self.show_history,
             "show_all_tabs": self._show_all_tabs,
             "change_theme": self._change_theme,
+            "toggle_theme": self._toggle_theme,  # ✅ НОВОЕ: быстрое переключение (Ctrl+T)
+            "toggle_performance_monitor": self._toggle_performance_monitor,  # ✅ НОВОЕ
             "start_verification": self.start_verification,
             "start_full_verification": self.start_full_verification,
             "run_integrity_check": self.run_integrity_check,
@@ -410,6 +414,8 @@ class ImprovedGUI:
             "show_history": self.show_history,
             "show_all_tabs": self._show_all_tabs,
             "change_theme": self._change_theme,
+            "toggle_theme": self._toggle_theme,  # ✅ НОВОЕ: быстрое переключение (Ctrl+T)
+            "toggle_performance_monitor": self._toggle_performance_monitor,  # ✅ НОВОЕ
             "start_verification": self.start_verification,
             "start_full_verification": self.start_full_verification,
             "run_integrity_check": self.run_integrity_check,
@@ -456,6 +462,7 @@ class ImprovedGUI:
             "start_translation": self._menu_start_translation,
             "start_verification": self._menu_verify,
             "full_check": self.start_full_verification,
+            "toggle_theme": self._toggle_theme,  # ✅ НОВОЕ: Ctrl+T
         }
         
         register_hotkeys(self.hotkey_manager, callbacks, i18n.tr)
@@ -504,25 +511,108 @@ class ImprovedGUI:
         apply_colors(self.config, self.style, widgets, self.log)
 
     def _change_theme(self, theme_name):
-        """Сменить тему оформления"""
+        """Сменить тему оформления.
+
+        ✅ УСТОЙЧИВОСТЬ: применение темы — критичная операция, поэтому оно
+        выполняется первым и гарантированно. Все доп. шаги (шрифты, цвета,
+        перестроение меню, перекраска дерева) обёрнуты в try/except, чтобы
+        временная ошибка Tcl (например, гонка с фоновым потоком, который
+        трогает виджеты, или попытка перестроить меню, пока оно открыто)
+        НЕ роняла всё приложение.
+        """
         from gui.styling.icon_manager import icons
 
         old_theme = self.config.get("theme", "light")
-        change_theme(self.config, self.style, theme_name, self.log)
-        self._apply_fonts()
-        self._apply_colors()
-        self.save_config()
 
-        # Обновляем иконки для новой темы
-        icons.set_theme(theme_name)
-        self._rebuild_menu()
+        # 1) Применяем саму тему (критично — делаем первым и защищённо)
+        try:
+            change_theme(self.config, self.style, theme_name, self.log)
+        except Exception as e:
+            self.log(f"⚠️ Не удалось применить тему {theme_name}: {e}")
+            return
 
-        # ✅ Обновляем цветовые теги дерева зависимостей
-        if hasattr(self, "tab_dependencies"):
-            self.tab_dependencies.update_tree_colors()
+        # 2) Шрифты и цвета (не критично — не роняем приложение)
+        try:
+            self._apply_fonts()
+        except Exception as e:
+            self.log(f"⚠️ Ошибка применения шрифтов: {e}")
+        try:
+            self._apply_colors()
+        except Exception as e:
+            self.log(f"⚠️ Ошибка применения цветов: {e}")
 
-        # Debug: логируем смену темы
-        self.debug_manager.log_theme_change(old_theme, theme_name)
+        # 3) Сохраняем конфиг (не критично)
+        try:
+            self.save_config()
+        except Exception as e:
+            self.log(f"⚠️ Ошибка сохранения конфига: {e}")
+
+        # 4) Иконки + перестроение меню (не критично)
+        try:
+            icons.set_theme(theme_name)
+        except Exception as e:
+            self.log(f"⚠️ Ошибка обновления иконок: {e}")
+        try:
+            self._rebuild_menu()
+        except Exception as e:
+            self.log(f"⚠️ Ошибка перестроения меню: {e}")
+
+        # 5) Перекраска дерева зависимостей (не критично)
+        # ВАЖНО: tab_dependencies — это Frame-контейнер вкладки, а виджет
+        # с деревом лежит в dependencies_tab (см. ui_builder.py)
+        try:
+            deps_widget = getattr(self, "dependencies_tab", None)
+            if deps_widget is None:
+                deps_widget = getattr(self, "tab_dependencies", None)
+            if deps_widget is not None and hasattr(deps_widget, "update_tree_colors"):
+                deps_widget.update_tree_colors()
+        except Exception as e:
+            self.log(f"⚠️ Ошибка обновления цветов дерева: {e}")
+
+        # 6) Debug-лог (не критично)
+        try:
+            self.debug_manager.log_theme_change(old_theme, theme_name)
+        except Exception:
+            pass
+
+
+    def _toggle_theme(self):
+        """Быстрое переключение светлая ↔ тёмная тема (Ctrl+T)."""
+        current = self.config.get("theme", "light")
+        # Определяем целевой режим по текущей теме
+        target = "light" if is_dark_theme(current) else "dark"
+
+        # Если светлая/тёмная тема уже используется — берём соседнюю палитру
+        if current == target:
+            alternatives = {
+                "light": "ocean",
+                "dark": "nord",
+            }
+            target = alternatives.get(target, "light")
+
+        self._change_theme(target)
+        from gui.styling.theme_manager import get_theme_name_display
+
+        self.status_bar.show_toast(
+            i18n.tr("gui_toast_theme_changed", "Тема: {}").format(
+                get_theme_name_display(target)
+            ),
+            "info",
+        )
+
+    def _toggle_performance_monitor(self):
+        """Переключить отображение монитора ресурсов в статус-баре."""
+        if not hasattr(self, "status_bar") or not self.status_bar:
+            return
+        enabled = self.status_bar.toggle_performance_monitor()
+        if enabled:
+            self.add_to_history(
+                i18n.tr("gui_history_monitor_enabled", "Монитор ресурсов включён")
+            )
+        else:
+            self.add_to_history(
+                i18n.tr("gui_history_monitor_disabled", "Монитор ресурсов выключен")
+            )
 
     def _menu_open_mods(self):
         """Открыть папку модов"""
@@ -658,6 +748,8 @@ class ImprovedGUI:
             "show_history": self.show_history,
             "show_all_tabs": self._show_all_tabs,
             "change_theme": self._change_theme,
+            "toggle_theme": self._toggle_theme,  # ✅ НОВОЕ: быстрое переключение (Ctrl+T)
+            "toggle_performance_monitor": self._toggle_performance_monitor,  # ✅ НОВОЕ
             "start_verification": self.start_verification,
             "start_full_verification": self.start_full_verification,
             "run_integrity_check": self.run_integrity_check,
@@ -970,15 +1062,7 @@ class ImprovedGUI:
         self.status_bar.show_toast(
             i18n.tr("gui_toast_verification_started", "Верификация запущена..."), "info"
         )
-        # Передаём язык верификации
-        self.run_verification_async(
-            mods_folder, checks, verification_language=verification_language
-        )
-
-        self.status_bar.show_toast(
-            i18n.tr("gui_toast_verification_started", "Верификация запущена..."), "info"
-        )
-        # ✅ ИСПРАВЛЕНО: Передаём язык верификации
+        # ✅ ИСПРАВЛЕНО: Передаём язык верификации (вызов был продублирован)
         self.run_verification_async(
             mods_folder, checks, verification_language=verification_language
         )

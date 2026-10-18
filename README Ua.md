@@ -26,6 +26,7 @@ RimWorld Translator Grabber — потужний інструмент для а�
 - ✅ **Глосарій**: Користувальницькі словники для специфічних термінів
 - ✅ **Морфологічна обробка**: PyMorphy3 для склонення (UA/RU), spaCy для PL/DE/FR (опціонально)
 - ✅ **Rate Limiting**: Захист від бану по IP
+- ✅ **Умне розби́ння**: Автоматичне чанкінг довгих текстів
 
 ### 🎨 Інтерфейс
 
@@ -395,7 +396,28 @@ pytest --cov=translation --cov-report=html
 
 ---
 
-## 📝 Історія змін (2026-05)
+## 📝 Історія змін (2026-07)
+
+### v2.5 — Dataset augmentation and active learning pipeline
+
+#### ✨ Нові можливості
+- **Dataset augmentation** (`training/augmentor.py`): `RimWorldDatasetAugmentor` генерує синтетичні дані, мутируючи шаблонні змінні (PAWN_nameDef, weapon, material, biome), зберігаючи граматичну структуру. Превращає 1000 XML рядків у 15000+ унікальних граматичних контекстів.
+- **Human corrections memory** (`core/corrections_memory.py`): `HumanCorrectionsMemory` зберігає виправлення користувача в `brain/models/human_sentences.json`. Виправлення завантажуються під час навчання з 5-кратним oversampling.
+- **Training pipeline integration** (`training/train_crf.py`): Інтегрований аугментор і шар виправлень. Pipeline теперь:
+  1. Парсить XML файли з датасету
+  2. Генерувати аугментовані синтетичні дані
+  3. Завантажувати виправлення з пам'яті
+  4. Навчати CRF модель всіма даними
+- **UDPype download tab** (`gui_app/gui_app.py`): Нова вкладка "UDPype Downloads" з:
+  - Списком доступних моделей (20 мов)
+  - Кнопкою завантаження та контекстним меню
+  - Індикатором прогресу та статусними мітками
+  - Посиланням на офіційний репозиторій UDPype
+- **Tag correction context menu** (`gui_app/context_menu.py`): Правий клік → "Исправить тег" циклить теги: O → T-GEND → ANCHOR → O
+- **Localization support** (`gui_app/localization.py`): Додано RU/EN рядки для всіх нових UI елементів
+
+#### 🐛 Виправлення
+- Виправлен `AttributeError: module 'ttkbootstrap' has no attribute 'Listbox'` в `gui_app.py` за рахунок імпорту `Listbox` з `tkinter`
 
 ### v2.4 — Оптимізація коду та виправлення редактора
 

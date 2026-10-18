@@ -60,28 +60,45 @@ setup(
     packages=find_packages(exclude=["tests", "tests.*"]),
     # Минимальная версия Python
     python_requires=">=3.10",
-    # Зависимости (актуальные на 2026-04)
+    # Зависимости (синхронизировано с requirements.txt, актуально на 2026-10)
     install_requires=[
-        "ttkbootstrap>=1.20.2",  # Последняя от 2026-03-08
+        "ttkbootstrap>=2.2.3",  # GUI-фреймворк
         "ttkbootstrap-icons>=4.0.0",  # Иконки для GUI
-        "deep-translator>=1.11.4",  # Стабильная
-        "platformdirs>=4.9.4",  # Актуальная
-        "pillow>=12.1.1",  # Актуальная
-        "pyspellchecker>=0.9.0",  # Актуальная от 2026-03-07
         "tkinterdnd2>=0.4.3",  # Drag & Drop для редактора
+        "pillow>=12.1.1",  # Графика для ttkbootstrap/иконок
+        "deep-translator>=1.11.4",  # Движки перевода
+        "platformdirs>=4.13.0",  # Системные пути
+        "pyspellchecker>=0.9.1",  # Проверка орфографии
+        "rapidfuzz>=3.14.6",  # Нечёткое сравнение
+        "loguru>=0.7.3",  # Логирование
+        "requests>=2.34.2",  # HTTP
+        "ahocorasick-rs>=1.0.3",  # Быстрый поиск паттернов
+        "pydantic>=2.0",  # pydantic_core для verification/brain/core
+        "pycrfsuite>=0.9.7",  # CRF-модель
+        "lxml>=6.1.1",  # XML
+        "pyperclip>=1.11.0",  # Буфер обмена
     ],
     # Дополнительные зависимости
     extras_require={
         "dev": [
-            "pytest>=7.0",
-            "pytest-cov>=4.0",
+            "pytest>=9.1.1",
+            "pytest-cov>=7.1.0",
             "flake8>=6.0",
             "black>=23.0",
         ],
         "gui": [
-            "ttkbootstrap>=1.20.2",
+            "ttkbootstrap>=2.2.3",
             "ttkbootstrap-icons>=4.0.0",
             "tkinterdnd2>=0.4.3",
+        ],
+        "morph": [
+            "pymorphy3>=2.0.6",
+            "pymorphy3-dicts-uk>=2.4.1",
+            "pymorphy3-dicts-ru>=2.4.4",
+        ],
+        "nlp": [
+            "spacy>=3.0.0",
+            "ufal.udpipe>=1.4.0.1",
         ],
     },
     # Точки входа
