@@ -63,12 +63,14 @@ class UIBuilder:
 
         # Применяем тему
         theme = self.config.get("theme", "light")
-        bs_theme = {
-            "light": "cosmo",
-            "dark": "darkly",
-            "ocean": "minty",
-            "forest": "united",
-        }.get(theme, "cosmo")
+        from gui.styling import theme_manager
+
+        bs_theme = theme_manager.TTKBOOTSTRAP_THEMES.get(theme, "bootstrap-light")
+
+        try:
+            theme_manager.install_legacy_themes_if_needed()
+        except Exception:
+            pass
 
         style = ttk.Style()
         style.theme_use(bs_theme)
@@ -172,6 +174,7 @@ class UIBuilder:
             notebook,
             on_verify_callback=self.callbacks.get("start_verification"),
             on_full_verify_callback=self.callbacks.get("start_full_verification"),
+            log_callback=self.callbacks.get("log"),
         )
         self.tab_manager.register_and_add(
             i18n.tr("tab_verification", "✅ Верификация"), tab_verification

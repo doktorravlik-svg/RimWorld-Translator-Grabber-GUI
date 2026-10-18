@@ -133,6 +133,20 @@ class MenuBuilder:
 
         self._build_theme_submenu(view_menu)
         view_menu.add_separator()
+        view_menu.add_command(
+            label=i18n.tr("menu_toggle_theme", "🌗 Быстрое переключение темы"),
+            command=self._safe_callback("toggle_theme"),
+            accelerator="Ctrl+T",
+            image=self._get_icon_image("theme"),
+            compound="left",
+        )
+        view_menu.add_command(
+            label=i18n.tr("menu_toggle_monitor", "📊 Монитор ресурсов"),
+            command=self._safe_callback("toggle_performance_monitor"),
+            image=self._get_icon_image("debug_toggle"),
+            compound="left",
+        )
+        view_menu.add_separator()
         self._build_tabs_submenu(view_menu)
         view_menu.add_separator()
 
