@@ -529,6 +529,32 @@ pytest --cov=translation --cov-report=html
 
 ## 📝 Changelog
 
+### v2.8 — Unified path resolution, Odyssey DLC support, translation status (2026-11)
+
+#### ✨ New features
+- **Unified Languages path resolver** (`utils/languages_path_resolver.py`): Single source of truth for determining Languages folder paths. Resolves priority: root Languages > Common/Languages > versioned (1.6, 1.5...) > fallback. Handles separate/inplace/merge modes correctly.
+- **Universal LoadFolders parser** (`utils/loadfolders_parser.py`): Optimized Defs/Languages folder discovery with LoadFolders.xml support. Uses set-based deduplication, universal scanning of ALL folders (like Text-grabber), recursive fallback with depth limit.
+- **Mod translation status checker** (`utils/mod_translation_status.py`): Determines translation status for GUI (Embedded Full/Partial, Separate Mod, Not Translated, Outdated). Checks dependencies, computes completeness, finds separate translation mods via target_mod_id, load_after, or name matching.
+- **Odyssey DLC (1.6) support** (`integrity/game_data_processor.py`): Added official DLC 5 "Odyssey" (11 July 2025). Supports .tar language archives in RimWorld 1.6/1.7. Extensible DLC registry for future DLCs.
+- **Dependency checker** (`verification/dependency_checker.py`): Validates mod dependencies with translation status awareness.
+
+#### 🐛 Fixes
+- **Fixed separate mode path resolution** — now always uses mod_output for target Languages folder
+- **Fixed empty translation folder auto-fill** — copies from similar language (e.g., Russian2 → Russian) when target folder is empty
+- **Fixed race conditions** in mod scanning with thread-safe cache and scanning flags
+- **Fixed case-insensitive dependency matching** with base library exclusion (HugsLib, Harmony, etc.)
+- **Optimized file counting** using os.scandir instead of os.walk
+
+#### ⚡ Optimizations
+- **loadfolders_parser.py**: Set-based deduplication, universal scanning, reduced os.path.exists calls
+- **languages_path_resolver.py**: Optimized empty folder check with early exit
+- **mod_translation_status.py**: Thread-safe caching, batched mod scanning
+
+#### 🏗️ Architecture
+- New `utils/` modules: `languages_path_resolver.py`, `loadfolders_parser.py`, `mod_translation_status.py`
+- Centralized path resolution logic (was duplicated across workers, scanner, gui)
+- GameReferenceManager extensible for new DLCs
+
 ### v2.7 — Placeholder restoration and case handling (2026-06)
 
 #### 🐛 Fixes — Placeholder restoration
