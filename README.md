@@ -560,6 +560,7 @@ pytest --cov=translation --cov-report=html
 
 #### ✅ Validation
 - **Runtime smoke-test verified** — `translation_db` (DB creation + glossary load + stats + close), `anchor_manager` (add/find anchor), `glossary_manager` (add/get/remove) all pass.
+- **Mod glossary import dialog** (`gui/dialogs/mod_glossary_import_dialog.py`): Added terms preview widget showing `{term} → {translation}` list before import; fixes batch insert 5→6 tuple mismatch (now normalizes `mod_name` slot); import from mod folders + Defs extraction via `collect_translatable_strings` and `_extract_defs_with_keys` works end-to-end.
 
 ### v2.8 — Unified path resolution, Odyssey DLC support, translation status (2026-11)
 
