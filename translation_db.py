@@ -121,8 +121,11 @@ class TranslationDatabase:
         """Подключиться к базе данных"""
         self.conn = sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0)
         self.conn.row_factory = sqlite3.Row
-        self.conn.execute("PRAGMA journal_mode=WAL")
-        self.conn.execute("PRAGMA busy_timeout=30000")
+        try:
+            self.conn.execute("PRAGMA journal_mode=WAL")
+            self.conn.execute("PRAGMA busy_timeout=30000")
+        except sqlite3.Error as e:
+            logger.warning(f"Failed to enable WAL mode or busy_timeout: {e}")
 
     def _create_tables(self):
         """Создать таблицы если не существуют"""
@@ -228,7 +231,10 @@ class TranslationDatabase:
             self.conn.commit()
 
         c.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='glossary'")
-        table_sql = c.fetchone()[0]
+        table_sql_row = c.fetchone()
+        if table_sql_row is None:
+            return
+        table_sql = table_sql_row[0]
 
         if 'UNIQUE(term, target_language)' not in table_sql:
             c.execute('''
@@ -719,8 +725,8 @@ class TranslationDatabase:
         так как использует одну транзакцию для всех операций.
 
         Args:
-            terms_list: Список кортежей (term, translation, category, description, mod_name)
-            target_language: Язык глоссария (если None, используется target_language экземпляра)
+            terms_list: Список кортежей (term, translation, category, description, target_language)
+            target_language: Язык глоссария (если None, используется target_language экземпляра; ignored if each tuple carries its own language)
 
         Returns:
             Количество успешно добавленных терминов
@@ -733,9 +739,13 @@ class TranslationDatabase:
 
         with self._lock:
             c = self.conn.cursor()
+            normalized = [
+                (tuple(row[:5]) + ("",)) if len(row) == 5 else tuple(row[:6])
+                for row in terms_list
+            ]
             c.executemany(
                 "INSERT OR REPLACE INTO glossary (term, translation, category, description, target_language, mod_name) VALUES (?, ?, ?, ?, ?, ?)",
-                terms_list
+                normalized
             )
             self.conn.commit()
 
@@ -1247,6 +1257,10 @@ class TranslationDatabase:
         """Закрыть соединение. Безопасно вызывать множество раз."""
         if self.conn is not None:
             try:
+                self.conn.execute("PRAGMA wal_checkpoint(FULL)")
+            except Exception:
+                pass
+            try:
                 self.conn.close()
             except Exception:
                 pass
@@ -1263,18 +1277,14 @@ class TranslationDatabase:
     def __del__(self):
         """Деструктор: безопасно закрывает соединение при сборке мусора.
 
-        Использует try/except вокруг close() чтобы пережить ситуацию,
+        Вызывает self.close() чтобы выполнить чекпоинт WAL и освободить ресурсы.
+        Использует try/except чтобы пережить ситуацию,
         когда sqlite3 или другие зависимости уже удалены сборщиком мусора.
         """
-        conn = getattr(self, 'conn', None)
-        if conn is not None:
-            try:
-                conn.close()
-            except (AttributeError, TypeError):
-                # sqlite3 модуль или объект Connection уже удалены — игнорируем
-                pass
-            except Exception:
-                pass
+        try:
+            self.close()
+        except (AttributeError, TypeError):
+            pass
 
 
 # Синглтон для удобства

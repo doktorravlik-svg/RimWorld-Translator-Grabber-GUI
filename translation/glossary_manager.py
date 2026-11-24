@@ -95,8 +95,16 @@ class GlossaryManager:
         lang_code = get_lang_code_from_name(self._target_lang)
         return str(base_dir / "data_storage" / lang_code / "glossary")
 
+    @staticmethod
+    def _atomic_write_json(filepath: str, data: dict) -> None:
+        """Записывает JSON атомарно (temp file + os.replace) — защита от частичных записей."""
+        tmp_path = f"{filepath}.tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, filepath)
+
     def _load_all_files(self) -> None:
-        """Загружает все файлы глоссария."""
+        """Загружает все файлы глосария."""
         if not os.path.exists(self.glossary_dir):
             os.makedirs(self.glossary_dir, exist_ok=True)
             self._create_default_files()
@@ -120,8 +128,7 @@ class GlossaryManager:
             filepath = os.path.join(self.glossary_dir, filename)
             if not os.path.exists(filepath):
                 data = {"entries": {}, "source": source, "created": True}
-                with open(filepath, "w", encoding="utf-8") as f:
-                    json.dump(data, f, ensure_ascii=False, indent=2)
+                self._atomic_write_json(filepath, data)
 
     def _split_glossary_by_categories(self) -> None:
         if len(self._entries) < MAX_GLOSSARY_SIZE:
@@ -148,16 +155,14 @@ class GlossaryManager:
             return
         filepath = os.path.join(self.glossary_dir, f"{category}.json")
         data = {"entries": entries, "source": category, "auto_split": True}
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        self._atomic_write_json(filepath, data)
         self._file_sources[f"{category}.json"] = category
 
     def _rebuild_index(self) -> None:
         """Пересобирает индекс файлов."""
         os.makedirs(self.glossary_dir, exist_ok=True)
         index_path = os.path.join(self.glossary_dir, "glossary_index.json")
-        with open(index_path, "w", encoding="utf-8") as f:
-            json.dump({"files": self._file_sources}, f, ensure_ascii=False, indent=2)
+        self._atomic_write_json(index_path, {"files": self._file_sources})
 
     def _load_index(self, index_path: str) -> None:
         """Загружает индекс файлов."""
@@ -226,8 +231,7 @@ class GlossaryManager:
 
         data["entries"][original] = translation
 
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        self._atomic_write_json(filepath, data)
 
     def remove(self, original: str) -> bool:
         """Удаляет запись из глоссария (изо всех файлов-источников)."""
@@ -259,8 +263,7 @@ class GlossaryManager:
         else:
             entries[original] = translation
 
-        with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        self._atomic_write_json(filepath, data)
 
     def export_to_db(self, db) -> None:
         """Экспортирует термины в базу данных (сохраняет все источники)."""

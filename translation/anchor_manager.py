@@ -86,10 +86,13 @@ class AnchorManager:
             )
         """)
         self.conn.commit()
-        # Миграция: добавляем column context если его нет (старые базы)
+        # Миграция: добавляем column context если его нет (старые базы).
+        # SQLite не поддерживает ADD COLUMN IF NOT EXISTS — проверяем схему через PRAGMA.
         try:
-            self.conn.execute("ALTER TABLE anchors ADD COLUMN context TEXT DEFAULT ''")
-            self.conn.commit()
+            cols = [row[1] for row in self.conn.execute("PRAGMA table_info(anchors)").fetchall()]
+            if 'context' not in cols:
+                self.conn.execute("ALTER TABLE anchors ADD COLUMN context TEXT DEFAULT ''")
+                self.conn.commit()
         except Exception:
             pass
         # Существующие строки с NULL контекстом или без значения приводим к пустой строке
