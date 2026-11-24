@@ -24,7 +24,7 @@ from utils.loadfolders_parser import (
 from utils.mod_version import get_mod_name
 
 # Поддерживаемые версии RimWorld (в порядке приоритета)
-SUPPORTED_VERSIONS = ["1.6", "1.5", "1.4", "1.3"]
+SUPPORTED_VERSIONS = ["1.7", "1.6", "1.5", "1.4", "1.3"]
 
 
 def _is_folder_empty(path: str) -> bool:

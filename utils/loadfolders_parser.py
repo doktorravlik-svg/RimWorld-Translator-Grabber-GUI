@@ -25,7 +25,7 @@ import lxml.etree as etree
 from verification.xml_parser import safe_parse_xml
 
 # Версии для которых ищем LoadFolders
-SUPPORTED_VERSIONS = ["1.6", "1.5", "1.4", "1.3"]
+SUPPORTED_VERSIONS = ["1.7", "1.6", "1.5", "1.4", "1.3"]
 
 
 def parse_loadfolders(mod_path: str, target_version: str = None) -> list[str]:

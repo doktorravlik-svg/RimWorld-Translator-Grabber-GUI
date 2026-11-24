@@ -436,7 +436,7 @@ class ModTranslationChecker:
 
         # Проверяем версионные папки
         if not lang_path:
-            for version in ["1.6", "1.5", "1.4", "1.3"]:
+            for version in ["1.7", "1.6", "1.5", "1.4", "1.3"]:
                 version_langs = os.path.join(mod_path, version, "Languages", target_lang)
                 if os.path.exists(version_langs):
                     lang_path = version_langs
@@ -448,7 +448,7 @@ class ModTranslationChecker:
             if os.path.exists(russian_path):
                 lang_path = russian_path
             else:
-                for version in ["1.6", "1.5", "1.4", "1.3"]:
+                for version in ["1.7", "1.6", "1.5", "1.4", "1.3"]:
                     version_langs = os.path.join(mod_path, version, "Languages", "Russian")
                     if os.path.exists(version_langs):
                         lang_path = version_langs
