@@ -1,15 +1,20 @@
 # ==========================================
-# RimWorld Translator Grabber - Dependencies (2026-06)
+# RimWorld Translator Grabber - Dependencies (2026-10)
 # ==========================================
 
 # GUI Framework
-ttkbootstrap>=1.20.3
+ttkbootstrap>=2.2.3
+ttkbootstrap-icons>=4.0.0  # иконки GUI (ttkbootstrap_icons_bs / ttkbootstrap_icons)
+tkinterdnd2>=0.4.3  # Drag & Drop для редактора переводов
+pillow>=12.1.1  # зависимость ttkbootstrap и ttkbootstrap-icons
+
+# CRF Model Training and Inference
+pycrfsuite>=0.9.7
 
 # Translation Engines
 deep-translator>=1.11.4
-googletrans-py>=4.0.0
-# translators>=6.0.4
-# argostranslate>=1.11.0 
+# translators>=6.0.4  # опционально: TranslatorsEngine (запасной движок); код обёрнут в try/except
+# argostranslate>=1.11.0
 
 # Spell Checker
 pyspellchecker>=0.9.0
@@ -18,16 +23,46 @@ pyspellchecker>=0.9.0
 lxml>=6.1.1
 
 # System Paths
-platformdirs>=4.9.6
+platformdirs>=4.13.0
 
 # Utilities
 pyperclip>=1.11.0
-rapidfuzz>=3.14.5
+rapidfuzz>=3.14.6
 loguru>=0.7.3
 requests>=2.34.2
 ahocorasick-rs>=1.0.3
+pydantic>=2.0  # pydantic_core: verification/brain/core/* (audit_logger, bootstrapper, db_manager)
 
 # Morphological analysis (for Slavic languages)
 pymorphy3>=2.0.6
 pymorphy3-dicts-uk>=2.4.1
 pymorphy3-dicts-ru>=2.4.4
+
+# NLP (optional, не установлен по умолчанию — import в try/except)
+spacy>=3.0.0
+
+# UDPipe support (optional)
+ufal.udpipe>=1.4.0.1
+
+# Testing
+pytest>=9.1.1
+pytest-cov>=7.1.0
+
+# Optional: Deep Learning (for neural features)
+# torch>=2.0.0
+# pytorch-lightning>=2.0.0
+# transformers>=4.30.0
+# safetensors>=0.3.0
+# accelerate>=0.20.0
+# scipy>=1.10.0
+# scikit-learn>=1.0.0
+# numpy>=1.24.0
+# numba>=0.57.0
+# optuna>=5.0.0  # проверен E2E с optuna 5.0.0: TPESampler, MedianPruner, create_study, optimize, TrialPruned — без предупреждений
+# tqdm>=4.65.0
+# joblib>=1.3.0
+# pyopencl>=2023.1
+# pynput>=1.7.6
+# tkinterdnd2>=0.3.0
+# webbrowser  # built-in
+# winreg  # built-in (Windows only)
