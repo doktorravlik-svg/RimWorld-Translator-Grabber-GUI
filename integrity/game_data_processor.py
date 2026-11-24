@@ -2,7 +2,7 @@
 """
 Модуль для загрузки и обработки официальных данных игры RimWorld.
 
-✅ ОБНОВЛЕНО: Поддержка .tar архивов в RimWorld 1.6
+✅ ОБНОВЛЕНО: Поддержка .tar архивов в RimWorld 1.6 и 1.7
 """
 
 import os
@@ -11,7 +11,7 @@ import tarfile
 import lxml.etree as etree
 from verification.xml_parser import safe_parse_xml
 
-# ✅ ОБНОВЛЕНО: 2026-04 — добавлен Odyssey (1.6)
+# ✅ ОБНОВЛЕНО: 2026-04 — добавлен Odyssey (1.6), RimWorld 1.7 поддерживается
 # ✅ СИСТЕМА РАСШИРЯЕМА — новые DLC добавляются только сюда
 OFFICIAL_DLC = [
     "Core",  # Базовая игра (1.0)

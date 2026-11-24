@@ -172,7 +172,7 @@ def check_mod_structure(mod_path: str, log_callback=None) -> dict:
         result["warnings"].append("Отсутствует About.xml")
 
     # Проверка папки Defs
-    for version in ["1.6", "1.5", "1.4", "1.3", ""]:
+    for version in ["1.7", "1.6", "1.5", "1.4", "1.3", ""]:
         defs_path = (
             os.path.join(mod_path, version, "Defs") if version else os.path.join(mod_path, "Defs")
         )
@@ -181,7 +181,7 @@ def check_mod_structure(mod_path: str, log_callback=None) -> dict:
             break
 
     # Проверка папки Languages
-    for version in ["1.6", "1.5", "1.4", "1.3", ""]:
+    for version in ["1.7", "1.6", "1.5", "1.4", "1.3", ""]:
         langs_path = (
             os.path.join(mod_path, version, "Languages")
             if version

@@ -107,7 +107,7 @@ class ModVerifier:
         defs_found = False
 
         # Ищем Defs в разных местах
-        for version in ["1.6", "1.5", "1.4", "1.3", ""]:
+        for version in ["1.7", "1.6", "1.5", "1.4", "1.3", ""]:
             defs_path = (
                 os.path.join(mod_path, version, "Defs")
                 if version
@@ -139,7 +139,7 @@ class ModVerifier:
         """Проверка папки Languages"""
         langs_found = False
 
-        for version in ["1.6", "1.5", "1.4", "1.3", ""]:
+        for version in ["1.7", "1.6", "1.5", "1.4", "1.3", ""]:
             langs_path = (
                 os.path.join(mod_path, version, "Languages")
                 if version
