@@ -508,6 +508,7 @@ class TranslationDatabase:
                 ON CONFLICT(key, source_language, target_language, file_name)
                 DO UPDATE SET
                     translated_value = excluded.translated_value,
+                    original_value = excluded.original_value,
                     last_used = ?,
                     updated_at = ?,
                     usage_count = usage_count + 1
