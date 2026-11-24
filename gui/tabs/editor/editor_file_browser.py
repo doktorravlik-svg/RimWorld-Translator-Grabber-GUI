@@ -157,6 +157,7 @@ class TranslationEditorTab(ttk.Frame):
             values=[
                 tr("editor_all_versions", "Все версии"),
                 tr("editor_common_version", "Common (без версии)"),
+                "1.7",
                 "1.6",
                 "1.5",
                 "1.4",
@@ -674,7 +675,7 @@ class TranslationEditorTab(ttk.Frame):
         # ✅ ИСПРАВЛЕНО: Проверяем есть ли ВООБЩЕ какая-либо версия в пути
         has_any_version = any(
             f"/{v}/" in path_lower or f"\\{v}\\" in path_lower
-            for v in ["1.6", "1.5", "1.4", "1.3", "1.2", "1.1", "1.0"]
+            for v in ["1.7", "1.6", "1.5", "1.4", "1.3", "1.2", "1.1", "1.0"]
         )
 
         # Если нет версии в пути — это Common файл, включаем всегда
