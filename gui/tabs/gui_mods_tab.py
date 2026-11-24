@@ -329,7 +329,7 @@ class ModsManagerTab(ttk.Frame):
         ]
 
         # Проверяем подпапки версий
-        for version in ["1.6", "1.5", "1.4", "1.3", "1.2"]:
+        for version in ["1.7", "1.6", "1.5", "1.4", "1.3", "1.2"]:
             variants.append(os.path.join(mod_path, version, "About", "About.xml"))
 
         # Проверяем корень

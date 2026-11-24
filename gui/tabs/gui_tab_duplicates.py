@@ -386,7 +386,7 @@ class DuplicatesTab(ttk.Frame):
                         lang_folders.append((lang_path, mod_path))  # ✅ Возвращаем кортеж
 
             # Также ищем в версионных папках
-            for v in ["1.6", "1.5", "1.4", "1.3", "1.2", "1.1", "Common"]:
+            for v in ["1.7", "1.6", "1.5", "1.4", "1.3", "1.2", "1.1", "Common"]:
                 v_langs = os.path.join(mod_path, v, "Languages")
                 if os.path.exists(v_langs):
                     for lang in os.listdir(v_langs):
