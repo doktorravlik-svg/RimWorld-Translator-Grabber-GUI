@@ -862,7 +862,7 @@ class TranslationWorker(BaseWorker):
 
         # Значения по умолчанию
         original_package_id = "Unknown"
-        supported_versions = ["1.6"]  # Список версий по умолчанию для 2026
+        supported_versions = ["1.7"]  # Список версий по умолчанию для 2026
 
         try:
             original_about = os.path.join(original_mod_path, "About", "About.xml")
@@ -928,7 +928,7 @@ class TranslationWorker(BaseWorker):
 
         # ✅ ИСПРАВЛЕНО: ВСЕГДА создаём минимальный LoadFolders.xml для translation mod
         # НЕ копируем из оригинального мода, так как там могут быть DLC-специфичные папки
-        version = "1.6"
+        version = "1.7"
         try:
             original_about = os.path.join(original_mod_path, "About", "About.xml")
             if os.path.exists(original_about):
