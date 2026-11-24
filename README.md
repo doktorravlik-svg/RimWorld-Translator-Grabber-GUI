@@ -67,8 +67,8 @@ RimWorld Translator Grabber is a powerful tool for automating the translation of
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/yourusername/rimworld-translator-grabber.git
-   cd rimworld-translator-grabber
+   git clone https://github.com/doktorravlik-svg/RimWorld-Translator-Grabber-GUI.git
+   cd RimWorld-Translator-Grabber-GUI
    ```
 
 2. **Create a virtual environment:**
@@ -269,7 +269,7 @@ Details: [`PLACEHOLDERS_DOCUMENTATION.md`](PLACEHOLDERS_DOCUMENTATION.md)
 ## 🏗️ Architecture
 
 ```
-rimworld-translator-grabber/
+RimWorld-Translator-Grabber-GUI/
 ├── collectors/              # Mod data collectors
 │   └── collectors.py
 ├── config/                  # Configuration + Glossary files
@@ -758,8 +758,8 @@ MIT License — see the [LICENSE](LICENSE) file.
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/rimworld-translator-grabber/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/rimworld-translator-grabber/discussions)
+- **Issues**: [GitHub Issues](https://github.com/doktorravlik-svg/RimWorld-Translator-Grabber-GUI/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/doktorravlik-svg/RimWorld-Translator-Grabber-GUI/discussions)
 
 
 ---
