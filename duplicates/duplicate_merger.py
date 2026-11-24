@@ -27,7 +27,7 @@ def _collect_languages_folders(mods_folder: str, logger=None) -> list[str]:
                 if os.path.isdir(lang_path):
                     languages_folders.append(lang_path)
 
-        for version in ["1.6", "1.5", "1.4", "1.3", "Common"]:
+        for version in ["1.7", "1.6", "1.5", "1.4", "1.3", "Common"]:
             v_langs = os.path.join(mods_folder, version, "Languages")
             if os.path.exists(v_langs):
                 for lang in os.listdir(v_langs):
@@ -50,7 +50,7 @@ def _collect_languages_folders(mods_folder: str, logger=None) -> list[str]:
                 if os.path.isdir(lang_path):
                     languages_folders.append(lang_path)
 
-            for version in ["1.6", "1.5", "1.4", "1.3", "Common"]:
+            for version in ["1.7", "1.6", "1.5", "1.4", "1.3", "Common"]:
                 v_langs = os.path.join(mod_path, version, "Languages")
                 if os.path.exists(v_langs):
                     for lang in os.listdir(v_langs):
