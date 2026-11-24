@@ -274,6 +274,11 @@ class ModGlossaryImportDialog:
 
         ttk.Separator(main_frame).pack(fill="x", pady=15)
 
+        # Предпросмотр терминов
+        self.preview_text = tk.Text(main_frame, height=4, wrap="word", state="disabled", bg="#f0f0f0", fg="#333333", font=("Segoe UI", 9))
+        self.preview_text.pack(fill="x", pady=5)
+        self.preview_text.insert("1.0", "Термины для импорта появятся здесь...")
+
         # Прогресс-бар
         self.progress_var = tk.DoubleVar(value=0)
         self.progress_bar = ttk.Progressbar(
@@ -359,6 +364,9 @@ class ModGlossaryImportDialog:
             logger.info(f"_import_from_file called: {file_path}")
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
+
+            entries = data.get('entries', {})
+            self._update_preview(entries)
 
             count = self._process_glossary_data(data)
             logger.info(f"_process_glossary_data returned: {count}")
@@ -665,7 +673,10 @@ class ModGlossaryImportDialog:
                 
                 if source_term not in glossary_entries:
                     glossary_entries[source_term] = translation
-            
+
+            # Обновляем предпросмотр терминов
+            self.dialog.after(0, lambda: self._update_preview(glossary_entries))
+
             self.dialog.after(0, lambda: self.progress_var.set(80))
             self.dialog.after(0, lambda: self.status_var.set(tr("glossary_importing", "Добавление терминов в глоссарий...")))
 
@@ -1005,5 +1016,25 @@ class ModGlossaryImportDialog:
             if self.dialog and self.dialog.winfo_exists():
                 self.dialog.grab_release()
                 self.dialog.destroy()
+        except Exception:
+            pass
+
+    def _update_preview(self, entries):
+        """Обновляет предпросмотр терминов для импорта."""
+        try:
+            self.preview_text.configure(state="normal")
+            self.preview_text.delete("1.0", "end")
+            if not entries:
+                self.preview_text.insert("1.0", "Термины для импорта появятся здесь...")
+                self.preview_text.configure(state="disabled")
+                return
+            preview_lines = []
+            for i, (term, translation) in enumerate(entries.items()):
+                preview_lines.append(f"{i+1}. {term} → {translation}")
+                if len(preview_lines) >= 10:
+                    preview_lines.append(f"... и ещё {len(entries) - 10} терминов")
+                    break
+            self.preview_text.insert("1.0", "\n".join(preview_lines))
+            self.preview_text.configure(state="disabled")
         except Exception:
             pass

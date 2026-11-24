@@ -991,11 +991,13 @@ class ImprovedGUI:
         """
         self.debug_manager.log_action("Сохранение настроек фильтров", category="gui")
 
-        # ✅ Сохраняем напрямую в filters_config.json
+        # ✅ Сохраняем напрямую в filters_config.json (атомарно)
         import json
         try:
-            with open("filters_config.json", "w", encoding="utf-8") as f:
+            temp_path = "filters_config.json.tmp"
+            with open(temp_path, "w", encoding="utf-8") as f:
                 json.dump(filters_config, f, ensure_ascii=False, indent=4)
+            os.replace(temp_path, "filters_config.json")
             self.add_to_history(
                 i18n.tr("gui_history_filters_saved", "Настройки фильтров сохранены"),
                 f"Whitelist: {len(filters_config.get('whitelist_tags', []))} тегов",
@@ -1824,10 +1826,15 @@ def main():
             pass
         sys.exit(1)
 
-    # ✅ Debug: логируем завершение приложения
+    # ✅ Debug: логируем завершение приложения и закрываем БД
     def on_exit():
         try:
             app.debug_manager.log_app_exit()
+        except Exception:
+            pass
+        try:
+            from translation_db import clear_db_instances
+            clear_db_instances()
         except Exception:
             pass
 

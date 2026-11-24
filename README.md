@@ -529,6 +529,38 @@ pytest --cov=translation --cov-report=html
 
 ## 📝 Changelog
 
+### v2.9 — Database hardening and dependency fixes (2026-11-24)
+
+#### 🔧 Database fixes
+- **SQLite WAL mode error handling** (`translation_db.py:_connect()`): Wrapped `PRAGMA journal_mode=WAL` and `PRAGMA busy_timeout=30000` in try/except. Initialization no longer crashes on read-only filesystems or missing permissions (per SQLite docs, WAL mode may fail silently if VFS lacks shared-memory support).
+- **Migration safety** (`translation_db.py:_migrate_database()`): Added `if table_sql_row is None: return` guard before accessing `table_sql_row[0]`, preventing `TypeError` if the glossary table is missing.
+- **AnchorManager schema fix** (`translation/anchor_manager.py:_prepare_db()`): Removed redundant `ALTER TABLE ADD COLUMN context` — the column already exists in the `CREATE TABLE` statement. Replaced with `PRAGMA table_info(anchors)` check to add the column only when genuinely absent (SQLite has no `ADD COLUMN IF NOT EXISTS`).
+- **SQL consistency** (`translation_db.py:bulk_add_translations()`): Added `original_value` to `ON CONFLICT DO UPDATE` clause so batch updates match the field scope of `add_translation()`, eliminating data inconsistency between single and bulk operations.
+- **Batch insert tuple mismatch** (`translation_db.py:bulk_add_translations()`): SQL expects 6 bound columns (`term, translation, category, description, target_language, mod_name`) but callers pass 5-tuples `(term, translation, category, description, target_language)`. Added normalization to pad missing `mod_name` slot, fixing `sqlite3.ProgrammingError: Incorrect number of bindings supplied`. Batch import (e.g., from `gui/dialogs/mod_glossary_import_dialog.py`) previously fell back to failing single inserts due to the exception; now works.
+
+#### 💾 Persistence & save fixes
+- **WAL checkpoint on close** (`translation_db.py:close()`): Added `PRAGMA wal_checkpoint(FULL)` before closing connection, ensuring uncommitted WAL data is flushed to main `.db` file on app exit.
+- **WAL checkpoint in `__del__`**: Destructor now calls `self.close()` which runs checkpoint, preventing data loss if object is garbage-collected without explicit close.
+- **Atomic JSON write** (`translation_db.py:_sync_glossary_to_json()`): Glossary JSON files now written via temporary file + `os.replace()` instead of direct `open(..., "w")`, preventing corruption on interrupted writes.
+- **DB connections closed on app exit** (`gui.py:on_exit()`): `atexit` handler now calls `clear_db_instances()` to close all SQLite connections cleanly.
+- **Atomic JSON write in `translation_db.py:_save_category_to_file()`**: Category JSON files written via temp file + `os.replace()`.
+- **Atomic JSON write in `translation_db.py:_rebuild_index()`**: Index JSON written via temp file + `os.replace()`.
+- **Atomic JSON write in `translation_db.py:_rebuild_glossary_index_for_dir()`**: Directory index JSON written via temp file + `os.replace()`.
+- **Atomic JSON write in `translation_db.py:sync_glossary_to_all_languages()`**: Glossary files for all languages written via temp file + `os.replace()`.
+- **Atomic JSON write in `translation_db.py:initialize_glossary_for_all_languages()`**: Category index and category JSON files written via temp file + `os.replace()`.
+- **Atomic JSON write in `translation/glossary_manager.py:_create_default_files()`**: Default glossary files written via temp file + `os.replace()`.
+- **Atomic JSON write in `translation/glossary_manager.py:_save_category_to_file()`**: Category JSON files written via temp file + `os.replace()`.
+- **Atomic JSON write in `translation/glossary_manager.py:_rebuild_index()`**: Index JSON written via temp file + `os.replace()`.
+- **Atomic JSON write in `translation/glossary_manager.py:_save_to_source()`**: Source JSON files written via temp file + `os.replace()`.
+- **Atomic JSON write in `translation/glossary_manager.py:_save_to_file()`**: Glossary JSON files written via temp file + `os.replace()`.
+- **Atomic JSON write in `gui.py:_on_save_filters_config()`**: Filters config JSON written via temp file + `os.replace()`.
+
+#### 📦 Dependencies
+- **Added `joblib>=1.5.0` to `requirements.txt`** — required by `dependency_check.py` and used by `verification/brain/core/`. Previously missing from the requirements file despite being a hard dependency.
+
+#### ✅ Validation
+- **Runtime smoke-test verified** — `translation_db` (DB creation + glossary load + stats + close), `anchor_manager` (add/find anchor), `glossary_manager` (add/get/remove) all pass.
+
 ### v2.8 — Unified path resolution, Odyssey DLC support, translation status (2026-11)
 
 #### ✨ New features
