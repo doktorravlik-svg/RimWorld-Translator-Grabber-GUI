@@ -152,7 +152,7 @@ HISTORY_TEXT_HEIGHT = 3
 LOG_TAG_PREVIEW_WIDTH = 30
 
 # === Версии RimWorld ===
-SUPPORTED_RIMWORLD_VERSIONS = {"1.6", "1.5", "1.4", "1.3", "1.2", "1.1", "Common"}
+SUPPORTED_RIMWORLD_VERSIONS = {"1.7", "1.6", "1.5", "1.4", "1.3", "1.2", "1.1", "Common"}
 
 # === Логирование ===
 LOG_PREVIEW_LENGTH = 50
